@@ -9,8 +9,13 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.44",
+    "@ai-sdk/openai": "^2.0.75",
+    "@ai-sdk/openai-compatible": "^1.0.28",
     "@hono/node-server": "^1.19.6",
+    "@openrouter/ai-sdk-provider": "^1.2.8",
     "@plexus/types": "workspace:*",
+    "ai": "^5.0.104",
     "hono": "^4.10.7"
   },
   "devDependencies": {
