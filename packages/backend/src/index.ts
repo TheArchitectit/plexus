@@ -4,7 +4,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { bearerAuth } from 'hono/bearer-auth';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { User } from '@plexus/types';
+import { chatCompletionSchema } from '@plexus/types';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 
@@ -37,31 +37,10 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-// Example user data
-const user: User = {
-  id: '1',
-  name: 'John Doe',
-};
-
-// API route
-app.get('/api/user', (c) => {
-  return c.json(user);
-});
-
 // Authentication middleware for /v1/chat/completions
 const authMiddleware = bearerAuth({ token: 'virtual-key' });
 
 // Chat Completion Endpoint
-const chatCompletionSchema = z.object({
-  messages: z.array(
-    z.object({
-      role: z.enum(['system', 'user', 'assistant']),
-      content: z.string(),
-    })
-  ),
-  model: z.string().optional(),
-  temperature: z.number().optional(),
-});
 
 app.post('/v1/chat/completions', authMiddleware, zValidator('json', chatCompletionSchema), async (c) => {
   const { messages, model, temperature } = c.req.valid('json');

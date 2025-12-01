@@ -96,6 +96,10 @@ importers:
         version: 5.4.21(@types/node@24.10.1)(lightningcss@1.30.2)
 
   packages/types:
+    dependencies:
+      zod:
+        specifier: ^4.1.13
+        version: 4.1.13
     devDependencies:
       typescript:
         specifier: ^5.9.3
