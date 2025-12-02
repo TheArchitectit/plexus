@@ -5,13 +5,17 @@ import { bearerAuth } from 'hono/bearer-auth';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { 
-  chatCompletionSchema, 
+  chatCompletionRequestSchema, 
+  errorResponseSchema,
   VirtualKeyConfig, 
-  ProviderType 
+  ProviderType,
+  ChatCompletionRequest,
+  ChatCompletionResponse
 } from '@plexus/types';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { RoutingEngine } from './routing/engine.js';
+import { configLoader } from './config/loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,31 +23,64 @@ const __dirname = path.dirname(__filename);
 const app = new Hono();
 const port = 3000;
 
-// Initialize routing engine with virtual key configurations
-const virtualKeys = new Map<string, VirtualKeyConfig>([
-  ['virtual-key', {
-    key: 'virtual-key',
-    provider: 'openai' as ProviderType,
-    model: 'gpt-3.5-turbo',
-    priority: 1,
-    fallbackProviders: ['anthropic', 'openrouter']
-  }]
-]);
+// Initialize configuration loader
+let routingEngine: RoutingEngine;
 
-const routingConfig = {
-  virtualKeys,
-  healthCheckInterval: 60000, // 1 minute
-  retryPolicy: {
-    maxRetries: 3,
-    backoffMultiplier: 2,
-    initialDelay: 100,
-    maxDelay: 1000,
-    retryableErrors: ['timeout', 'rate_limit', 'network_error']
-  },
-  fallbackEnabled: true
-};
+async function initializeApp() {
+  try {
+    // Load configuration
+    const configSnapshot = await configLoader.loadConfiguration();
+    
+    // Initialize routing engine with loaded configuration
+    const routingConfig = {
+      virtualKeys: configSnapshot.virtualKeys,
+      healthCheckInterval: 60000, // 1 minute
+      retryPolicy: {
+        maxRetries: 3,
+        backoffMultiplier: 2,
+        initialDelay: 100,
+        maxDelay: 1000,
+        retryableErrors: ['timeout', 'rate_limit', 'network_error']
+      },
+      fallbackEnabled: true
+    };
 
-const routingEngine = new RoutingEngine(routingConfig);
+    routingEngine = new RoutingEngine(routingConfig);
+    
+    console.log('Configuration loaded successfully');
+    console.log(`Loaded ${configSnapshot.providers.size} providers`);
+    console.log(`Loaded ${configSnapshot.virtualKeys.size} virtual keys`);
+    console.log(`Loaded ${configSnapshot.models.size} models`);
+  } catch (error) {
+    console.error('Failed to initialize application:', error);
+    // Use fallback configuration if loading fails
+    const fallbackVirtualKeys = new Map<string, VirtualKeyConfig>([
+      ['virtual-key', {
+        key: 'virtual-key',
+        provider: 'openai' as ProviderType,
+        model: 'gpt-3.5-turbo',
+        priority: 1,
+        fallbackProviders: ['anthropic', 'openrouter']
+      }]
+    ]);
+
+    const routingConfig = {
+      virtualKeys: fallbackVirtualKeys,
+      healthCheckInterval: 60000,
+      retryPolicy: {
+        maxRetries: 3,
+        backoffMultiplier: 2,
+        initialDelay: 100,
+        maxDelay: 1000,
+        retryableErrors: ['timeout', 'rate_limit', 'network_error']
+      },
+      fallbackEnabled: true
+    };
+
+    routingEngine = new RoutingEngine(routingConfig);
+    console.log('Using fallback configuration');
+  }
+}
 
 // Error handling middleware (must be first)
 app.onError((err, c) => {
@@ -72,7 +109,7 @@ app.use('*', async (c, next) => {
 const authMiddleware = bearerAuth({ token: 'virtual-key' });
 
 // Chat Completion Endpoint
-app.post('/v1/chat/completions', authMiddleware, zValidator('json', chatCompletionSchema), async (c) => {
+app.post('/v1/chat/completions', authMiddleware, zValidator('json', chatCompletionRequestSchema), async (c) => {
   const { messages, model, temperature } = c.req.valid('json');
   
   // Get virtual key from authentication token
@@ -150,14 +187,55 @@ app.get('/api/providers/status', async (c) => {
   }
 });
 
+// Configuration status endpoint
+app.get('/api/config/status', async (c) => {
+  try {
+    const configStatus = configLoader.getStatus();
+    return c.json({
+      configuration: configStatus,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return c.json({
+      error: error instanceof Error ? error.message : 'Failed to get configuration status',
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
+// Configuration reload endpoint
+app.post('/api/config/reload', async (c) => {
+  try {
+    const newConfig = await configLoader.reloadConfiguration();
+    const configStatus = configLoader.getStatus();
+    
+    return c.json({
+      message: 'Configuration reloaded successfully',
+      configuration: configStatus,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return c.json({
+      error: error instanceof Error ? error.message : 'Failed to reload configuration',
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
 // Serve frontend
 const frontendPath = path.join(__dirname, '../../frontend/dist');
 app.use('/*', serveStatic({ root: frontendPath }));
 app.get('/*', serveStatic({ path: path.join(frontendPath, 'index.html') }));
 
-serve({
-  fetch: app.fetch,
-  port,
+// Initialize the application
+initializeApp().then(() => {
+  serve({
+    fetch: app.fetch,
+    port,
+  });
+  
+  console.log(`Server is running on http://localhost:${port}`);
+}).catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });
-
-console.log(`Server is running on http://localhost:${port}`);
