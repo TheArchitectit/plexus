@@ -103,6 +103,23 @@ export interface ChatMessage {
   content: string;
 }
 
+// Models endpoint types
+export const modelInfoSchema = z.object({
+  id: z.string(),
+  canonical_slug: z.string(),
+  name: z.string(),
+  context_length: z.number().int().min(1),
+  pricing: z.object({
+    prompt: z.string(),
+    completion: z.string(),
+  }),
+  provider: z.enum(['openai', 'anthropic', 'openrouter']),
+});
+
+export type ModelInfo = z.infer<typeof modelInfoSchema>;
+
+export type ModelsResponse = ModelInfo[];
+
 
 
 // Provider Client Interface

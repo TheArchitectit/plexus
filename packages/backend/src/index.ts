@@ -10,7 +10,8 @@ import {
   VirtualKeyConfig, 
   ProviderType,
   ChatCompletionRequest,
-  ChatCompletionResponse
+  ChatCompletionResponse,
+  ModelInfo
 } from '@plexus/types';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
@@ -183,6 +184,51 @@ app.get('/api/providers/status', async (c) => {
     return c.json({
       error: error instanceof Error ? error.message : 'Failed to get provider status',
       timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
+// Helper function to transform ModelConfig to ModelInfo
+function transformModelConfigToModelInfo(modelName: string, modelConfig: any): ModelInfo {
+  return {
+    id: modelName,
+    canonical_slug: modelName, // Using the model name as canonical slug for now
+    name: modelConfig.name,
+    context_length: modelConfig.contextWindow || modelConfig.maxTokens || 4096,
+    pricing: {
+      prompt: modelConfig.inputTokenPrice?.toString() || "0.0",
+      completion: modelConfig.outputTokenPrice?.toString() || "0.0",
+    },
+    provider: modelConfig.provider,
+  };
+}
+
+// Models endpoint - no authentication required
+app.get('/v1/models', async (c) => {
+  try {
+    const configSnapshot = configLoader.getSnapshot();
+    
+    if (!configSnapshot) {
+      return c.json([], 200);
+    }
+
+    // Transform all models to the required format
+    const models: ModelInfo[] = [];
+    
+    for (const [modelName, modelConfig] of configSnapshot.models) {
+      try {
+        const modelInfo = transformModelConfigToModelInfo(modelName, modelConfig);
+        models.push(modelInfo);
+      } catch (error) {
+        console.warn(`Failed to transform model ${modelName}:`, error);
+      }
+    }
+
+    return c.json(models);
+  } catch (error) {
+    console.error('Models endpoint error:', error);
+    return c.json({
+      error: error instanceof Error ? error.message : 'Failed to get models'
     }, 500);
   }
 });
