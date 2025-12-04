@@ -100,6 +100,9 @@ importers:
 
   packages/types:
     dependencies:
+      ai:
+        specifier: ^5.0.104
+        version: 5.0.104(zod@4.1.13)
       zod:
         specifier: ^4.1.13
         version: 4.1.13

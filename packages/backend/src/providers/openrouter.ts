@@ -1,22 +1,30 @@
-import { ProviderType, ProviderConfig } from '@plexus/types';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { BaseProviderClient } from './base.js';
 
-export class OpenRouterProviderClient extends BaseProviderClient {
-  public readonly type: ProviderType = 'openrouter';
-  private openrouter: any;
+import { ProviderType, ProviderConfig, ProviderClient, ChatCompletionRequest, ModelConfig} from '@plexus/types';
+import {GenerateTextResult, ToolSet, generateText} from 'ai'
+import { createOpenRouter, OpenRouterProvider, OpenRouterProviderSettings } from '@openrouter/ai-sdk-provider';
+
+export class OpenRouterProviderClient implements ProviderClient {
+  public readonly type: ProviderType = 'openai';
+  readonly config: ProviderConfig
+  readonly providerInstance: OpenRouterProvider
 
   constructor(config: ProviderConfig) {
-    super(config);
+    this.config = config;
+    this.providerInstance = createOpenRouter(
+      {
+        baseURL: config.baseURL,
+        apiKey: config.apiKey,
+        headers: config.headers
+      } as OpenRouterProviderSettings
+    )
   }
 
-  protected initializeModel(): void {
-    this.openrouter = createOpenRouter({
-      apiKey: this.config.apiKey,
-      baseURL: this.config.baseURL,
-    });
-
-    const modelName = this.config.model || 'openai/gpt-3.5-turbo';
-    this.model = this.openrouter(modelName);
+  async chatCompletion(request: ChatCompletionRequest, modelConfig: ModelConfig): Promise<GenerateTextResult<ToolSet, never>> {
+    const model = this.providerInstance(modelConfig.canonical_slug || modelConfig.display_slug)
+    let result = await generateText({
+      model,
+      messages: request.messages
+    })
+    return result
   }
 }

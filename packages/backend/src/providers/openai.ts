@@ -1,22 +1,29 @@
-import { ProviderType, ProviderConfig } from '@plexus/types';
-import { createOpenAI } from '@ai-sdk/openai';
-import { BaseProviderClient } from './base.js';
+import { ProviderType, ProviderConfig, ProviderClient, ChatCompletionRequest, ModelConfig} from '@plexus/types';
+import {GenerateTextResult, ToolSet, generateText} from 'ai'
+import { createOpenAI, OpenAIProvider, OpenAIProviderSettings } from '@ai-sdk/openai';
 
-export class OpenAIProviderClient extends BaseProviderClient {
+export class OpenAIProviderClient implements ProviderClient {
   public readonly type: ProviderType = 'openai';
-  private openai: any;
+  readonly config: ProviderConfig
+  readonly providerInstance: OpenAIProvider
 
   constructor(config: ProviderConfig) {
-    super(config);
+    this.config = config;
+    this.providerInstance = createOpenAI(
+      {
+        baseURL: config.baseURL,
+        apiKey: config.apiKey,
+        headers: config.headers
+      } as OpenAIProviderSettings
+    )
   }
 
-  protected initializeModel(): void {
-    this.openai = createOpenAI({
-      apiKey: this.config.apiKey,
-      baseURL: this.config.baseURL,
-    });
-
-    const modelName = this.config.model || 'gpt-3.5-turbo';
-    this.model = this.openai(modelName);
+  async chatCompletion(request: ChatCompletionRequest, modelConfig: ModelConfig): Promise<GenerateTextResult<ToolSet, never>> {
+    const model = this.providerInstance(modelConfig.canonical_slug || modelConfig.display_slug)
+    let result = await generateText({
+      model,
+      messages: request.messages
+    })
+    return result
   }
 }

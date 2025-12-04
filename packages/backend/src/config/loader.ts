@@ -4,8 +4,7 @@ import {
   ModelConfig,
   providerConfigSchema,
   virtualKeyConfigSchema,
-  modelSchema,
-  ProviderType 
+  modelSchema
 } from '@plexus/types';
 import { z } from 'zod';
 import fs from 'fs/promises';
@@ -59,7 +58,7 @@ export class ConfigurationLoader {
   /**
    * Validate a provider configuration
    */
-  validateProviderConfig(config: unknown): ProviderConfig {
+  validateProviderConfig(config: Object): ProviderConfig {
     try {
       return providerConfigSchema.parse(config);
     } catch (error) {
@@ -75,7 +74,7 @@ export class ConfigurationLoader {
   /**
    * Validate a virtual key configuration
    */
-  validateVirtualKeyConfig(config: unknown): VirtualKeyConfig {
+  validateVirtualKeyConfig(config: Object): VirtualKeyConfig {
     try {
       return virtualKeyConfigSchema.parse(config);
     } catch (error) {
@@ -91,7 +90,7 @@ export class ConfigurationLoader {
   /**
    * Validate a model configuration
    */
-  validateModelConfig(config: unknown): ModelConfig {
+  validateModelConfig(config: Object): ModelConfig {
     try {
       return modelSchema.parse(config);
     } catch (error) {
@@ -112,7 +111,7 @@ export class ConfigurationLoader {
     
     try {
       const data = await fs.readFile(providersPath, 'utf-8');
-      const configs = JSON.parse(data);
+      const configs: Object = JSON.parse(data);
       
       const providers = new Map<string, ProviderConfig>();
       
@@ -139,7 +138,7 @@ export class ConfigurationLoader {
     
     try {
       const data = await fs.readFile(virtualKeysPath, 'utf-8');
-      const configs = JSON.parse(data);
+      const configs: Object = JSON.parse(data);
       
       const virtualKeys = new Map<string, VirtualKeyConfig>();
       
@@ -166,7 +165,7 @@ export class ConfigurationLoader {
     
     try {
       const data = await fs.readFile(modelsPath, 'utf-8');
-      const configs = JSON.parse(data);
+      const configs: Object = JSON.parse(data);
       
       const models = new Map<string, ModelConfig>();
       

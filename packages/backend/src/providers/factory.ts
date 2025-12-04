@@ -7,7 +7,7 @@ export class ProviderFactory {
   private static instances: Map<string, ProviderClient> = new Map();
 
   static createClient(config: ProviderConfig): ProviderClient {
-    const key = `${config.type}-${config.apiKey}-${config.model || 'default'}`;
+    const key = `${config.type}-${config.apiKey}`;
     
     if (this.instances.has(key)) {
       return this.instances.get(key)!;
@@ -33,11 +33,10 @@ export class ProviderFactory {
     return client;
   }
 
-  static getClient(type: ProviderType, apiKey: string, model?: string): ProviderClient {
+  static getClient(type: ProviderType, apiKey: string): ProviderClient {
     const config: ProviderConfig = {
       type,
-      apiKey,
-      model,
+      apiKey
     };
 
     return this.createClient(config);

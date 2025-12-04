@@ -81,3 +81,4 @@ prisma/migrations/*/steps.json
 docker-data/
 **/docker-data/
 
+config/*.json

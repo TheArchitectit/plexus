@@ -12,6 +12,7 @@
     "dev": "tsc -w"
   },
   "dependencies": {
+    "ai": "^5.0.104",
     "zod": "^4.1.13"
   },
   "devDependencies": {

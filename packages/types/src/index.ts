@@ -1,40 +1,36 @@
 import { z } from 'zod';
+import {GenerateTextResult, ToolSet } from 'ai';
+
+// Chat Message Schema
+const chatMessageSchema = z.object({
+  role: z.enum(['system', 'user', 'assistant']),
+  content: z.string().min(1, 'Message content cannot be empty'),
+});
+
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
 // Chat Completion Request Schema
 export const chatCompletionRequestSchema = z.object({
-  messages: z.array(
-    z.object({
-      role: z.enum(['system', 'user', 'assistant']),
-      content: z.string().min(1, 'Message content cannot be empty'),
-    })
-  ).min(1, 'At least one message is required'),
-  model: z.string().optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  max_tokens: z.number().min(1).max(32000).optional(),
-  top_p: z.number().min(0).max(1).optional(),
-  frequency_penalty: z.number().min(-2).max(2).optional(),
-  presence_penalty: z.number().min(-2).max(2).optional(),
-  stop: z.union([z.string(), z.array(z.string())]).optional(),
-  stream: z.boolean().optional(),
-  user: z.string().optional(),
+  messages: z.array(chatMessageSchema).min(1, 'At least one message is required'),
+  model: z.string(),
+  temperature: z.number().min(0).max(2).default(1.0),
+  max_tokens: z.number().min(1).max(128000).optional(),
+  stream: z.boolean().default(true),
 });
 
 export type ChatCompletionRequest = z.infer<typeof chatCompletionRequestSchema>;
 
 // Chat Completion Response Schema
-export const chatCompletionResponseSchema = z.object({
+const chatCompletionResponseSchema = z.object({
   id: z.string(),
   object: z.literal('chat.completion'),
   created: z.number(),
   model: z.string(),
   choices: z.array(
     z.object({
-      index: z.number(),
-      message: z.object({
-        role: z.enum(['system', 'user', 'assistant']),
-        content: z.string(),
-      }),
-      finish_reason: z.string(),
+      index: z.number().gte(0),
+      message: chatMessageSchema,
+      finish_reason: z.enum(['stop', 'length', 'content_filter','tool_calls']),
     })
   ),
   usage: z.object({
@@ -57,29 +53,34 @@ export const errorResponseSchema = z.object({
 
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
+// Provider Types
+const providerTypeSchema = z.enum(['openai', 'anthropic', 'openrouter']);
+export type ProviderType = z.infer<typeof providerTypeSchema>;
+
+
 // Configuration Schemas
 export const providerConfigSchema = z.object({
-  type: z.enum(['openai', 'anthropic', 'openrouter']),
+  type: providerTypeSchema,
   apiKey: z.string().min(1, 'API key is required'),
   baseURL: z.string().url().optional(),
-  model: z.string().optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().min(1).max(32000).optional(),
+  headers: z.record(z.string(), z.string()).optional()
 });
 
 export type ProviderConfig = z.infer<typeof providerConfigSchema>;
 
 export const virtualKeyConfigSchema = z.object({
-  key: z.string().min(1, 'Virtual key is required')
+  key: z.string().min(4, 'Virtual key is required')
 });
 
 export type VirtualKeyConfig = z.infer<typeof virtualKeyConfigSchema>;
 
 export const modelSchema = z.object({
-  name: z.string().min(1, 'Model name is required'),
-  provider: z.enum(['openai', 'anthropic', 'openrouter']),
+  display_slug: z.string('Model ID is required'),
+  canonical_slug: z.string().optional(),
+  display_name: z.string().min(1, 'Model name is required'),
+  pricing_slug: z.string().optional(),
+  providerIds: z.array(z.string()).nonempty('Must specify at least one provider id'),
   maxTokens: z.number().int().min(1).max(32000).optional(),
-  supportsStreaming: z.boolean().default(true),
   contextWindow: z.number().int().min(1).optional(),
   inputTokenPrice: z.number().min(0).optional(),
   outputTokenPrice: z.number().min(0).optional(),
@@ -87,87 +88,31 @@ export const modelSchema = z.object({
 
 export type ModelConfig = z.infer<typeof modelSchema>;
 
-// Provider Types
-export type ProviderType = 'openai' | 'anthropic' | 'openrouter';
+export type ProviderClient = {
+  chatCompletion(request: ChatCompletionRequest, model: ModelConfig): Promise<GenerateTextResult<ToolSet, never>>;
+};
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-// Models endpoint types
-export const modelInfoSchema = z.object({
-  id: z.string(),
-  canonical_slug: z.string(),
-  name: z.string(),
-  context_length: z.number().int().min(1),
-  pricing: z.object({
-    prompt: z.string(),
-    completion: z.string(),
-  }),
-  provider: z.enum(['openai', 'anthropic', 'openrouter']),
+// Health Scoring Schemas
+const modelHealthMetricsSchema = z.object({
+  provider: providerTypeSchema,
+  model: z.string(),
+  responseTime: z.number().min(0), // milliseconds
+  successRate: z.number().min(0).max(1), // 0-1
+  errorRate: z.number().min(0).max(1), // 0-1
+  lastChecked: z.date(),
+  consecutiveFailures: z.number().int().min(0),
+  totalRequests: z.number().int().min(0),
+  successfulRequests: z.number().int().min(0),
+  failedRequests: z.number().int().min(0),
 });
 
-export type ModelInfo = z.infer<typeof modelInfoSchema>;
+export type ModelHealthMetrics = z.infer<typeof modelHealthMetricsSchema>;
 
-export type ModelsResponse = ModelInfo[];
+const healthScoreSchema = z.object({
+  overall: z.number().min(0).max(100), // 0-100
+  latency: z.number().min(0).max(100), // 0-100
+  reliability: z.number().min(0).max(100), // 0-100
+  availability: z.number().min(0).max(100), // 0-100
+});
 
-
-
-// Provider Client Interface
-export interface ProviderClient {
-  readonly type: ProviderType;
-  readonly config: ProviderConfig;
-  
-  chatCompletion(request: ChatCompletionRequest): Promise<ChatCompletionResponse>;
-  chatCompletionStream(
-    request: ChatCompletionRequest,
-    onChunk: (chunk: string) => void,
-    onError?: (error: Error) => void
-  ): Promise<void>;
-  
-  isHealthy(): Promise<boolean>;
-  getHealthMetrics(): Promise<ModelHealthMetrics>;
-}
-
-// Health Scoring
-export interface ModelHealthMetrics {
-  provider: ProviderType;
-  model: string;
-  responseTime: number; // milliseconds
-  successRate: number; // 0-1
-  errorRate: number; // 0-1
-  lastChecked: Date;
-  consecutiveFailures: number;
-  totalRequests: number;
-  successfulRequests: number;
-  failedRequests: number;
-}
-
-export interface HealthScore {
-  overall: number; // 0-100
-  latency: number; // 0-100
-  reliability: number; // 0-100
-  availability: number; // 0-100
-}
-
-// Routing Engine Types
-
-export interface RoutingRequest {
-  virtualKey: string;
-  request: ChatCompletionRequest;
-  userId?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface RoutingResponse {
-  provider: ProviderType;
-  model: string;
-  response: ChatCompletionResponse;
-  routingMetadata: {
-    selectedProvider: ProviderType;
-    healthScore: HealthScore;
-    fallbackUsed: boolean;
-    retryAttempt: number;
-  };
-}
+export type HealthScore = z.infer<typeof healthScoreSchema>;

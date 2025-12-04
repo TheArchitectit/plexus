@@ -1,24 +1,32 @@
-import { ProviderType, ProviderConfig } from '@plexus/types';
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { BaseProviderClient } from './base.js';
+import { ProviderType, ProviderConfig, ProviderClient, ChatCompletionRequest, ModelConfig} from '@plexus/types';
+import {generateText, GenerateTextResult, ToolSet, LanguageModel} from 'ai'
+import { createAnthropic, AnthropicProvider, AnthropicProviderSettings } from '@ai-sdk/anthropic'
 
-export class AnthropicProviderClient extends BaseProviderClient {
+export class AnthropicProviderClient implements ProviderClient {
   public readonly type: ProviderType = 'anthropic';
-  private anthropic: any;
+  readonly config: ProviderConfig
+  readonly providerInstance: AnthropicProvider
 
   constructor(config: ProviderConfig) {
-    super(config);
+    this.config = config;
+    this.providerInstance = createAnthropic(
+      {
+        baseURL: config.baseURL,
+        apiKey: config.apiKey,
+        headers: config.headers
+      } as AnthropicProviderSettings
+    )
   }
 
-  protected initializeModel(): void {
-    // Use OpenAI-compatible provider for Anthropic
-    this.anthropic = createAnthropic({
-      name: 'anthropic',
-      apiKey: this.config.apiKey,
-      baseURL: this.config.baseURL || 'https://api.anthropic.com/v1',
-    });
-
-    const modelName = this.config.model || 'claude-3-haiku-20240307';
-    this.model = this.anthropic(modelName);
+  async chatCompletion(request: ChatCompletionRequest, modelConfig: ModelConfig): Promise<GenerateTextResult<ToolSet, never>> {
+    const model = this.providerInstance(modelConfig.canonical_slug || modelConfig.display_slug)
+    let result = await generateText({
+      model,
+      messages: request.messages
+    })
+    return result
   }
+
+  
+
 }
