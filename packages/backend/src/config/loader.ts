@@ -64,7 +64,7 @@ export class ConfigurationLoader {
       return providerConfigSchema.parse(config);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`Invalid provider configuration: ${error.issues.map(issue => 
+        throw new Error(`Invalid provider configuration: ${error.issues.map((issue: { path: any[]; message: any; }) => 
           `${issue.path.join('.')}: ${issue.message}`
         ).join(', ')}`);
       }
@@ -80,7 +80,7 @@ export class ConfigurationLoader {
       return virtualKeyConfigSchema.parse(config);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`Invalid virtual key configuration: ${error.issues.map(issue => 
+        throw new Error(`Invalid virtual key configuration: ${error.issues.map((issue: { path: any[]; message: any; }) => 
           `${issue.path.join('.')}: ${issue.message}`
         ).join(', ')}`);
       }
@@ -96,7 +96,7 @@ export class ConfigurationLoader {
       return modelSchema.parse(config);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`Invalid model configuration: ${error.issues.map(issue => 
+        throw new Error(`Invalid model configuration: ${error.issues.map((issue: { path: any[]; message: any; }) => 
           `${issue.path.join('.')}: ${issue.message}`
         ).join(', ')}`);
       }

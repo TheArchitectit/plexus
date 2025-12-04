@@ -70,15 +70,7 @@ export const providerConfigSchema = z.object({
 export type ProviderConfig = z.infer<typeof providerConfigSchema>;
 
 export const virtualKeyConfigSchema = z.object({
-  key: z.string().min(1, 'Virtual key is required'),
-  provider: z.enum(['openai', 'anthropic', 'openrouter']),
-  model: z.string().min(1, 'Model is required'),
-  priority: z.number().int().min(1),
-  fallbackProviders: z.array(z.enum(['openai', 'anthropic', 'openrouter'])).optional(),
-  rateLimit: z.object({
-    requestsPerMinute: z.number().int().min(1),
-    requestsPerHour: z.number().int().min(1),
-  }).optional(),
+  key: z.string().min(1, 'Virtual key is required')
 });
 
 export type VirtualKeyConfig = z.infer<typeof virtualKeyConfigSchema>;
