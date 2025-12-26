@@ -11,6 +11,7 @@ import {
   LanguageModelV2ToolResultOutput,
 } from '@ai-sdk/provider';
 import { logger } from '../../utils/logger.js';
+import { ConvertedRequest } from '../index.js';
 
 // ============================================================================
 // Google Generative AI Type Definitions
@@ -86,19 +87,6 @@ interface GoogleGenerativeAITool {
 // ============================================================================
 // Result Type
 // ============================================================================
-
-/**
- * Result of converting a Google Generative AI request
- * to LanguageModelV2 format.
- */
-export interface ConvertFromGoogleGenerativeAIRequestResult {
-  /** Converted LanguageModelV2 prompt */
-  prompt: LanguageModelV2Prompt;
-  /** Converted LanguageModelV2 call options */
-  options: Partial<LanguageModelV2CallOptions>;
-  /** Warnings generated during conversion for unsupported features */
-  warnings: Array<{ type: string; message: string }>;
-}
 
 // ============================================================================
 // Helper Functions
@@ -250,7 +238,7 @@ function parseFunctionResponse(response: unknown): LanguageModelV2ToolResultOutp
  */
 export function convertFromGoogleGenerativeAIRequest(
   request: GoogleGenerativeAIRequest
-): ConvertFromGoogleGenerativeAIRequestResult {
+): ConvertedRequest {
   logger.info('Starting conversion from Google Generative AI request to LanguageModelV2 format');
   logger.debug(`Request contains ${request.contents.length} content item(s)`);
 

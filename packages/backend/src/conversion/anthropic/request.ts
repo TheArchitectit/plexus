@@ -11,6 +11,7 @@ import {
   LanguageModelV2ToolResultOutput,
 } from '@ai-sdk/provider';
 import { logger } from '../../utils/logger.js';
+import { ConvertedRequest } from '../index.js';
 
 // ============================================================================
 // Anthropic Messages API Type Definitions
@@ -121,19 +122,6 @@ type AnthropicToolChoice =
 // ============================================================================
 // Result Type
 // ============================================================================
-
-/**
- * Result of converting an Anthropic Messages API request
- * to LanguageModelV2 format.
- */
-export interface ConvertFromAnthropicMessagesRequestResult {
-  /** Converted LanguageModelV2 prompt */
-  prompt: LanguageModelV2Prompt;
-  /** Converted LanguageModelV2 call options */
-  options: Partial<LanguageModelV2CallOptions>;
-  /** Warnings generated during conversion for unsupported features */
-  warnings: Array<{ type: string; message: string }>;
-}
 
 // ============================================================================
 // Helper Functions
@@ -338,7 +326,7 @@ function parseToolOutput(content: string): LanguageModelV2ToolResultOutput {
  */
 export function convertFromAnthropicMessagesRequest(
   request: AnthropicMessagesRequest
-): ConvertFromAnthropicMessagesRequestResult {
+): ConvertedRequest {
   logger.info('Starting conversion from Anthropic Messages API request to LanguageModelV2 format');
   logger.debug(`Request contains ${request.messages.length} messages, model: ${request.model || 'default'}`);
   

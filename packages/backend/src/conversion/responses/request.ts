@@ -11,6 +11,7 @@ import {
   LanguageModelV2ToolResultOutput,
 } from "@ai-sdk/provider";
 import { logger } from "../../utils/logger.js";
+import {ConvertedRequest} from "../index.js"
 
 // ============================================================================
 // Responses API Type Definitions
@@ -249,19 +250,6 @@ type OpenAIResponsesProviderTool =
 // ============================================================================
 // Result Type
 // ============================================================================
-
-/**
- * Result of converting an OpenAI Responses API request
- * to LanguageModelV2 format.
- */
-export interface ConvertFromOpenAIResponsesRequestResult {
-  /** Converted LanguageModelV2 prompt */
-  prompt: LanguageModelV2Prompt;
-  /** Converted LanguageModelV2 call options */
-  options: Partial<LanguageModelV2CallOptions>;
-  /** Warnings generated during conversion for unsupported features */
-  warnings: Array<{ type: string; message: string }>;
-}
 
 // ============================================================================
 // Helper Functions
@@ -527,7 +515,7 @@ function convertFunctionCallOutputContent(
  */
 export function convertFromOpenAIResponsesRequest(
   request: OpenAIResponsesRequest
-): ConvertFromOpenAIResponsesRequestResult {
+): ConvertedRequest {
   logger.info('Starting conversion from OpenAI Responses API request to LanguageModelV2 format');
   logger.debug(`Request contains ${request.input.length} input item(s)`);
 

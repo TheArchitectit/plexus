@@ -1,50 +1,56 @@
 import { Hono } from "hono";
+import { generateText } from 'ai';
 import { convertFromOpenAIChatRequest } from "../../../conversion/completions/request.js";
+import { convertToOpenAIChatResponse } from "../../../conversion/completions/response.js";
+import { selectProvider } from "../../../routing/selector.js";
+import { ProviderFactory } from "../../../providers/factory.js";
 import { logger } from "../../../utils/logger.js";
 
 // Chat completions route handler
 export async function handleChatCompletionsEndpoint(c: any) {
   try {
     // Parse the request body as JSON
-
     const body = await c.req.json();
 
     logger.info("Received chat completions request");
 
     // Convert from OpenAI Chat Completions API format to LanguageModelV2 format
-    const result = convertFromOpenAIChatRequest(body);
+    const convertedRequest = convertFromOpenAIChatRequest(body);
 
     logger.info("Converted request to LanguageModelV2 format");
 
-    if (result.warnings && result.warnings.length > 0) {
-      logger.warn(`Conversion generated ${result.warnings.length} warning(s):`);
-      result.warnings.forEach((warning, idx) => {
+    if (convertedRequest.warnings && convertedRequest.warnings.length > 0) {
+      logger.warn(`Conversion generated ${convertedRequest.warnings.length} warning(s):`);
+      convertedRequest.warnings.forEach((warning, idx) => {
         logger.warn(`  Warning ${idx + 1}: [${warning.type}] ${warning.message}`);
       });
     }
 
-    // Return a placeholder response for now
-    return c.json({
-      id: "placeholder-chat-completion-id",
-      object: "chat.completion",
-      created: Date.now(),
-      model: body.model || "unknown-model",
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: "Chat completions endpoint is under construction",
-          },
-          finish_reason: "stop",
-        },
-      ],
-      usage: {
-        prompt_tokens: 0,
-        completion_tokens: 0,
-        total_tokens: 0,
-      },
+    // Select appropriate provider for the model
+    const providerConfig = selectProvider(convertedRequest);
+    logger.info(`Selected provider: ${providerConfig.type} for model: ${convertedRequest.model}`);
+    
+    // Create provider client
+    const providerClient = ProviderFactory.createClient(providerConfig);
+    logger.info(`Created provider client for: ${providerConfig.type}`);
+
+    // Get the appropriate model from the provider instance
+    const model = providerClient.getModel(convertedRequest.model || body.model);
+    
+    // Call generateText with the model and converted request
+    logger.info("Calling generateText on provider client");
+    const result = await generateText({
+      model,
+      messages: convertedRequest.prompt,
+      ...convertedRequest.options,
     });
+
+    logger.info("Successfully generated text response");
+
+    // Convert the result to OpenAI Chat Completions API response format
+    const openAIResponse = convertToOpenAIChatResponse(result);
+    
+    return c.json(openAIResponse);
   } catch (error) {
     logger.error("Chat completions endpoint error:", error);
     return c.json(

@@ -10,6 +10,7 @@ import {
   LanguageModelV2ToolResultOutput,
 } from "@ai-sdk/provider";
 import { logger } from "../../utils/logger.js";
+import { ConvertedRequest } from "../index.js";
 
 // ============================================================================
 // OpenAI Type Definitions
@@ -130,21 +131,6 @@ interface OpenAIChatFunctionTool {
 // ============================================================================
 // Result Type
 // ============================================================================
-
-/**
- * Result of converting an OpenAI Chat Completions API request
- * to LanguageModelV2 format.
- */
-export interface ConvertFromOpenAIChatRequestResult {
-  /** The model specified in the original request (for routing decisions) */
-  model?: string;
-  /** Converted LanguageModelV2 prompt */
-  prompt: LanguageModelV2Prompt;
-  /** Converted LanguageModelV2 call options */
-  options: Partial<LanguageModelV2CallOptions>;
-  /** Warnings generated during conversion for unsupported features */
-  warnings?: Array<{ type: string; message: string }>;
-}
 
 // ============================================================================
 // Helper Functions
@@ -344,7 +330,7 @@ function parseToolOutput(content: string): LanguageModelV2ToolResultOutput {
  */
 export function convertFromOpenAIChatRequest(
   request: OpenAIChatRequest
-): ConvertFromOpenAIChatRequestResult {
+): ConvertedRequest {
   logger.info('Starting conversion from OpenAI Chat Completions API request to LanguageModelV2 format');
   logger.debug(`Request contains ${request.messages.length} messages`);
 
