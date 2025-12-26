@@ -205,6 +205,25 @@ export function convertToAnthropicMessagesStream<TOOLS extends ToolSet, OUTPUT>(
 
       // Store state on controller
       (controller as any).state = state;
+
+      // Emit message_start immediately with placeholder usage
+      controller.enqueue({
+        event: 'message_start',
+        data: {
+          type: 'message_start',
+          message: {
+            id: state.messageId,
+            model: state.model,
+            role: 'assistant',
+            usage: {
+              input_tokens: 0,
+              cache_creation_input_tokens: null,
+              cache_read_input_tokens: null,
+            },
+          },
+        },
+      });
+      state.sentMessageStart = true;
     },
 
     transform(part, controller) {
