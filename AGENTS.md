@@ -62,8 +62,54 @@ The project is a monorepo with the following structure:
 - `pnpm build`: Builds all packages.
 - `pnpm --filter <package-name> <script>`: Runs a script for a specific package (e.g., `pnpm --filter @plexus/frontend lint`).
 
-### API
+### Logging
 
-The backend exposes a simple API:
+All logging in the backend must use the singleton logger located at `packages/backend/src/utils/logger.ts`.
 
-- `GET /api/user`: Returns a mock user object.
+**Do not use `console.log()`, `console.error()`, or other console methods directly.**
+
+#### Usage
+
+Import the logger in any backend file:
+
+```typescript
+import { logger } from "./utils/logger.js";
+```
+
+#### Log Levels
+
+Use the appropriate log level based on the message type:
+
+- `logger.debug()`: Detailed debugging information for development
+- `logger.info()`: General informational messages (e.g., server status, configuration loaded)
+- `logger.warn()`: Warning messages for potentially problematic situations
+- `logger.error()`: Error messages for errors and exceptions
+
+#### Features
+
+The logger uses Winston with the following features:
+
+- **Singleton pattern**: ensures one logger instance across the entire backend
+- **Debug level**: default logging level for development
+- **Colorization**: extensive color coding for different log levels and output
+- **Clear formatting**: includes timestamps and support for metadata
+- **Console transport**: routes messages to console methods instead of stdout/stderr (useful for debugging tools)
+
+#### Examples
+
+```typescript
+// Informational messages
+logger.info("Server started successfully");
+logger.info(`Loaded ${configSnapshot.providers.size} providers`);
+
+// Debug messages (useful during development)
+logger.debug(`${c.req.method} ${c.req.path}`);
+
+// Warning messages
+logger.warn('Provider configuration file not found, using empty configuration');
+logger.warn(`Failed to transform model ${modelName}:`, error);
+
+// Error messages
+logger.error("Failed to initialize application:", error);
+logger.error("Unhandled error:", err);
+```
