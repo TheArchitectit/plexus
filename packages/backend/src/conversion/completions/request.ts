@@ -17,6 +17,7 @@ import { logger } from "../../utils/logger.js";
 
 /** OpenAI Chat Completions API request structure */
 export interface OpenAIChatRequest {
+  model: string;
   messages: Array<OpenAIChatMessage>;
   max_tokens?: number;
   temperature?: number;
@@ -25,6 +26,7 @@ export interface OpenAIChatRequest {
   presence_penalty?: number;
   stop?: string | string[];
   seed?: number;
+  stream?: boolean;
   response_format?:
     | { type: "text" }
     | { type: "json_object" }
@@ -134,12 +136,14 @@ interface OpenAIChatFunctionTool {
  * to LanguageModelV2 format.
  */
 export interface ConvertFromOpenAIChatRequestResult {
+  /** The model specified in the original request (for routing decisions) */
+  model?: string;
   /** Converted LanguageModelV2 prompt */
   prompt: LanguageModelV2Prompt;
   /** Converted LanguageModelV2 call options */
   options: Partial<LanguageModelV2CallOptions>;
   /** Warnings generated during conversion for unsupported features */
-  warnings: Array<{ type: string; message: string }>;
+  warnings?: Array<{ type: string; message: string }>;
 }
 
 // ============================================================================
@@ -461,7 +465,6 @@ export function convertFromOpenAIChatRequest(
   // Convert parameters
   logger.debug('Converting request parameters');
   const options: Partial<LanguageModelV2CallOptions> = {
-    prompt: messages,
     maxOutputTokens: request.max_tokens,
     temperature: request.temperature,
     topP: request.top_p,
@@ -549,9 +552,15 @@ export function convertFromOpenAIChatRequest(
     logger.warn(`Warnings generated: ${warnings.map(w => w.message).join('; ')}`);
   }
 
+  // Filter out undefined values and empty arrays
+  const filteredOptions = Object.fromEntries(
+    Object.entries(options).filter(([_, value]) => value !== undefined)
+  );
+
   return {
+    model: request.model,
     prompt: messages,
-    options,
-    warnings,
+    options: filteredOptions,
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
