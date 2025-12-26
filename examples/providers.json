@@ -1,7 +1,7 @@
 {
   "openai-primary": {
     "type": "openai",
-    "apiKey": "",
+    "apiKey": "sk-sample",
     "baseURL": "https://api.openai.com/v1"
   }
 }
