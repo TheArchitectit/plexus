@@ -17,6 +17,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { configLoader } from "./config/loader.js";
 import { registerV1ModelsRoutes } from "./routing/v1models.js";
+import { registerV1ChatCompletionsRoutes } from "./routing/v1chatcompletions.js";
 import { registerConfigRoutes } from "./routing/config.js";
 import { logger } from "./utils/logger.js";
 import { loggingMiddleware, enableDetailedLogging } from "./middleware/logging.js";
@@ -100,6 +101,9 @@ const authMiddleware = bearerAuth({ token: "virtual-key" });
 
 // Register models routes
 registerV1ModelsRoutes(app);
+
+// Register chat completions routes
+registerV1ChatCompletionsRoutes(app);
 
 // Register config routes
 registerConfigRoutes(app);

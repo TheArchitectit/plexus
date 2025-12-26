@@ -2,16 +2,15 @@ import { useState, useEffect } from 'react';
 import reactLogo from './assets/react.svg';
 import viteLogo from '/vite.svg';
 import './App.css';
-import type { User } from '@plexus/types';
 
 function App() {
   const [count, setCount] = useState(0);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     fetch('/api/user')
       .then((res) => res.json())
-      .then((data: User) => setUser(data))
+      .then((data: Record<string, unknown>) => setUser(data))
       .catch((err) => console.error('Error fetching user:', err));
   }, []);
 
