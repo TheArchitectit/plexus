@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import {GenerateTextResult, ToolSet } from 'ai';
+import { Provider } from 'ai';
 
 
 
@@ -56,7 +56,7 @@ export const errorResponseSchema = z.object({
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
 // Provider Types
-const providerTypeSchema = z.enum(['openai', 'anthropic', 'openrouter']);
+const providerTypeSchema = z.enum(['openai', 'anthropic']);
 export type ProviderType = z.infer<typeof providerTypeSchema>;
 
 
@@ -90,9 +90,12 @@ export const modelSchema = z.object({
 
 export type ModelConfig = z.infer<typeof modelSchema>;
 
-export type ProviderClient = {
-  chatCompletion(request: ChatCompletionRequest, model: ModelConfig): Promise<GenerateTextResult<ToolSet, never>>;
-};
+export interface ProviderClient {
+  readonly type: ProviderType;
+  readonly config: ProviderConfig;
+  readonly providerInstance: any; // Provider instance from @ai-sdk providers (OpenAIProvider, AnthropicProvider, etc.)
+  getModel(modelId: string): any;
+}
 
 // Health Scoring Schemas
 const modelHealthMetricsSchema = z.object({

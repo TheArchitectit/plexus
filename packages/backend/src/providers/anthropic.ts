@@ -18,15 +18,7 @@ export class AnthropicProviderClient implements ProviderClient {
     )
   }
 
-  async chatCompletion(request: ChatCompletionRequest, modelConfig: ModelConfig): Promise<GenerateTextResult<ToolSet, never>> {
-    const model = this.providerInstance(modelConfig.canonical_slug || modelConfig.display_slug)
-    let result = await generateText({
-      model,
-      messages: request.messages
-    })
-    return result
+  getModel(modelId: string): any {
+    return this.providerInstance(modelId);
   }
-
-  
-
 }
