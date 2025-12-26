@@ -16,8 +16,8 @@ import {
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { configLoader } from "./config/loader.js";
-import { registerV1ModelsRoutes } from "./routing/v1models.js";
-import { registerV1ChatCompletionsRoutes } from "./routing/v1chatcompletions.js";
+import { registerV1ModelsRoutes } from "./routing/v1/models.js";
+import { registerV1ChatCompletionsRoutes } from "./routing/v1/chat/completions.js";
 import { registerConfigRoutes } from "./routing/config.js";
 import { logger } from "./utils/logger.js";
 import { loggingMiddleware, enableDetailedLogging } from "./middleware/logging.js";

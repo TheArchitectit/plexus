@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { ModelConfig } from "@plexus/types";
-import { configLoader } from "../config/loader.js";
-import { logger } from "../utils/logger.js";
+import { configLoader } from "../../config/loader.js";
+import { logger } from "../../utils/logger.js";
 
 // Helper function to transform ModelConfig to ModelInfo
 export function transformModelConfigForV1Models(
