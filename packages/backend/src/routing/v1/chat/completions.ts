@@ -16,7 +16,7 @@ export async function handleChatCompletionsEndpoint(c: any) {
 
     logger.info("Converted request to LanguageModelV2 format");
 
-    if (result.warnings.length > 0) {
+    if (result.warnings && result.warnings.length > 0) {
       logger.warn(`Conversion generated ${result.warnings.length} warning(s):`);
       result.warnings.forEach((warning, idx) => {
         logger.warn(`  Warning ${idx + 1}: [${warning.type}] ${warning.message}`);
