@@ -5,58 +5,85 @@ import { logger } from '../../utils/logger.js';
 // OpenAI Chat Completions API Response Type Definitions
 // ============================================================================
 
+/** Tool call in a chat completion message */
+interface OpenAIChatCompletionToolCall {
+  id: string | null;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+/** Annotation for URL citations in chat completion messages */
+interface OpenAIChatCompletionAnnotation {
+  type: 'url_citation';
+  url_citation: {
+    start_index: number;
+    end_index: number;
+    url: string;
+    title: string;
+  };
+}
+
+/** Message object in a chat completion choice */
+interface OpenAIChatCompletionMessage {
+  role: 'assistant' | null;
+  content: string | null;
+  tool_calls?: Array<OpenAIChatCompletionToolCall> | null;
+  annotations?: Array<OpenAIChatCompletionAnnotation> | null;
+}
+
+/** Logprobs for a single token */
+interface OpenAIChatCompletionTokenLogprob {
+  token: string;
+  logprob: number;
+  top_logprobs: Array<{
+    token: string;
+    logprob: number;
+  }>;
+}
+
+/** Logprobs information for chat completion */
+interface OpenAIChatCompletionLogprobs {
+  content?: Array<OpenAIChatCompletionTokenLogprob> | null;
+}
+
+/** A single choice in a chat completion response */
+interface OpenAIChatCompletionChoice {
+  message: OpenAIChatCompletionMessage;
+  index: number;
+  finish_reason: string | null;
+  logprobs?: OpenAIChatCompletionLogprobs | null;
+}
+
+/** Prompt token details */
+interface OpenAIChatCompletionPromptTokensDetails {
+  cached_tokens: number | null;
+}
+
+/** Completion token details */
+interface OpenAIChatCompletionCompletionTokensDetails {
+  reasoning_tokens: number | null;
+  accepted_prediction_tokens: number | null;
+  rejected_prediction_tokens: number | null;
+}
+
+/** Usage information for a chat completion */
+interface OpenAIChatCompletionUsage {
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  prompt_tokens_details?: OpenAIChatCompletionPromptTokensDetails | null;
+  completion_tokens_details?: OpenAIChatCompletionCompletionTokensDetails | null;
+}
+
 /** OpenAI Chat Completions API response structure */
 export interface OpenAIChatCompletionResponse {
   id: string | null;
   created: number | null;
-  choices: Array<{
-    message: {
-      role: 'assistant' | null;
-      content: string | null;
-      tool_calls?: Array<{
-        id: string | null;
-        type: 'function';
-        function: {
-          name: string;
-          arguments: string;
-        };
-      }> | null;
-      annotations?: Array<{
-        type: 'url_citation';
-        url_citation: {
-          start_index: number;
-          end_index: number;
-          url: string;
-          title: string;
-        };
-      }> | null;
-    };
-    index: number;
-    finish_reason: string | null;
-    logprobs?: {
-      content?: Array<{
-        token: string;
-        logprob: number;
-        top_logprobs: Array<{
-          token: string;
-          logprob: number;
-        }>;
-      }> | null;
-    } | null;
-  }>;
-  usage?: {
-    prompt_tokens: number | null;
-    completion_tokens: number | null;
-    total_tokens: number | null;
-    prompt_tokens_details?: {
-      cached_tokens: number | null;
-    } | null;
-    completion_tokens_details?: {
-      reasoning_tokens: number | null;
-      accepted_prediction_tokens: number | null;
-      rejected_prediction_tokens: number | null;
-    } | null;
-  } | null;
+  choices: Array<OpenAIChatCompletionChoice>;
+  usage?: OpenAIChatCompletionUsage | null;
 }
 
 // ============================================================================
@@ -98,16 +125,13 @@ function mapFinishReason(finishReason: string): string {
 
 /**
  * Build annotations array from sources.
+ * 
+ * @param sources - Array of source objects from GenerateTextResult
+ * @returns Array of URL citation annotations, or null if no valid sources
  */
-function buildAnnotations(sources: Array<any>): Array<{
-  type: 'url_citation';
-  url_citation: {
-    start_index: number;
-    end_index: number;
-    url: string;
-    title: string;
-  };
-}> | null {
+function buildAnnotations(
+  sources: Array<any>
+): Array<OpenAIChatCompletionAnnotation> | null {
   logger.debug(`Building annotations from ${sources?.length || 0} source(s)`);
 
   if (!sources || sources.length === 0) {
@@ -115,15 +139,7 @@ function buildAnnotations(sources: Array<any>): Array<{
     return null;
   }
 
-  const annotations: Array<{
-    type: 'url_citation';
-    url_citation: {
-      start_index: number;
-      end_index: number;
-      url: string;
-      title: string;
-    };
-  }> = [];
+  const annotations: Array<OpenAIChatCompletionAnnotation> = [];
 
   for (const source of sources) {
     if (source.sourceType === 'url') {
@@ -172,16 +188,9 @@ export function convertToOpenAIChatResponse(
   logger.info('Starting conversion from GenerateTextResult to OpenAI Chat Completions API response format');
   logger.debug(`Result has ${result.content?.length || 0} content part(s), finishReason: ${result.finishReason || 'none'}`);
 
-  // Extract text content from content parts
+  // Extract text content and tool calls from content parts
   let textContent = '';
-  const toolCalls: Array<{
-    id: string | null;
-    type: 'function';
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }> = [];
+  const toolCalls: Array<OpenAIChatCompletionToolCall> = [];
 
   // Process content array
   if (result.content && Array.isArray(result.content)) {
@@ -223,7 +232,7 @@ export function convertToOpenAIChatResponse(
   }
 
   // Build message object
-  const message: any = {
+  const message: OpenAIChatCompletionMessage = {
     role: 'assistant',
     content: textContent || null,
   };
@@ -241,7 +250,7 @@ export function convertToOpenAIChatResponse(
   logger.debug(`Built message with ${textContent.length} character(s) of text content`);
 
   // Build usage object
-  const usage = result.usage
+  const usage: OpenAIChatCompletionUsage | null = result.usage
     ? {
         prompt_tokens: result.usage.inputTokens || null,
         completion_tokens: result.usage.outputTokens || null,
