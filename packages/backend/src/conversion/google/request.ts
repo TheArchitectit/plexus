@@ -220,6 +220,7 @@ function parseFunctionResponse(response: unknown): LanguageModelV2ToolResultOutp
  * Convert a Google Generative AI request to LanguageModelV2 format.
  *
  * @param request - Google Generative AI request object
+ * @param model - The model name to use
  * @returns Converted LanguageModelV2 prompt, options, and warnings
  *
  * @example
@@ -231,13 +232,14 @@ function parseFunctionResponse(response: unknown): LanguageModelV2ToolResultOutp
  *   generationConfig: { maxOutputTokens: 1024 }
  * };
  *
- * const result = convertFromGoogleGenerativeAIRequest(request);
- * console.log(result.prompt); // LanguageModelV2Prompt
- * console.log(result.options); // Partial<LanguageModelV2CallOptions>
+ * const result = convertFromGoogleGenerativeAIRequest(request, 'gemini-pro');
+ * console.log(result.model); // 'gemini-pro'
+ * console.log(result.options); // LanguageModelV2CallOptions
  * ```
  */
 export function convertFromGoogleGenerativeAIRequest(
-  request: GoogleGenerativeAIRequest
+  request: GoogleGenerativeAIRequest,
+  model: string
 ): ConvertedRequest {
   logger.info('Starting conversion from Google Generative AI request to LanguageModelV2 format');
   logger.debug(`Request contains ${request.contents.length} content item(s)`);
@@ -366,7 +368,7 @@ export function convertFromGoogleGenerativeAIRequest(
 
   // Convert generation config parameters
   logger.debug('Converting generation configuration');
-  const options: Partial<LanguageModelV2CallOptions> = {
+  const options: LanguageModelV2CallOptions = {
     prompt: messages,
   };
 
@@ -435,32 +437,37 @@ export function convertFromGoogleGenerativeAIRequest(
 
   // Convert tools
   if (request.tools) {
+    options.tools = [];
     logger.debug(`Converting ${request.tools.length} tool definition(s)`);
-    const functionTools: Array<{
-      type: 'function';
-      name: string;
-      description?: string;
-      inputSchema: JSONSchema7;
-    }> = [];
 
     for (const tool of request.tools) {
       if (tool.functionDeclarations) {
         for (const func of tool.functionDeclarations) {
-          functionTools.push({
+          logger.debug(`Converting tool: ${func.name}`);
+          
+          // Ensure parameters have type: "object" - create a new object with the required fields
+          const parameters = func.parameters as Record<string, unknown>;
+          const inputSchema: Record<string, unknown> = {
+            ...parameters,
+          };
+          
+          // Ensure type field is set to "object"
+          if (!inputSchema.type || inputSchema.type === "None" || inputSchema.type === null) {
+            logger.debug(`Tool '${func.name}' parameters missing or invalid type field, setting to 'object'`);
+            inputSchema.type = "object";
+          }
+          
+          options.tools.push({
             type: 'function',
             name: func.name,
             description: func.description,
-            inputSchema: func.parameters,
+            inputSchema: inputSchema,
           });
-          logger.debug(`Added function tool: ${func.name}`);
+          logger.debug(`Converted tool: ${func.name}`);
         }
       }
     }
-
-    if (functionTools.length > 0) {
-      options.tools = functionTools;
-      logger.debug(`Converted ${functionTools.length} function tool(s)`);
-    }
+    logger.debug(`Converted tools: ${request.tools.flatMap(t => t.functionDeclarations?.map(f => f.name) || []).join(', ')}`);
   }
 
   // Convert tool config
@@ -505,8 +512,8 @@ export function convertFromGoogleGenerativeAIRequest(
   }
 
   return {
-    prompt: messages,
-    options,
-    warnings,
-  };
+    model,
+    options: options,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  } satisfies ConvertedRequest;
 }
