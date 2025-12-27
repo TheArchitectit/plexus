@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LanguageModel } from 'ai';
+import { LanguageModel, Provider } from 'ai';
 
 
 
@@ -93,7 +93,7 @@ export type ModelConfig = z.infer<typeof modelSchema>;
 export interface ProviderClient {
   readonly type: ProviderType;
   readonly config: ProviderConfig;
-  readonly providerInstance: any; // Provider instance from @ai-sdk providers (OpenAIProvider, AnthropicProvider, etc.)
+  readonly providerInstance: Provider; // Provider instance from @ai-sdk providers (OpenAIProvider, AnthropicProvider, etc.)
   getModel(modelId: string): LanguageModel;
 }
 

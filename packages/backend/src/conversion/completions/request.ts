@@ -2,7 +2,6 @@ import { JSONSchema7 } from "json-schema";
 import {
   LanguageModelV2CallOptions,
   LanguageModelV2FilePart,
-  LanguageModelV2Message,
   LanguageModelV2FunctionTool,
   LanguageModelV2ToolChoice,
   LanguageModelV2Prompt,

@@ -28,7 +28,7 @@ export async function handleChatCompletionsEndpoint(c: any) {
     const model: LanguageModel = providerClient.getModel(
       convertedRequest.model
     );
-    const generateTextRequest = createGenerateTextRequest(convertedRequest);
+    const generateTextRequest = createGenerateTextRequest(convertedRequest, model);
     // Call generateText with the model and converted request
     logger.info("Calling generateText on provider client");
 
