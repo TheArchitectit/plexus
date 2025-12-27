@@ -7,12 +7,12 @@ import { logger } from "../utils/logger.js";
  * Selects a random provider configuration for a given model based on the converted request.
  *
  * @param convertedRequest - The converted request containing the model identifier
- * @returns A random ProviderConfig object that can serve the requested model
+ * @returns An object containing the selected ProviderConfig and the canonical model slug
  * @throws Error if the model is not found or no providers are available
  */
 export function selectProvider(
   convertedRequest: ConvertedRequest
-): ProviderConfig {
+): { provider: ProviderConfig; canonicalModelSlug: string } {
   if (!convertedRequest.model) {
     throw new Error("No model specified in the converted request");
   }
@@ -58,8 +58,15 @@ export function selectProvider(
 
   // Return a random entry from the set of available ProviderConfig objects
   const randomIndex = Math.floor(Math.random() * availableProviders.length);
+  const selectedProvider = availableProviders[randomIndex];
+  const canonicalModelSlug = modelConfig.canonical_slug || convertedRequest.model;
+  
   logger.info(
-    `Selected provider: ${availableProviders[randomIndex].type} for model: ${convertedRequest.model}`
+    `Selected provider: ${selectedProvider.type} for model: ${convertedRequest.model} (canonical: ${canonicalModelSlug})`
   );
-  return availableProviders[randomIndex];
+  
+  return {
+    provider: selectedProvider,
+    canonicalModelSlug
+  };
 }

@@ -18,15 +18,15 @@ export async function handleChatCompletionsEndpoint(c: any) {
     // Convert from OpenAI Chat Completions API format to LanguageModelV2 format
     const convertedRequest = convertFromOpenAIChatRequest(body);
 
-    // Select appropriate provider for the model
-    const providerConfig = selectProvider(convertedRequest);
+    // Select appropriate provider for the model and get canonical slug
+    const { provider: providerConfig, canonicalModelSlug } = selectProvider(convertedRequest);
 
     // Create provider client
     const providerClient = ProviderFactory.createClient(providerConfig);
 
-    // Get the appropriate model from the provider instance
+    // Get the appropriate model from the provider instance using the canonical slug
     const model: LanguageModel = providerClient.getModel(
-      convertedRequest.model
+      canonicalModelSlug
     );
     const generateTextRequest = createGenerateTextRequest(convertedRequest, model);
     // Call generateText with the model and converted request
