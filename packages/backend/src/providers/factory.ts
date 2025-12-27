@@ -2,6 +2,7 @@ import { ProviderType, ProviderConfig, ProviderClient } from '@plexus/types';
 import { OpenAIProviderClient } from './openai.js';
 import { AnthropicProviderClient } from './anthropic.js';
 import { OpenAICompatibleProviderClient } from './openai-compatible.js';
+import { OpenRouterProviderClient } from './openrouter.js';
 import { logger } from '../utils/logger.js';
 
 export class ProviderFactory {
@@ -25,6 +26,9 @@ export class ProviderFactory {
         break;
       case 'openai-compatible':
         client = new OpenAICompatibleProviderClient(config);
+        break;
+      case 'openrouter':
+        client = new OpenRouterProviderClient(config);
         break;
       default:
         client = new OpenAICompatibleProviderClient(config);

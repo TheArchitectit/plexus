@@ -497,6 +497,7 @@ function convertFunctionCallOutputContent(
  * Convert an OpenAI Responses API request to LanguageModelV2 format.
  *
  * @param request - OpenAI Responses API request object
+ * @param model - The model name to use
  * @returns Converted LanguageModelV2 prompt, options, and warnings
  *
  * @example
@@ -508,13 +509,14 @@ function convertFunctionCallOutputContent(
  *   temperature: 0.7,
  * };
  *
- * const result = convertFromOpenAIResponsesRequest(request);
- * console.log(result.prompt); // LanguageModelV2Prompt
- * console.log(result.options); // Partial<LanguageModelV2CallOptions>
+ * const result = convertFromOpenAIResponsesRequest(request, 'gpt-4');
+ * console.log(result.model); // 'gpt-4'
+ * console.log(result.options); // LanguageModelV2CallOptions
  * ```
  */
 export function convertFromOpenAIResponsesRequest(
-  request: OpenAIResponsesRequest
+  request: OpenAIResponsesRequest,
+  model: string
 ): ConvertedRequest {
   logger.info('Starting conversion from OpenAI Responses API request to LanguageModelV2 format');
   logger.debug(`Request contains ${request.input.length} input item(s)`);
@@ -762,7 +764,7 @@ export function convertFromOpenAIResponsesRequest(
 
   // Convert parameters
   logger.debug('Converting request parameters');
-  const options: Partial<LanguageModelV2CallOptions> = {
+  const options: LanguageModelV2CallOptions = {
     prompt: messages,
     maxOutputTokens: request.max_output_tokens,
     temperature: request.temperature,
@@ -808,24 +810,37 @@ export function convertFromOpenAIResponsesRequest(
 
   // Convert tools
   if (request.tools) {
+    options.tools = [];
     logger.debug(`Processing ${request.tools.length} tool definition(s)`);
-    options.tools = request.tools
-      .filter((tool) => tool.type === "function")
-      .map((tool) => {
-        if (tool.type === "function") {
-          return {
-            type: "function",
-            name: tool.function.name,
-            description: tool.function.description,
-            inputSchema: tool.function.parameters,
-            strict: tool.function.strict,
-          };
+    
+    const functionTools = request.tools.filter((tool) => tool.type === "function");
+    for (const tool of functionTools) {
+      if (tool.type === "function") {
+        logger.debug(`Converting tool: ${tool.function.name}`);
+        
+        // Ensure parameters have type: "object" - create a new object with the required fields
+        const parameters = tool.function.parameters as Record<string, unknown>;
+        const inputSchema: Record<string, unknown> = {
+          ...parameters,
+        };
+        
+        // Ensure type field is set to "object"
+        if (!inputSchema.type || inputSchema.type === "None" || inputSchema.type === null) {
+          logger.debug(`Tool '${tool.function.name}' parameters missing or invalid type field, setting to 'object'`);
+          inputSchema.type = "object";
         }
-        // This line should be unreachable due to filter, but keeps type safety
-        return tool as never;
-      });
-
-    logger.debug(`Converted ${options.tools?.length || 0} function tool(s)`);
+        
+        options.tools.push({
+          type: "function",
+          name: tool.function.name,
+          description: tool.function.description,
+          inputSchema: inputSchema,
+        });
+        logger.debug(`Converted tool: ${tool.function.name}`);
+      }
+    }
+    
+    logger.debug(`Converted ${options.tools.length} function tool(s)`);
 
     // Warn about provider tools
     const providerTools = request.tools.filter(
@@ -876,8 +891,8 @@ export function convertFromOpenAIResponsesRequest(
   }
 
   return {
-    prompt: messages,
-    options,
-    warnings,
-  };
+    model,
+    options: options,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  } satisfies ConvertedRequest;
 }
