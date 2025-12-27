@@ -1,5 +1,5 @@
 import { ProviderType, ProviderConfig, ProviderClient, ChatCompletionRequest, ModelConfig} from '@plexus/types';
-import {GenerateTextResult, ToolSet, generateText} from 'ai'
+import {LanguageModel} from 'ai'
 import { createOpenAI, OpenAIProvider, OpenAIProviderSettings } from '@ai-sdk/openai';
 
 export class OpenAIProviderClient implements ProviderClient {
@@ -18,7 +18,7 @@ export class OpenAIProviderClient implements ProviderClient {
     )
   }
 
-  getModel(modelId: string): any {
+  getModel(modelId: string): LanguageModel {
     return this.providerInstance(modelId);
   }
 

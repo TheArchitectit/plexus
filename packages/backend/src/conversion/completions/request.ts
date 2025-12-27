@@ -3,6 +3,8 @@ import {
   LanguageModelV2CallOptions,
   LanguageModelV2FilePart,
   LanguageModelV2Message,
+  LanguageModelV2FunctionTool,
+  LanguageModelV2ToolChoice,
   LanguageModelV2Prompt,
   LanguageModelV2TextPart,
   LanguageModelV2ToolCallPart,
@@ -450,7 +452,8 @@ export function convertFromOpenAIChatRequest(
 
   // Convert parameters
   logger.debug('Converting request parameters');
-  const options: Partial<LanguageModelV2CallOptions> = {
+  const options: LanguageModelV2CallOptions = {
+    prompt: messages,
     maxOutputTokens: request.max_tokens,
     temperature: request.temperature,
     topP: request.top_p,
@@ -495,14 +498,32 @@ export function convertFromOpenAIChatRequest(
 
   // Convert tools
   if (request.tools) {
+    options.tools = new Array<LanguageModelV2FunctionTool>();
     logger.debug(`Converting ${request.tools.length} tool definition(s)`);
-    options.tools = request.tools.map((tool) => ({
-      type: "function",
-      name: tool.function.name,
-      description: tool.function.description,
-      inputSchema: tool.function.parameters,
-      strict: tool.function.strict,
-    }));
+    for (const tool of request.tools) {
+      logger.debug(`Converting tool: ${tool.function.name}`);
+      
+      // Ensure parameters have type: "object" - create a new object with the required fields
+      const parameters = tool.function.parameters as Record<string, unknown>;
+      const inputSchema: Record<string, unknown> = {
+        ...parameters,
+      };
+      
+      // Ensure type field is set to "object"
+      if (!inputSchema.type || inputSchema.type === "None" || inputSchema.type === null) {
+        logger.debug(`Tool '${tool.function.name}' parameters missing or invalid type field, setting to 'object'`);
+        inputSchema.type = "object";
+      }
+      
+      const convertedTool: LanguageModelV2FunctionTool = {
+        type: "function",
+        name: tool.function.name,
+        description: tool.function.description,
+        inputSchema: inputSchema,
+      };
+      options.tools.push(convertedTool);
+      logger.debug(`Converted tool: ${convertedTool.name}`);
+    }
     logger.debug(`Converted tools: ${request.tools.map(t => t.function.name).join(', ')}`);
   }
 
@@ -528,7 +549,7 @@ export function convertFromOpenAIChatRequest(
       options.toolChoice = {
         type: "tool",
         toolName: request.tool_choice.function.name,
-      };
+      } as LanguageModelV2ToolChoice;
       logger.debug(`Set tool choice to specific tool: ${request.tool_choice.function.name}`);
     }
   }
@@ -538,15 +559,9 @@ export function convertFromOpenAIChatRequest(
     logger.warn(`Warnings generated: ${warnings.map(w => w.message).join('; ')}`);
   }
 
-  // Filter out undefined values and empty arrays
-  const filteredOptions = Object.fromEntries(
-    Object.entries(options).filter(([_, value]) => value !== undefined)
-  );
-
   return {
     model: request.model,
-    prompt: messages,
-    options: filteredOptions,
+    options: options,
     warnings: warnings.length > 0 ? warnings : undefined,
-  };
+  } satisfies ConvertedRequest;
 }

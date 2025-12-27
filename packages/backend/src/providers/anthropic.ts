@@ -18,7 +18,7 @@ export class AnthropicProviderClient implements ProviderClient {
     )
   }
 
-  getModel(modelId: string): any {
+  getModel(modelId: string): LanguageModel {
     return this.providerInstance(modelId);
   }
 }
