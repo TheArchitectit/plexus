@@ -9,6 +9,8 @@ import {
   LanguageModelV2ToolCallPart,
   LanguageModelV2ToolResultPart,
   LanguageModelV2ToolResultOutput,
+  LanguageModelV2ToolChoice,
+  LanguageModelV2FunctionTool,
 } from '@ai-sdk/provider';
 import { logger } from '../../utils/logger.js';
 import { ConvertedRequest } from '../index.js';
@@ -23,7 +25,7 @@ export interface AnthropicMessagesRequest {
   system?:
     | AnthropicTextContent
     | Array<AnthropicTextContent | AnthropicImageContent | AnthropicDocumentContent>;
-  model?: string;
+  model: string;
   max_tokens?: number;
   temperature?: number;
   top_k?: number;
@@ -147,32 +149,7 @@ function parseDataUri(
   };
 }
 
-/**
- * Build a map of tool call IDs to tool names from assistant messages.
- * This helps recover the tool name for tool result messages.
- */
-function buildToolNameMap(
-  messages: Array<AnthropicMessage>
-): Map<string, string> {
-  const toolNameMap = new Map<string, string>();
-  let toolCount = 0;
 
-  for (const message of messages) {
-    if (message.role === 'assistant') {
-      for (const content of message.content) {
-        if ('type' in content && content.type === 'tool_use') {
-          const toolUseContent = content as AnthropicToolCallContent;
-          toolNameMap.set(toolUseContent.id, toolUseContent.name);
-          toolCount++;
-          logger.debug(`Mapped tool call ID '${toolUseContent.id}' to tool name '${toolUseContent.name}'`);
-        }
-      }
-    }
-  }
-
-  logger.debug(`Built tool name map with ${toolCount} tool calls from ${messages.length} messages`);
-  return toolNameMap;
-}
 
 /**
  * Convert Anthropic content to LanguageModelV2 content parts.
@@ -283,22 +260,6 @@ function convertUserContentPart(
   }
 }
 
-/**
- * Detect if a string is JSON and parse it, or treat as plain text.
- */
-function parseToolOutput(content: string): LanguageModelV2ToolResultOutput {
-  const contentPreview = content.length > 100 ? `${content.substring(0, 100)}...` : content;
-  logger.debug(`Parsing tool output, content preview: "${contentPreview}"`);
-
-  try {
-    const parsed = JSON.parse(content);
-    logger.debug(`Successfully parsed tool output as JSON`);
-    return { type: 'json', value: parsed };
-  } catch {
-    logger.debug(`Failed to parse as JSON, treating as text content`);
-    return { type: 'text', value: content };
-  }
-}
 
 // ============================================================================
 // Main Conversion Function
@@ -332,10 +293,6 @@ export function convertFromAnthropicMessagesRequest(
   
   const warnings: Array<{ type: string; message: string }> = [];
   const messages: LanguageModelV2Prompt = [];
-
-  // Build tool name map for tool result recovery
-  logger.debug('Building tool name map from assistant messages');
-  const toolNameMap = buildToolNameMap(request.messages);
 
   // Process system messages first
   if (request.system) {
@@ -426,7 +383,7 @@ export function convertFromAnthropicMessagesRequest(
 
   // Convert parameters
   logger.debug('Converting request parameters');
-  const options: Partial<LanguageModelV2CallOptions> = {
+  const options: LanguageModelV2CallOptions = {
     prompt: messages,
     maxOutputTokens: request.max_tokens,
     temperature: request.temperature,
@@ -454,18 +411,49 @@ export function convertFromAnthropicMessagesRequest(
     }
   }
 
-  // Convert tools
+
+    // Convert tools
   if (request.tools) {
+    options.tools = new Array<LanguageModelV2FunctionTool>();
     logger.debug(`Converting ${request.tools.length} tool definition(s)`);
-    options.tools = request.tools.map((tool) => ({
-      type: 'function',
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.input_schema,
-      strict: tool.strict,
-    }));
+    for (const tool of request.tools) {
+      logger.debug(`Converting tool: ${tool.name}`);
+      
+      // Ensure parameters have type: "object" - create a new object with the required fields
+      const parameters = tool.input_schema as Record<string, unknown>;
+      const inputSchema: Record<string, unknown> = {
+        ...parameters,
+      };
+      
+      // Ensure type field is set to "object"
+      if (!inputSchema.type || inputSchema.type === "None" || inputSchema.type === null) {
+        logger.debug(`Tool '${tool.name}' parameters missing or invalid type field, setting to 'object'`);
+        inputSchema.type = "object";
+      }
+      
+      const convertedTool: LanguageModelV2FunctionTool = {
+        type: "function",
+        name: tool.name,
+        description: tool.description,
+        inputSchema: inputSchema,
+      };
+      options.tools.push(convertedTool);
+      logger.debug(`Converted tool: ${convertedTool.name}`);
+    }
     logger.debug(`Converted tools: ${request.tools.map(t => t.name).join(', ')}`);
   }
+  // // Convert tools
+  // if (request.tools) {
+  //   logger.debug(`Converting ${request.tools.length} tool definition(s)`);
+  //   options.tools = request.tools.map((tool) => ({
+  //     type: 'function',
+  //     name: tool.name,
+  //     description: tool.description,
+  //     inputSchema: tool.input_schema,
+  //     strict: tool.strict,
+  //   }));
+  //   logger.debug(`Converted tools: ${request.tools.map(t => t.name).join(', ')}`);
+  // }
 
   // Convert tool choice
   if (request.tool_choice) {
@@ -490,7 +478,7 @@ export function convertFromAnthropicMessagesRequest(
       options.toolChoice = {
         type: 'tool',
         toolName: request.tool_choice.name,
-      };
+      } as LanguageModelV2ToolChoice;
       logger.debug(`Set tool choice to specific tool: ${request.tool_choice.name}`);
     }
   }
@@ -512,7 +500,7 @@ export function convertFromAnthropicMessagesRequest(
   }
 
   return {
-    prompt: messages,
+    model: request.model,
     options,
     warnings,
   };

@@ -1,8 +1,9 @@
+import { LanguageModel } from "ai";
 import { ConvertedRequest } from "../conversion/index.js";
 import { convertLanguageModelToolsToToolSet, convertLanguageModelToolChoice} from "../conversion/tools/converter.js";
 
 
-export function createGenerateTextRequest(convertedRequest: ConvertedRequest) {
+export function createGenerateTextRequest(convertedRequest: ConvertedRequest, model: LanguageModel) {
   const tools = convertLanguageModelToolsToToolSet(convertedRequest.options.tools);
   const toolChoice = convertLanguageModelToolChoice(
     convertedRequest.options.toolChoice,
@@ -10,7 +11,7 @@ export function createGenerateTextRequest(convertedRequest: ConvertedRequest) {
   );
 
   return {
-    model: convertedRequest.model,
+    model: model,
     prompt: convertedRequest.options.prompt,
     temperature: convertedRequest.options.temperature || undefined,
     maxOutputTokens: convertedRequest.options.maxOutputTokens || undefined,
