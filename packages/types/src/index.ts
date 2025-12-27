@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Provider } from 'ai';
+import { LanguageModel } from 'ai';
 
 
 
@@ -94,7 +94,7 @@ export interface ProviderClient {
   readonly type: ProviderType;
   readonly config: ProviderConfig;
   readonly providerInstance: any; // Provider instance from @ai-sdk providers (OpenAIProvider, AnthropicProvider, etc.)
-  getModel(modelId: string): any;
+  getModel(modelId: string): LanguageModel;
 }
 
 // Health Scoring Schemas

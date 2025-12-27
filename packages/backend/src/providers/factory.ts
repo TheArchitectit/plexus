@@ -1,6 +1,7 @@
 import { ProviderType, ProviderConfig, ProviderClient } from '@plexus/types';
 import { OpenAIProviderClient } from './openai.js';
 import { AnthropicProviderClient } from './anthropic.js';
+import { logger } from '../utils/logger.js';
 
 export class ProviderFactory {
   private static instances: Map<string, ProviderClient> = new Map();
@@ -34,7 +35,7 @@ export class ProviderFactory {
       type,
       apiKey
     };
-
+    logger.info(`Created provider client for: ${config.type}`);
     return this.createClient(config);
   }
 
