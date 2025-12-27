@@ -1,5 +1,5 @@
 {
-  "model": "claude-haiku-4-5",
+  "model": "gpt-5-mini",
   "messages": [
     {
       "role": "system",
@@ -7,7 +7,7 @@
     },
     {
       "role": "user",
-      "content": "<environment_info>\nThe user's current OS is: macOS\n</environment_info>\n<workspace_info>\n\n</reminderInstructions>\n<userRequest>\nAre you online\n</userRequest>\n"
+      "content": "Call the file search tool looking for filename with the word provider"
     }
   ],
   "tools": [
