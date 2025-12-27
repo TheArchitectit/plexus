@@ -14,7 +14,7 @@ export const errorResponseSchema = z.object({
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
 // Provider Types
-const providerTypeSchema = z.enum(['openai', 'anthropic']);
+const providerTypeSchema = z.enum(['openai', 'anthropic', 'openai-compatible']);
 export type ProviderType = z.infer<typeof providerTypeSchema>;
 
 

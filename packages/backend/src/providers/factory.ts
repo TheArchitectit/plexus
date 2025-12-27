@@ -1,6 +1,7 @@
 import { ProviderType, ProviderConfig, ProviderClient } from '@plexus/types';
 import { OpenAIProviderClient } from './openai.js';
 import { AnthropicProviderClient } from './anthropic.js';
+import { OpenAICompatibleProviderClient } from './openai-compatible.js';
 import { logger } from '../utils/logger.js';
 
 export class ProviderFactory {
@@ -22,8 +23,13 @@ export class ProviderFactory {
       case 'anthropic':
         client = new AnthropicProviderClient(config);
         break;
+      case 'openai-compatible':
+        client = new OpenAICompatibleProviderClient(config);
+        break;
       default:
-        throw new Error(`Unsupported provider type: ${config.type}`);
+        client = new OpenAICompatibleProviderClient(config);
+        logger.warn(`Unsupported provider type: ${config.type}, defaulting to OpenAICompatibleProviderClient`);
+        break;
     }
 
     this.instances.set(key, client);
