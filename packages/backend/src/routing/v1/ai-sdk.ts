@@ -4,22 +4,52 @@ import superjson from "superjson";
 import { selectProvider } from "../selector.js";
 import { ProviderFactory } from "../../providers/factory.js";
 import { logger } from "../../utils/logger.js";
+import { LanguageModelV2Prompt } from "@ai-sdk/provider";
 
-// Interface for the deserialized AI SDK request
-interface AiSdkRequest {
-  model: string | { modelId: string; [key: string]: any };
-  prompt?: any[];
-  [key: string]: any;
+// Interface for the deserialized AI SDK generateText request
+// This should match the parameters accepted by generateText()
+interface GenerateTextRequest {
+  model: string | LanguageModel;
+  prompt: LanguageModelV2Prompt;
+  temperature?: number;
+  maxOutputTokens?: number;
+  topP?: number;
+  topK?: number;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
+  seed?: number;
+  headers?: Record<string, string | undefined>;
+  tools?: Record<string, any>;
+  toolChoice?: any;
+  maxRetries?: number;
+  abortSignal?: AbortSignal;
+  experimental_telemetry?: any;
 }
 
 // Type guard to check if deserialized request is valid
-function isValidAiSdkRequest(obj: unknown): obj is AiSdkRequest {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'model' in obj &&
-    (typeof obj.model === 'string' || (typeof obj.model === 'object' && obj.model !== null && 'modelId' in obj.model))
-  );
+function isValidGenerateTextRequest(obj: unknown): obj is GenerateTextRequest {
+  if (typeof obj !== 'object' || obj === null) {
+    return false;
+  }
+
+  const req = obj as any;
+
+  // Must have model (string or LanguageModel object with modelId)
+  if (!('model' in req)) {
+    return false;
+  }
+
+  if (typeof req.model !== 'string' && 
+      (typeof req.model !== 'object' || req.model === null || !('modelId' in req.model))) {
+    return false;
+  }
+
+  // Must have prompt
+  if (!('prompt' in req) || !Array.isArray(req.prompt)) {
+    return false;
+  }
+
+  return true;
 }
 
 // AI SDK route handler
@@ -36,8 +66,8 @@ export async function handleAiSdkEndpoint(c: any) {
     logger.debug("Deserialized request:", deserializedRequest);
 
     // Validate the deserialized request
-    if (!isValidAiSdkRequest(deserializedRequest)) {
-      throw new Error("Invalid request format");
+    if (!isValidGenerateTextRequest(deserializedRequest)) {
+      throw new Error("Invalid request format: must contain model and prompt");
     }
 
     // Extract model identifier from the request
@@ -48,11 +78,11 @@ export async function handleAiSdkEndpoint(c: any) {
       modelIdentifier = deserializedRequest.model.modelId;
     }
 
-    // Create a minimal ConvertedRequest for provider selection
+    // Create a ConvertedRequest for provider selection with the prompt from the request
     const convertedRequest = {
       model: modelIdentifier,
       options: {
-        prompt: deserializedRequest.prompt || [],
+        prompt: deserializedRequest.prompt,
       },
     };
 
@@ -78,7 +108,14 @@ export async function handleAiSdkEndpoint(c: any) {
     // Serialize the result with superjson
     const serializedResult = superjson.serialize(result);
 
-    return c.json(serializedResult);
+    // Return the serialized result as JSON (superjson.serialize returns {json, meta})
+    // We return the whole serialized object, not double-encoded
+    return new Response(JSON.stringify(serializedResult), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (error) {
     logger.error("AI SDK endpoint error:", error);
 
