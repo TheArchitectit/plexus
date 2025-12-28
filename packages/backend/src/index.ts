@@ -9,6 +9,7 @@ import { configLoader } from "./config/loader.js";
 import { registerV1ModelsRoutes } from "./routing/v1/models.js";
 import { registerV1ChatCompletionsRoutes } from "./routing/v1/chat/completions.js";
 import { registerV1ResponsesRoutes } from "./routing/v1/responses.js";
+import { registerV1AiSdkRoutes } from "./routing/v1/ai-sdk.js";
 import { registerConfigRoutes } from "./routing/config.js";
 import { logger } from "./utils/logger.js";
 import { loggingMiddleware } from "./middleware/logging.js";
@@ -99,6 +100,9 @@ registerV1ChatCompletionsRoutes(app);
 
 // Register responses routes
 registerV1ResponsesRoutes(app);
+
+// Register AI SDK routes
+registerV1AiSdkRoutes(app);
 
 // Register config routes
 registerConfigRoutes(app);
