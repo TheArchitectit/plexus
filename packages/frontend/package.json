@@ -4,10 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "bun run dev-server.ts",
+    "build": "bun run build.ts",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@plexus/types": "workspace:*",
@@ -15,11 +14,10 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "typescript": "~5.9.3",
-    "vite": "^5.4.21"
+    "typescript": "~5.9.3"
   }
 }

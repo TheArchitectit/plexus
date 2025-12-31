@@ -1,20 +1,20 @@
-import { ConvertedRequest } from "../conversion/index.js";
+
 import { configLoader } from "../config/loader.js";
 import { ProviderConfig } from "@plexus/types";
 import { logger } from "../utils/logger.js";
 
 /**
- * Selects a random provider configuration for a given model based on the converted request.
+ * Selects a random provider configuration for a given model.
  *
- * @param convertedRequest - The converted request containing the model identifier
- * @returns An object containing the selected ProviderConfig and the canonical model slug
+ * @param modelName - The model identifier
+ * @returns An object containing the selected ProviderConfig, providerId and the canonical model slug
  * @throws Error if the model is not found or no providers are available
  */
 export function selectProvider(
-  convertedRequest: ConvertedRequest
-): { provider: ProviderConfig; canonicalModelSlug: string } {
-  if (!convertedRequest.model) {
-    throw new Error("No model specified in the converted request");
+  modelName: string
+): { provider: ProviderConfig; providerId: string; canonicalModelSlug: string } {
+  if (!modelName) {
+    throw new Error("No model specified");
   }
 
   // Get the current configuration snapshot
@@ -24,10 +24,10 @@ export function selectProvider(
   }
 
   // Search for the model in the configuration snapshot
-  const modelConfig = configSnapshot.models.get(convertedRequest.model);
+  const modelConfig = configSnapshot.models.get(modelName);
   if (!modelConfig) {
     throw new Error(
-      `Model '${convertedRequest.model}' not found in configuration`
+      `Model '${modelName}' not found in configuration`
     );
   }
 
@@ -35,7 +35,7 @@ export function selectProvider(
   const providerMap = modelConfig.providers;
   if (!providerMap || Object.keys(providerMap).length === 0) {
     throw new Error(
-      `No providers configured for model '${convertedRequest.model}'`
+      `No providers configured for model '${modelName}'`
     );
   }
 
@@ -55,7 +55,7 @@ export function selectProvider(
   if (availableProviders.length === 0) {
     throw new Error(
       `No provider configurations found for model '${
-        convertedRequest.model
+        modelName
       }' with provider IDs: ${Object.keys(providerMap).join(", ")}`
     );
   }
@@ -65,11 +65,13 @@ export function selectProvider(
   const selected = availableProviders[randomIndex];
   
   logger.info(
-    `Selected provider: ${selected.config.type} (${selected.providerId}) for model: ${convertedRequest.model} (canonical: ${selected.canonicalSlug})`
+    `Selected provider: ${selected.config.type} (${selected.providerId}) for model: ${modelName} (canonical: ${selected.canonicalSlug})`
   );
   
   return {
     provider: selected.config,
+    providerId: selected.providerId,
     canonicalModelSlug: selected.canonicalSlug
   };
 }
+

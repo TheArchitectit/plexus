@@ -12,8 +12,7 @@
     "dev": "tsc -w"
   },
   "dependencies": {
-    "ai": "^5.0.116",
-    "zod": "^4.1.13"
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
