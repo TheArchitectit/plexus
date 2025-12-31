@@ -1,0 +1,18 @@
+{
+  "name": "plexus2",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run dev:backend",
+    "dev:backend": "cd packages/backend && bun src/index.ts",
+    "dev:frontend": "cd packages/frontend && bun run dev",
+    "install:all": "bun install && (cd llms && bun install) && (cd packages/backend && bun install) && (cd packages/frontend && bun install)"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

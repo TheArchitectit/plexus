@@ -1,0 +1,40 @@
+# Plexus Configuration Example
+
+providers:
+  # OpenAI
+  openai:
+    type: OpenAI
+    display_name: OpenAI Direct
+    api_base_url: https://api.openai.com/v1
+    api_key: sk-placeholder-key
+    models:
+      - gpt-4o
+      - gpt-4o-mini
+
+  # Anthropic
+  anthropic:
+    type: Anthropic
+    display_name: Anthropic Direct
+    api_base_url: https://api.anthropic.com/v1
+    api_key: sk-ant-placeholder-key
+    models:
+      - claude-3-5-sonnet-20240620
+
+  # OpenRouter
+  openrouter:
+    type: openrouter
+    display_name: OpenRouter
+    api_base_url: https://openrouter.ai/api/v1
+    api_key: sk-or-placeholder-key
+    models:
+      - anthropic/claude-3-opus
+      - google/gemini-pro
+
+# Models section: Define friendly aliases and routing logic.
+models:
+  my-coding-model:
+    targets:
+      - provider: anthropic
+        model: claude-3-5-sonnet-20240620
+      - provider: openai
+        model: gpt-4o

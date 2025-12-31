@@ -1,0 +1,7 @@
+{
+    "model": "PLACEHOLDER_MODEL",
+    "max_tokens": 1024,
+    "messages": [
+      {"role": "user", "content": "Hello, Claude"}
+    ]
+  }
