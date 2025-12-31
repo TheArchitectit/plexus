@@ -1,21 +1,28 @@
 # Project Overview
 
-This is a full-stack monorepo project that consists of a React frontend and a Hono backend. The project is managed using pnpm workspaces.
+This is a full-stack monorepo project powered entirely by **Bun**. It consists of a React frontend and a Hono backend, leveraging `@musistudio/llms` for advanced LLM routing and virtualization.
 
-- **Frontend:** A React application built with Vite. It fetches data from the backend and displays it.
-- **Backend:** A Hono server that serves the frontend and provides a simple API.
+- **Frontend:** A React application built natively with Bun (replacing Vite). It features a custom, lightweight development server (`dev-server.ts`) for hot reloading and API proxying.
+- **Backend:** A Hono server running on the native `Bun.serve()` runtime. It wraps `@musistudio/llms` to provide a unified API compatible with OpenAI and Anthropic formats.
 - **Types:** A shared package for TypeScript types used by both the frontend and backend.
+
+## key Technologies
+
+- **Runtime & Manager:** [Bun](https://bun.sh) (Replaces Node.js, npm, pnpm)
+- **Framework:** [Hono](https://hono.dev) (v4, using `hono/bun` adapter)
+- **Core Engine:** [`@musistudio/llms`](https://github.com/musistudio/llms) (LLM virtualization and routing)
+- **Frontend Build:** Bun Native Build API (`Bun.build`)
 
 ## Building and Running
 
 ### Prerequisites
 
-- [pnpm](https://pnpm.io/installation)
+- [Bun](https://bun.sh) (v1.0.0 or later)
 
 ### Installation
 
 ```bash
-pnpm install
+bun install
 ```
 
 ### Development
@@ -23,44 +30,50 @@ pnpm install
 To run both the frontend and backend in development mode with hot-reloading:
 
 ```bash
-pnpm dev
+bun run dev
 ```
 
-The frontend will be available at `http://localhost:5173` and the backend at `http://localhost:3000`.
+- **Frontend:** `http://localhost:5173` (Proxies `/api` -> `http://localhost:3000`)
+- **Backend:** `http://localhost:3000`
 
 ### Build
 
 To build all packages for production:
 
 ```bash
-pnpm build
+bun run build
 ```
+
+- **Frontend Output:** `packages/frontend/dist`
+- **Backend Output:** `packages/backend/dist`
 
 ### Running in Production
 
-After building the project, you can start the backend server:
+After building the project, you can start the backend server (which also serves the static frontend):
 
 ```bash
-pnpm --filter @plexus/backend start
+bun start
 ```
-
-The application will be available at `http://localhost:3000`.
 
 ## Development Conventions
 
 ### Monorepo Structure
 
-The project is a monorepo with the following structure:
+The project uses Bun Workspaces:
 
-- `packages/frontend`: The React frontend application.
+- `packages/frontend`: The React application.
+  - `dev-server.ts`: Custom dev server for HMR and proxying.
+  - `build.ts`: Custom production build script.
 - `packages/backend`: The Hono backend server.
+  - Uses `hono/bun` for maximum performance.
+  - Integrates `@musistudio/llms` for model handling.
 - `packages/types`: Shared TypeScript types.
 
 ### Scripts
 
-- `pnpm dev`: Starts the development servers for all packages.
-- `pnpm build`: Builds all packages.
-- `pnpm --filter <package-name> <script>`: Runs a script for a specific package (e.g., `pnpm --filter @plexus/frontend lint`).
+- `bun run dev`: Starts the development servers for all packages concurrently.
+- `bun run build`: Builds all packages.
+- `bun run --filter <package-name> <script>`: Runs a script for a specific package (e.g., `bun run --filter @plexus/frontend lint`).
 
 ### Logging
 
@@ -95,26 +108,14 @@ The logger uses Winston with the following features:
 - **Clear formatting**: includes timestamps and support for metadata
 - **Console transport**: routes messages to console methods instead of stdout/stderr (useful for debugging tools)
 
-#### Examples
+## Architecture Notes
 
-```typescript
-// Informational messages
-logger.info("Server started successfully");
-logger.info(`Loaded ${configSnapshot.providers.size} providers`);
+### Frontend Build System
+We have removed Vite in favor of a simpler, Bun-native approach:
+1.  **Build:** `Bun.build` compiles the React app.
+2.  **Serve:** A custom script (`packages/frontend/dev-server.ts`) handles serving files and proxying API requests to the backend during development.
 
-// Debug messages (useful during development)
-logger.debug(`${c.req.method} ${c.req.path}`);
-
-// Warning messages
-logger.warn('Provider configuration file not found, using empty configuration');
-logger.warn(`Failed to transform model ${modelName}:`, error);
-
-// Error messages
-logger.error("Failed to initialize application:", error);
-logger.error("Unhandled error:", err);
-```
-
-
-## Sample Code
-
-Code from other applications that might be useful as references is kept in sample_code.  It can never e used unchanged, not should be compiled and considered a source of truth.  However, it may be useful as a reference.
+### Backend LLM Integration
+The backend serves as a control plane for `@musistudio/llms`.
+- **Initialization:** The `LLMServerInstance` initializes the core engine using configurations loaded from `config/`.
+- **Routing:** Hono routes (e.g., `/v1/chat/completions`) intercept requests and inject them into the `@musistudio/llms` instance using Fastify's `.inject()` method (as the core library is based on Fastify).

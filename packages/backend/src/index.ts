@@ -1,6 +1,5 @@
 import { Hono } from "hono";
-import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
+import { serveStatic } from "hono/bun";
 import { bearerAuth } from "hono/bearer-auth";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -45,6 +44,8 @@ logger.info(`Logging level set to: ${logLevel}`);
 
 logger.info(`Using config directory: ${path.resolve(process.cwd(), configDir)}`);
 
+import { LLMServerInstance } from "./lib/llm-server.js";
+
 async function initializeApp() {
   try {
     // Set the config directory on the configLoader instance
@@ -59,6 +60,9 @@ async function initializeApp() {
     logger.info(`Loaded ${configSnapshot.providers.size} providers`);
     logger.info(`Loaded ${configSnapshot.virtualKeys.size} virtual keys`);
     logger.info(`Loaded ${configSnapshot.models.size} models`);
+
+    // Initialize LLM Server
+    await LLMServerInstance.getInstance().initialize();
   } catch (error) {
     logger.error("Failed to initialize application:", error);
   }
@@ -115,7 +119,7 @@ app.get("/*", serveStatic({ path: path.join(frontendPath, "index.html") }));
 // Initialize the application
 initializeApp()
   .then(() => {
-    serve({
+    Bun.serve({
       fetch: app.fetch,
       port,
     });

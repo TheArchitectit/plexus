@@ -1,5 +1,5 @@
+
 import { z } from 'zod';
-import { LanguageModel, Provider } from 'ai';
 
 
 // Error Response Schema
@@ -50,15 +50,9 @@ export const modelSchema = z.object({
 
 export type ModelConfig = z.infer<typeof modelSchema>;
 
-export interface ProviderClient {
-  readonly type: ProviderType;
-  readonly config: ProviderConfig;
-  readonly providerInstance: Provider; // Provider instance from @ai-sdk providers (OpenAIProvider, AnthropicProvider, etc.)
-  getModel(modelId: string): LanguageModel;
-}
-
 // Health Scoring Schemas
 const modelHealthMetricsSchema = z.object({
+
   provider: providerTypeSchema,
   model: z.string(),
   responseTime: z.number().min(0), // milliseconds
