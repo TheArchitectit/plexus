@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { api, Stat, UsageData } from '../lib/api';
-import { Activity, Server, Zap, Database } from 'lucide-react';
+import { api, Stat, UsageData, Cooldown } from '../lib/api';
+import { Activity, Server, Zap, Database, AlertTriangle } from 'lucide-react';
 import { RecentActivityChart } from '../components/dashboard/RecentActivityChart';
 
 const icons: Record<string, React.ReactNode> = {
@@ -16,29 +16,73 @@ const icons: Record<string, React.ReactNode> = {
 export const Dashboard = () => {
   const [stats, setStats] = useState<Stat[]>([]);
   const [usageData, setUsageData] = useState<UsageData[]>([]);
+  const [cooldowns, setCooldowns] = useState<Cooldown[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [timeAgo, setTimeAgo] = useState<string>('Just now');
   const navigate = useNavigate();
 
+  const loadData = async () => {
+      const [statsData, usage, cooldownsData] = await Promise.all([
+          api.getStats(),
+          api.getUsageData(),
+          api.getCooldowns()
+      ]);
+      setStats(statsData);
+      setUsageData(usage);
+      setCooldowns(cooldownsData);
+      setLastUpdated(new Date());
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-        const [statsData, usage] = await Promise.all([
-            api.getStats(),
-            api.getUsageData()
-        ]);
-        setStats(statsData);
-        setUsageData(usage);
-    };
     loadData();
+    const interval = setInterval(loadData, 30000); // Poll every 30s
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+      const updateTime = () => {
+          const now = new Date();
+          const diff = Math.floor((now.getTime() - lastUpdated.getTime()) / 1000);
+          
+          if (diff < 5) {
+              setTimeAgo('Just now');
+          } else if (diff < 60) {
+              setTimeAgo(`${diff} seconds ago`);
+          } else if (diff < 3600) {
+              const mins = Math.floor(diff / 60);
+              setTimeAgo(`${mins} minute${mins > 1 ? 's' : ''} ago`);
+          } else {
+              const hours = Math.floor(diff / 3600);
+              setTimeAgo(`${hours} hour${hours > 1 ? 's' : ''} ago`);
+          }
+      };
+
+      updateTime();
+      const interval = setInterval(updateTime, 10000);
+      return () => clearInterval(interval);
+  }, [lastUpdated]);
+
+  const handleClearCooldowns = async () => {
+      if (confirm('Are you sure you want to clear all provider cooldowns?')) {
+          try {
+              await api.clearCooldown();
+              loadData();
+          } catch (e) {
+              alert('Failed to clear cooldowns');
+          }
+      }
+  };
 
   return (
     <div className="dashboard">
-      <div className="header">
+      <div className="page-header">
           <div className="header-left">
             <h1 className="page-title">Dashboard</h1>
-            <Badge status="connected">System Online</Badge>
-          </div>
-          <div className="header-right">
-              <span className="last-updated">Last updated: Just now</span>
+            {cooldowns.length > 0 ? (
+                <Badge status="warning" secondaryText={`Last updated: ${timeAgo}`} style={{ minWidth: '190px' }}>System Degraded</Badge>
+            ) : (
+                <Badge status="connected" secondaryText={`Last updated: ${timeAgo}`} style={{ minWidth: '190px' }}>System Online</Badge>
+            )}
           </div>
       </div>
 
@@ -60,6 +104,27 @@ export const Dashboard = () => {
           </div>
         ))}
       </div>
+
+      {cooldowns.length > 0 && (
+          <div style={{marginBottom: '24px'}}>
+              <Card 
+                title="Service Alerts" 
+                className="alert-card" 
+                style={{borderColor: 'var(--color-warning)'}}
+                headerAction={<button className="btn btn-sm btn-ghost" onClick={handleClearCooldowns} style={{color: 'var(--color-warning)'}}>Clear All</button>}
+              >
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                      {cooldowns.map(c => (
+                          <div key={c.provider} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', backgroundColor: 'rgba(255, 171, 0, 0.1)', borderRadius: '4px'}}>
+                              <AlertTriangle size={16} color="var(--color-warning)"/>
+                              <span style={{fontWeight: 500}}>{c.provider}</span>
+                              <span style={{color: 'var(--color-text-secondary)'}}>is on cooldown for {Math.ceil(c.timeRemainingMs / 60000)} minutes</span>
+                          </div>
+                      ))}
+                  </div>
+              </Card>
+          </div>
+      )}
 
       <div className="charts-row">
           <Card className="chart-large" title="Recent Activity">

@@ -1,18 +1,30 @@
-import { describe, expect, test, mock, beforeEach, afterEach, spyOn, beforeAll } from "bun:test";
+import { describe, expect, test, mock, beforeEach, afterEach, spyOn, beforeAll, afterAll } from "bun:test";
 import { Dispatcher } from "../services/dispatcher";
 import { UsageStorageService } from "../services/usage-storage";
 import path from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
 
 describe("Streaming Usage Integration", () => {
     let dispatchSpy: any;
     let saveRequestSpy: any;
     let server: any;
+    let tempDir: string;
 
     beforeAll(async () => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-test-'));
+        process.env.DATA_DIR = tempDir;
+
         const configPath = path.resolve(__dirname, './test-config.yaml');
         process.env.CONFIG_FILE = configPath;
         const module = await import("../index");
         server = module.default;
+    });
+
+    afterAll(() => {
+        if (tempDir) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        }
     });
 
     beforeEach(() => {

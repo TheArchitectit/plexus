@@ -1,5 +1,6 @@
 import { getConfig } from '../config';
 import { logger } from '../utils/logger';
+import { CooldownManager } from './cooldown-manager';
 
 export interface RouteResult {
     provider: string; // provider key in config
@@ -17,7 +18,13 @@ export class Router {
             // Load balancing: pick random target
             const targets = alias.targets;
             if (targets && targets.length > 0) {
-                const target = targets[Math.floor(Math.random() * targets.length)];
+                const healthyTargets = CooldownManager.getInstance().filterHealthyTargets(targets);
+                
+                if (healthyTargets.length === 0) {
+                    throw new Error(`All providers for model alias '${modelName}' are currently on cooldown.`);
+                }
+
+                const target = healthyTargets[Math.floor(Math.random() * healthyTargets.length)];
                 if (!target) {
                     throw new Error(`No target found for alias '${modelName}'`);
                 }
@@ -39,6 +46,10 @@ export class Router {
         // 2. Fallback: Search providers for direct match
         for (const [providerKey, providerConfig] of Object.entries(config.providers)) {
             if (providerConfig.models && providerConfig.models.includes(modelName)) {
+                if (!CooldownManager.getInstance().isProviderHealthy(providerKey)) {
+                    continue;
+                }
+
                 logger.debug(`Direct match '${modelName}' in '${providerKey}'`);
                 return {
                     provider: providerKey,

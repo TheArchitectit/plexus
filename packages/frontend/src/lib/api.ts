@@ -13,6 +13,9 @@ export interface UsageData {
   timestamp: string;
   requests: number;
   tokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
 }
 
 export interface Provider {
@@ -32,6 +35,12 @@ export interface Model {
 export interface Alias {
     id: string;
     targets: Array<{ provider: string; model: string }>;
+}
+
+export interface Cooldown {
+    provider: string;
+    expiry: number;
+    timeRemainingMs: number;
 }
 
 // Backend Types
@@ -73,6 +82,26 @@ interface PlexusConfig {
 }
 
 export const api = {
+  getCooldowns: async (): Promise<Cooldown[]> => {
+      try {
+          const res = await fetch(`${API_BASE}/v0/management/cooldowns`);
+          if (!res.ok) throw new Error('Failed to fetch cooldowns');
+          return await res.json();
+      } catch (e) {
+          console.error("API Error getCooldowns", e);
+          return [];
+      }
+  },
+
+  clearCooldown: async (provider?: string): Promise<void> => {
+      const url = provider 
+        ? `${API_BASE}/v0/management/cooldowns/${provider}`
+        : `${API_BASE}/v0/management/cooldowns`;
+      
+      const res = await fetch(url, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to clear cooldown');
+  },
+
   getStats: async (): Promise<Stat[]> => {
     try {
         const endDate = new Date();
@@ -175,7 +204,14 @@ export const api = {
             
             const key = bucketFormat(t);
             if (!grouped[key]) {
-                grouped[key] = { timestamp: key, requests: 0, tokens: 0 };
+                grouped[key] = { 
+                    timestamp: key, 
+                    requests: 0, 
+                    tokens: 0,
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    cachedTokens: 0
+                };
             }
         }
 
@@ -194,9 +230,21 @@ export const api = {
             
             key = bucketFormat(d);
 
-            if (!grouped[key]) grouped[key] = { timestamp: key, requests: 0, tokens: 0 };
+            if (!grouped[key]) {
+                grouped[key] = { 
+                    timestamp: key, 
+                    requests: 0, 
+                    tokens: 0,
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    cachedTokens: 0
+                };
+            }
             grouped[key].requests++;
             grouped[key].tokens += (r.tokensInput || 0) + (r.tokensOutput || 0);
+            grouped[key].inputTokens += (r.tokensInput || 0);
+            grouped[key].outputTokens += (r.tokensOutput || 0);
+            grouped[key].cachedTokens += (r.tokensCached || 0);
         });
 
         return Object.values(grouped);

@@ -99,6 +99,15 @@ export class UsageStorageService extends EventEmitter {
                     response_status TEXT
                 );
             `);
+            
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS provider_cooldowns (
+                    provider TEXT PRIMARY KEY,
+                    expiry INTEGER,
+                    created_at INTEGER
+                );
+            `);
+            
             logger.info("Usage storage initialized");
         } catch (error) {
             logger.error("Failed to initialize usage storage", error);

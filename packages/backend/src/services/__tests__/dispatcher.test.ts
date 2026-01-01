@@ -3,6 +3,7 @@ import { Dispatcher } from "../dispatcher";
 import { Router } from "../router";
 import { TransformerFactory } from "../transformer-factory";
 import { UnifiedChatRequest, UnifiedChatResponse } from "../../types/unified";
+import { CooldownManager } from "../cooldown-manager";
 
 // Mock Logger to suppress output
 mock.module("../../utils/logger", () => ({
@@ -17,6 +18,7 @@ mock.module("../../utils/logger", () => ({
 
 describe("Dispatcher", () => {
     let dispatcher: Dispatcher;
+    let cooldownSpy: any;
     
     // Mock Data
     const mockRequest: UnifiedChatRequest = {
@@ -50,10 +52,19 @@ describe("Dispatcher", () => {
 
     afterEach(() => {
         mock.restore();
+        if (cooldownSpy) cooldownSpy.mockRestore();
     });
 
     beforeEach(() => {
         dispatcher = new Dispatcher();
+        cooldownSpy = spyOn(CooldownManager, "getInstance").mockReturnValue({
+            markProviderFailure: mock(),
+            isProviderHealthy: mock(() => true),
+            filterHealthyTargets: mock((t: any) => t),
+            removeCooldowns: mock((t: any) => t),
+            setStorage: mock(),
+            getCooldowns: mock(() => [])
+        } as any);
     });
 
     test("dispatches request with correct url, headers and body", async () => {

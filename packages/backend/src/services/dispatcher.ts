@@ -2,6 +2,7 @@ import { UnifiedChatRequest, UnifiedChatResponse } from '../types/unified';
 import { Router } from './router';
 import { TransformerFactory } from './transformer-factory';
 import { logger } from '../utils/logger';
+import { CooldownManager } from './cooldown-manager';
 
 export class Dispatcher {
     async dispatch(request: UnifiedChatRequest): Promise<UnifiedChatResponse> {
@@ -59,6 +60,11 @@ export class Dispatcher {
         if (!response.ok) {
             const errorText = await response.text();
             logger.error(`Provider error: ${response.status} ${errorText}`);
+
+            if (response.status >= 500 || [401, 408, 429].includes(response.status)) {
+                CooldownManager.getInstance().markProviderFailure(route.provider);
+            }
+
             throw new Error(`Provider failed: ${response.status} ${errorText}`);
         }
         

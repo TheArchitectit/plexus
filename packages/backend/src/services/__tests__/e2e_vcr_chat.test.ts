@@ -1,4 +1,4 @@
-import { expect, test, describe, beforeEach, afterEach } from "bun:test";
+import { expect, test, describe, beforeEach, afterEach, spyOn } from "bun:test";
 import { Dispatcher } from "../dispatcher";
 import { UnifiedChatRequest } from "../../types/unified";
 import * as fs from "node:fs";
@@ -6,6 +6,7 @@ import path from "path";
 import { Polly } from "@pollyjs/core";
 import NodeHttpAdapter from "@pollyjs/adapter-fetch";
 import FSPersister from "@pollyjs/persister-fs";
+import { CooldownManager } from "../cooldown-manager";
 
 // Register Polly adapters
 Polly.register(NodeHttpAdapter);
@@ -61,6 +62,7 @@ const CASSETTES_DIR = path.join(import.meta.dir, "__cassettes__");
 describe("E2E Chat Tests", () => {
     let dispatcher: Dispatcher;
     let polly: Polly;
+    let cooldownSpy: any;
 
     const shouldRecord = process.env.RECORD === "1" || 
                         process.argv.includes("--update-snapshots") || 
@@ -68,12 +70,21 @@ describe("E2E Chat Tests", () => {
 
     beforeEach(async () => {
         dispatcher = new Dispatcher();
+        cooldownSpy = spyOn(CooldownManager, "getInstance").mockReturnValue({
+            markProviderFailure: mock(),
+            isProviderHealthy: mock(() => true),
+            filterHealthyTargets: mock((t: any) => t),
+            removeCooldowns: mock((t: any) => t),
+            setStorage: mock(),
+            getCooldowns: mock(() => [])
+        } as any);
     });
 
     afterEach(async () => {
         if (polly) {
             await polly.stop();
         }
+        if (cooldownSpy) cooldownSpy.mockRestore();
     });
 
     const testFiles = fs.readdirSync(CASES_DIR).filter(f => f.endsWith(".json"));

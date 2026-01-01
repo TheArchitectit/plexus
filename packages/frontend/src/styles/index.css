@@ -430,6 +430,12 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+.connection-status.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .connection-dot {
   width: 6px;
   height: 6px;

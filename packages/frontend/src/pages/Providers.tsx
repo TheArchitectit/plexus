@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { api, Provider } from '../lib/api';
+import { api, Provider, Cooldown } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 
 export const Providers = () => {
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [cooldowns, setCooldowns] = useState<Cooldown[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
 
@@ -21,10 +22,18 @@ export const Providers = () => {
 
   useEffect(() => {
     loadProviders();
+    const interval = setInterval(loadProviders, 10000); // Refresh every 10s
+    return () => clearInterval(interval);
   }, []);
 
   const loadProviders = () => {
-      api.getProviders().then(setProviders).catch(err => console.error(err));
+      Promise.all([
+          api.getProviders(),
+          api.getCooldowns()
+      ]).then(([provs, cools]) => {
+          setProviders(provs);
+          setCooldowns(cools);
+      }).catch(err => console.error(err));
   };
 
   const handleEdit = (provider: Provider) => {
@@ -98,6 +107,22 @@ export const Providers = () => {
       }
   };
 
+  const handleClearCooldown = async (providerId: string) => {
+      try {
+          await api.clearCooldown(providerId);
+          loadProviders();
+      } catch (e) {
+          alert("Failed to clear cooldown: " + e);
+      }
+  };
+
+  const getCooldownStatus = (providerId: string) => {
+      const cooldown = cooldowns.find(c => c.provider === providerId);
+      if (!cooldown) return null;
+      const mins = Math.ceil(cooldown.timeRemainingMs / 60000);
+      return { mins };
+  };
+
   return (
     <div className="dashboard">
       <div className="page-header">
@@ -111,8 +136,10 @@ export const Providers = () => {
       </div>
 
       <div className="providers-grid">
-        {providers.map(provider => (
-          <div key={provider.id} className="provider-quota-card">
+        {providers.map(provider => {
+          const cooldown = getCooldownStatus(provider.id);
+          return (
+          <div key={provider.id} className="provider-quota-card" style={cooldown ? {borderColor: 'var(--color-warning)'} : {}}>
             <div className="quota-header">
                 <div className="quota-provider-info">
                     <div className="quota-name-group">
@@ -120,9 +147,26 @@ export const Providers = () => {
                         <span className="quota-window">{provider.type}</span>
                     </div>
                 </div>
-                 <Badge status={provider.enabled ? 'connected' : 'disconnected'}>
-                    {provider.enabled ? 'Enabled' : 'Disabled'}
-                </Badge>
+                 <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                    {cooldown && (
+                        <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <Badge status="warning">
+                                <AlertTriangle size={12} style={{marginRight: '4px'}}/>
+                                Cooldown: {cooldown.mins}m
+                            </Badge>
+                            <button 
+                                className="btn btn-sm btn-ghost" 
+                                style={{padding: '2px 8px', fontSize: '11px', height: 'auto', color: 'var(--color-warning)'}}
+                                onClick={() => handleClearCooldown(provider.id)}
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    )}
+                    <Badge status={provider.enabled ? 'connected' : 'disconnected'}>
+                        {provider.enabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                 </div>
             </div>
             <div className="quota-body" style={{justifyContent: 'space-between', alignItems: 'center'}}>
                 <div className="quota-stats">
@@ -137,7 +181,7 @@ export const Providers = () => {
                 </div>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       <Modal

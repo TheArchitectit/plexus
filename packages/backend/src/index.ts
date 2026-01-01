@@ -10,10 +10,14 @@ import { handleResponse } from './utils/response-handler';
 import { getClientIp } from './utils/ip';
 import fs from 'node:fs';
 import { z } from 'zod';
+import { CooldownManager } from './services/cooldown-manager';
 
 const app = new Hono();
 const dispatcher = new Dispatcher();
 const usageStorage = new UsageStorageService();
+
+// Initialize CooldownManager with storage
+CooldownManager.getInstance().setStorage(usageStorage);
 
 // Load config on startup
 try {
@@ -226,6 +230,22 @@ app.get('/v0/management/events', async (c) => {
             await stream.sleep(10000);
         }
     });
+});
+
+app.get('/v0/management/cooldowns', (c) => {
+    const cooldowns = CooldownManager.getInstance().getCooldowns();
+    return c.json(cooldowns);
+});
+
+app.delete('/v0/management/cooldowns', (c) => {
+    CooldownManager.getInstance().clearCooldown();
+    return c.json({ success: true });
+});
+
+app.delete('/v0/management/cooldowns/:provider', (c) => {
+    const provider = c.req.param('provider');
+    CooldownManager.getInstance().clearCooldown(provider);
+    return c.json({ success: true });
 });
 
 // Health check
