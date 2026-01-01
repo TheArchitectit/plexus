@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
 import { stream } from 'hono/streaming';
 import { logger } from './utils/logger';
-import { loadConfig, getConfig } from './config';
+import { loadConfig, getConfig, getConfigPath, validateConfig } from './config';
 import { Dispatcher } from './services/dispatcher';
 import { AnthropicTransformer, OpenAITransformer } from './transformers';
 import { UsageStorageService } from './services/usage-storage';
 import { UsageRecord } from './types/usage';
+import fs from 'node:fs';
+import { z } from 'zod';
 
 const app = new Hono();
 const dispatcher = new Dispatcher();
@@ -252,19 +254,46 @@ app.post('/v1/responses', async (c) => {
 
 // Management API
 app.get('/v0/management/config', (c) => {
-    const config = getConfig();
-    return c.json({
-        logLevel: logger.level,
-        providers: Object.keys(config.providers).map(key => ({
-            name: key,
-            type: config.providers[key].type,
-            models: config.providers[key].models
-        })),
-        models: Object.keys(config.models).map(key => ({
-            alias: key,
-            targets: config.models[key].targets
-        }))
-    });
+    const configPath = getConfigPath();
+    if (!configPath || !fs.existsSync(configPath)) {
+        return c.json({ error: "Configuration file not found" }, 404);
+    }
+    const configContent = fs.readFileSync(configPath, 'utf8');
+    c.header('Content-Type', 'application/x-yaml');
+    return c.body(configContent);
+});
+
+app.post('/v0/management/config', async (c) => {
+    const configPath = getConfigPath();
+    if (!configPath) {
+         return c.json({ error: "Configuration path not determined" }, 500);
+    }
+
+    try {
+        const body = await c.req.text();
+        
+        // Validate YAML
+        try {
+            validateConfig(body);
+        } catch (e) {
+            if (e instanceof z.ZodError) {
+                return c.json({ error: "Validation failed", details: e.errors }, 400);
+            }
+             return c.json({ error: "Invalid YAML or Schema", details: String(e) }, 400);
+        }
+
+        // Write to file
+        fs.writeFileSync(configPath, body, 'utf8');
+        logger.info(`Configuration updated via API at ${configPath}`);
+
+        // Force reload (optional, as watcher should pick it up, but this ensures immediate consistency for the response if we were returning the object)
+        loadConfig(configPath);
+        
+        return c.body(body, 200, { 'Content-Type': 'application/x-yaml' });
+    } catch (e: any) {
+        logger.error("Failed to update config", e);
+        return c.json({ error: e.message }, 500);
+    }
 });
 
 app.get('/v0/management/usage', (c) => {

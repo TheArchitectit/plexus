@@ -37,6 +37,7 @@ export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 // --- Loader ---
 
 let currentConfig: PlexusConfig | null = null;
+let currentConfigPath: string | null = null;
 let configWatcher: fs.FSWatcher | null = null;
 
 function logConfigStats(config: PlexusConfig) {
@@ -55,10 +56,14 @@ function logConfigStats(config: PlexusConfig) {
     });
 }
 
+export function validateConfig(yamlContent: string): PlexusConfig {
+  const parsed = yaml.parse(yamlContent);
+  return PlexusConfigSchema.parse(parsed);
+}
+
 function parseConfigFile(filePath: string): PlexusConfig {
   const fileContents = fs.readFileSync(filePath, 'utf8');
-  const parsed = yaml.parse(fileContents);
-  const config = PlexusConfigSchema.parse(parsed);
+  const config = validateConfig(fileContents);
   logConfigStats(config);
   return config;
 }
@@ -111,6 +116,7 @@ export function loadConfig(configPath?: string): PlexusConfig {
 
   try {
     currentConfig = parseConfigFile(finalPath);
+    currentConfigPath = finalPath;
     logger.info('Configuration loaded successfully');
     
     setupWatcher(finalPath);
@@ -131,4 +137,8 @@ export function getConfig(): PlexusConfig {
         return loadConfig();
     }
     return currentConfig;
+}
+
+export function getConfigPath(): string | null {
+    return currentConfigPath;
 }

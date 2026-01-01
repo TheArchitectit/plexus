@@ -24,28 +24,20 @@ The Management APIs provide endpoints for inspecting the system configuration an
 
 ### Dashboard Overview
 - **Endpoint:** `GET /v0/management/config`
-- **Description:** Retrieves the current system configuration, including active providers and model aliases.
-- **Response Format:**
-  ```json
-  {
-    "logLevel": "info",
-    "providers": [
-      {
-        "name": "openai_direct",
-        "type": "OpenAI",
-        "models": ["gpt-4o", "gpt-4o-mini"]
-      }
-    ],
-    "models": [
-      {
-        "alias": "fast-model",
-        "targets": [
-          { "provider": "openai_direct", "model": "gpt-4o-mini" }
-        ]
-      }
-    ]
-  }
-  ```
+- **Description:** Retrieves the current raw configuration file (`plexus.yaml`).
+- **Response Header:** `Content-Type: application/x-yaml`
+- **Response Body:** Raw YAML content of the configuration file.
+
+### Update Configuration
+- **Endpoint:** `POST /v0/management/config`
+- **Description:** Updates the system configuration file.
+- **Request Header:** `Content-Type: application/x-yaml` or `text/plain`
+- **Request Body:** Raw YAML content for the new configuration.
+- **Validation:** strict schema adherence required.
+- **Responses:**
+    - `200 OK`: Configuration updated successfully. Returns the new config in body.
+    - `400 Bad Request`: Validation failed. Response JSON includes error details.
+    - `500 Internal Server Error`: File write failed or path not resolved.
 
 ### Usage Records
 - **Endpoint:** `GET /v0/management/usage`
