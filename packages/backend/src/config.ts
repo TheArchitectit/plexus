@@ -22,6 +22,7 @@ const ModelTargetSchema = z.object({
 });
 
 const ModelConfigSchema = z.object({
+  selector: z.enum(['random', 'cost', 'latency', 'usage']).optional(),
   targets: z.array(ModelTargetSchema),
 });
 
@@ -33,6 +34,7 @@ const PlexusConfigSchema = z.object({
 export type PlexusConfig = z.infer<typeof PlexusConfigSchema>;
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
+export type ModelTarget = z.infer<typeof ModelTargetSchema>;
 
 // --- Loader ---
 

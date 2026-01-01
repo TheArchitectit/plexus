@@ -34,6 +34,7 @@ export interface Model {
 
 export interface Alias {
     id: string;
+    selector?: string;
     targets: Array<{ provider: string; model: string }>;
 }
 
@@ -379,6 +380,7 @@ export const api = {
             Object.entries(config.models).forEach(([key, val]) => {
                 aliases.push({
                     id: key,
+                    selector: val.selector,
                     targets: val.targets || []
                 });
             });

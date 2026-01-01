@@ -21,9 +21,11 @@
 # ---------------------------
 # Define friendly "Model Aliases" that your clients will use.
 #
+#   selector:     (Optional) The strategy to select a target.
+#                 Values: 'random' (default), 'cost' (future), 'latency' (future).
 #   targets:      A list of provider/model pairs this alias routes to.
 #                 If multiple targets are provided, Plexus will perform 
-#                 simple round-robin load balancing between them.
+#                 selection based on the defined 'selector'.
 #
 ###############################################################################
 
@@ -91,9 +93,10 @@ models:
       - provider: deepseek
         model: deepseek-reasoner
 
-  # Example of Load Balancing
-  # Requests to 'balanced-model' will distribute across these two targets
+  # Example of Load Balancing with Explicit Selector
+  # Requests to 'balanced-model' will distribute randomly across these two targets
   balanced-model:
+    selector: random
     targets:
       - provider: openai
         model: gpt-4o

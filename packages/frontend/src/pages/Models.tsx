@@ -42,6 +42,7 @@ export const Models = () => {
                 <thead>
                     <tr>
                         <th style={{paddingLeft: '24px'}}>Alias</th>
+                        <th>Selector</th>
                         <th style={{paddingRight: '24px'}}>Targets</th>
                     </tr>
                 </thead>
@@ -49,6 +50,11 @@ export const Models = () => {
                     {filteredAliases.map(alias => (
                         <tr key={alias.id}>
                             <td style={{fontWeight: 600, paddingLeft: '24px'}}>{alias.id}</td>
+                            <td>
+                                <span className="badge badge-outline" style={{fontSize: '11px', textTransform: 'capitalize'}}>
+                                    {alias.selector || 'random (default)'}
+                                </span>
+                            </td>
                             <td style={{paddingRight: '24px'}}>
                                 {alias.targets.map((t, i) => (
                                     <div key={i} style={{fontSize: '12px', color: 'var(--color-text-secondary)'}}>
@@ -60,7 +66,7 @@ export const Models = () => {
                     ))}
                     {filteredAliases.length === 0 && (
                         <tr>
-                            <td colSpan={2} className="empty">No aliases found</td>
+                            <td colSpan={3} className="empty">No aliases found</td>
                         </tr>
                     )}
                 </tbody>

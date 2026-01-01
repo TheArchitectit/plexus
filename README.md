@@ -114,6 +114,14 @@ models:
     targets:
       - provider: my_anthropic
         model: claude-3-5-sonnet-latest
+        
+  balanced-model:
+    selector: random
+    targets:
+      - provider: openai_direct
+        model: gpt-4o
+      - provider: my_anthropic
+        model: claude-3-5-sonnet-latest
 ```
 
 ### Configuration Sections
@@ -127,7 +135,8 @@ models:
 
 - **`models`**:
     - Each key is a "Model Alias" that clients will use in their `model` field.
-    - `targets`: A list of provider/model pairs. If multiple targets are provided, Plexus will load-balance between them.
+    - `selector`: (Optional) The strategy to use for target selection (e.g., `random`). Defaults to `random`.
+    - `targets`: A list of provider/model pairs. If multiple targets are provided, Plexus will select one based on the configured `selector`.
 
 ## Contributing
 
