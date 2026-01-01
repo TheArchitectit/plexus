@@ -34,6 +34,15 @@ export class OpenAITransformer implements Transformer {
     const choice = response.choices?.[0];
     const message = choice?.message;
 
+    const usage = response.usage ? {
+        input_tokens: response.usage.prompt_tokens || 0,
+        output_tokens: response.usage.completion_tokens || 0,
+        total_tokens: response.usage.total_tokens || 0,
+        reasoning_tokens: response.usage.completion_tokens_details?.reasoning_tokens || 0,
+        cached_tokens: response.usage.prompt_tokens_details?.cached_tokens || 0,
+        cache_creation_tokens: 0
+    } : undefined;
+
     return {
         id: response.id,
         model: response.model,
@@ -41,7 +50,7 @@ export class OpenAITransformer implements Transformer {
         content: message?.content || null,
         reasoning_content: message?.reasoning_content || null,
         tool_calls: message?.tool_calls,
-        usage: response.usage
+        usage
     };
   }
 
@@ -63,8 +72,14 @@ export class OpenAITransformer implements Transformer {
                 finish_reason: response.tool_calls ? 'tool_calls' : 'stop'
             }
         ],
-                usage: response.usage
-            };
+        usage: response.usage ? {
+            prompt_tokens: response.usage.input_tokens,
+            completion_tokens: response.usage.output_tokens,
+            total_tokens: response.usage.total_tokens,
+            prompt_tokens_details: null,
+            reasoning_tokens: response.usage.reasoning_tokens
+        } : undefined
+    };
           }
         
           // --- 5. Provider Stream (OpenAI) -> Unified Stream ---
@@ -95,6 +110,15 @@ export class OpenAITransformer implements Transformer {
                                     const data = JSON.parse(dataStr);
                                     const choice = data.choices?.[0];
                                     
+                                    const usage = data.usage ? {
+                                        input_tokens: data.usage.prompt_tokens || 0,
+                                        output_tokens: data.usage.completion_tokens || 0,
+                                        total_tokens: data.usage.total_tokens || 0,
+                                        reasoning_tokens: data.usage.completion_tokens_details?.reasoning_tokens || 0,
+                                        cached_tokens: data.usage.prompt_tokens_details?.cached_tokens || 0,
+                                        cache_creation_tokens: 0
+                                    } : undefined;
+
                                     const chunk = {
                                         id: data.id,
                                         model: data.model,
@@ -106,7 +130,7 @@ export class OpenAITransformer implements Transformer {
                                             tool_calls: choice?.delta?.tool_calls
                                         },
                                         finish_reason: choice?.finish_reason,
-                                        usage: data.usage
+                                        usage
                                     };
                                     controller.enqueue(chunk);
                                 } catch (e) {
@@ -149,7 +173,17 @@ export class OpenAITransformer implements Transformer {
                                         finish_reason: unifiedChunk.finish_reason || null
                                     }
                                 ],
-                                usage: unifiedChunk.usage
+                                usage: unifiedChunk.usage ? {
+                                    prompt_tokens: unifiedChunk.usage.input_tokens,
+                                    completion_tokens: unifiedChunk.usage.output_tokens,
+                                    total_tokens: unifiedChunk.usage.total_tokens,
+                                    prompt_tokens_details: {
+                                        cached_tokens: unifiedChunk.usage.cached_tokens
+                                    },
+                                    completion_tokens_details: {
+                                        reasoning_tokens: unifiedChunk.usage.reasoning_tokens
+                                    }
+                                } : undefined
                             };
         
                             controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIChunk)}\n\n`));

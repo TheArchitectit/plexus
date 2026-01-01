@@ -55,6 +55,7 @@ describe("OpenAITransformer", () => {
         expect(result.id).toBe("chatcmpl-123");
         expect(result.content).toBe("Hello there");
         expect(result.usage?.total_tokens).toBe(30);
+        expect(result.usage?.input_tokens).toBe(10);
     });
 
     test("transformResponse extracts reasoning_content", async () => {
@@ -68,7 +69,7 @@ describe("OpenAITransformer", () => {
                     reasoning_content: "Calculating answer..."
                 }
             }],
-            usage: { total_tokens: 10 }
+            usage: { total_tokens: 10, prompt_tokens: 5, completion_tokens: 5 }
         };
 
         const result = await transformer.transformResponse(openAIResponse);
@@ -91,8 +92,8 @@ describe("OpenAITransformer", () => {
         };
 
         const result = await transformer.transformResponse(openAIResponse);
-        expect(result.usage?.prompt_tokens_details?.cached_tokens).toBe(5);
-        expect(result.usage?.completion_tokens_details?.reasoning_tokens).toBe(15);
+        expect(result.usage?.reasoning_tokens).toBe(15);
+        expect(result.usage?.cached_tokens).toBe(5);
     });
 
     test("formatResponse constructs OpenAI response with reasoning_content", async () => {
@@ -102,9 +103,12 @@ describe("OpenAITransformer", () => {
             content: "Final answer",
             reasoning_content: "Thinking process",
             usage: {
-                prompt_tokens: 10,
-                completion_tokens: 10,
-                total_tokens: 20
+                input_tokens: 10,
+                output_tokens: 10,
+                total_tokens: 20,
+                reasoning_tokens: 0,
+                cached_tokens: 0,
+                cache_creation_tokens: 0
             }
         };
 
@@ -112,6 +116,7 @@ describe("OpenAITransformer", () => {
         expect(result.id).toBe("unified-123");
         expect(result.choices[0].message.content).toBe("Final answer");
         expect(result.choices[0].message.reasoning_content).toBe("Thinking process");
+        expect(result.usage.prompt_tokens).toBe(10);
     });
 
     test("transformStream converts OpenAI chunks to unified chunks", async () => {

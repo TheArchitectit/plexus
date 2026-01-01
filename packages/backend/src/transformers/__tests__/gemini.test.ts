@@ -147,9 +147,14 @@ describe("GeminiTransformer", () => {
             content: "Hello world",
             reasoning_content: "My thoughts",
             usage: {
+                input_tokens: 10,
+                output_tokens: 10,
+                total_tokens: 20,
+                reasoning_tokens: 0,
+                cached_tokens: 0,
+                cache_creation_tokens: 0,
                 prompt_tokens: 10,
                 completion_tokens: 10,
-                total_tokens: 20
             }
         };
 
@@ -238,10 +243,8 @@ describe("GeminiTransformer", () => {
         };
 
         const result = await transformer.transformResponse(geminiResponse);
-        expect(result.usage?.prompt_tokens).toBe(104);
-        expect(result.usage?.prompt_tokens_details?.text_tokens).toBe(104);
-        expect(result.usage?.prompt_tokens_details?.image_tokens).toBe(10);
-        expect(result.usage?.completion_tokens_details?.reasoning_tokens).toBe(310);
+        expect(result.usage?.input_tokens).toBe(104);
+        expect(result.usage?.reasoning_tokens).toBe(310);
     });
 
     test("formatResponse includes detailed usage in Gemini format", async () => {
@@ -250,24 +253,17 @@ describe("GeminiTransformer", () => {
             model: "gemini-pro",
             content: "Response",
             usage: {
-                prompt_tokens: 104,
-                completion_tokens: 25,
+                input_tokens: 104,
+                output_tokens: 25,
                 total_tokens: 439,
-                prompt_tokens_details: {
-                    text_tokens: 104,
-                    image_tokens: 0
-                },
-                completion_tokens_details: {
-                    reasoning_tokens: 310
-                }
+                reasoning_tokens: 310,
+                cached_tokens: 0,
+                cache_creation_tokens: 0
             }
         };
 
         const result = await transformer.formatResponse(unified);
         expect(result.usageMetadata.promptTokenCount).toBe(104);
         expect(result.usageMetadata.thoughtsTokenCount).toBe(310);
-        expect(result.usageMetadata.promptTokensDetails).toHaveLength(1);
-        expect(result.usageMetadata.promptTokensDetails[0].modality).toBe("TEXT");
-        expect(result.usageMetadata.promptTokensDetails[0].tokenCount).toBe(104);
     });
 });

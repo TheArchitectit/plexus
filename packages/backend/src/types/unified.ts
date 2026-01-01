@@ -96,6 +96,15 @@ export interface Annotation {
   };
 }
 
+export interface UnifiedUsage {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    reasoning_tokens: number;
+    cached_tokens: number;
+    cache_creation_tokens: number;
+}
+
 export interface UnifiedChatResponse {
   id: string;
   model: string;
@@ -107,23 +116,7 @@ export interface UnifiedChatResponse {
       apiType?: string;
   };
   reasoning_content?: string | null;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-    prompt_tokens_details?: {
-        cached_tokens?: number;
-        audio_tokens?: number;
-        text_tokens?: number;
-        image_tokens?: number;
-    };
-    completion_tokens_details?: {
-        reasoning_tokens?: number;
-        audio_tokens?: number;
-        accepted_prediction_tokens?: number;
-        rejected_prediction_tokens?: number;
-    };
-  };
+  usage?: UnifiedUsage;
   tool_calls?: Array<{
     id: string;
     type: "function";
@@ -134,9 +127,6 @@ export interface UnifiedChatResponse {
   }>;
   annotations?: Annotation[];
   stream?: ReadableStream | any;
-  
-  // Streaming specific?
-  // We might need a separate UnifiedChunk type if we handle streaming internally as objects
 }
 
 export interface UnifiedChatStreamChunk {
@@ -155,23 +145,8 @@ export interface UnifiedChatStreamChunk {
                 arguments?: string;
             }
         }>;
+        reasoning_content?: string | null;
     };
     finish_reason?: string | null;
-    usage?: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
-        prompt_tokens_details?: {
-            cached_tokens?: number;
-            audio_tokens?: number;
-            text_tokens?: number;
-            image_tokens?: number;
-        };
-        completion_tokens_details?: {
-            reasoning_tokens?: number;
-            audio_tokens?: number;
-            accepted_prediction_tokens?: number;
-            rejected_prediction_tokens?: number;
-        };
-    };
+    usage?: UnifiedUsage;
 }

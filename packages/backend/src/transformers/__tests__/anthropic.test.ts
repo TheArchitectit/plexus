@@ -25,13 +25,21 @@ describe("AnthropicTransformer", () => {
             id: "msg_123",
             model: "claude-3",
             content: "Hi there",
-            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }
+            usage: {
+                input_tokens: 10,
+                output_tokens: 5,
+                total_tokens: 15,
+                reasoning_tokens: 0,
+                cached_tokens: 0,
+                cache_creation_tokens: 0
+            }
         };
         const result = await transformer.formatResponse(unified);
         expect(result.id).toBe("msg_123");
         expect(result.role).toBe("assistant");
         expect(result.content).toBeInstanceOf(Array);
         expect(result.content[0].text).toBe("Hi there");
+        expect(result.usage.input_tokens).toBe(10);
     });
 
     test("transformResponse extracts thinking into reasoning_content", async () => {
@@ -47,6 +55,7 @@ describe("AnthropicTransformer", () => {
         const result = await transformer.transformResponse(anthropicResponse);
         expect(result.content).toBe("Hello!");
         expect(result.reasoning_content).toBe("I should say hello");
+        expect(result.usage?.input_tokens).toBe(10);
     });
 
     test("formatResponse converts reasoning_content to thinking block", async () => {
@@ -55,7 +64,14 @@ describe("AnthropicTransformer", () => {
             model: "claude-3",
             content: "Hello!",
             reasoning_content: "My internal thought",
-            usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 }
+            usage: {
+                input_tokens: 10,
+                output_tokens: 10,
+                total_tokens: 20,
+                reasoning_tokens: 0,
+                cached_tokens: 0,
+                cache_creation_tokens: 0
+            }
         };
         const result = await transformer.formatResponse(unified);
         expect(result.content).toHaveLength(2);
@@ -78,19 +94,41 @@ describe("AnthropicTransformer", () => {
             }
         };
         const unified = await transformer.transformResponse(anthropicResponse);
-        expect(unified.usage?.prompt_tokens_details?.cached_tokens).toBe(25);
+        expect(unified.usage?.cached_tokens).toBe(25);
+        expect(unified.usage?.input_tokens).toBe(100);
 
         // Test Unified -> Anthropic (cache read)
         const result = await transformer.formatResponse(unified);
         expect(result.usage.cache_read_input_tokens).toBe(25);
     });
 
+    test("transformResponse imputes thinking tokens", async () => {
+        const anthropicResponse = {
+            id: "msg_impute",
+            model: "claude-3-5-sonnet",
+            content: [
+                { type: "thinking", thinking: "I am thinking", signature: "sig" },
+                { type: "text", text: "Hello" }
+            ],
+            usage: { 
+                input_tokens: 10, 
+                output_tokens: 50 // Much larger than "Hello" (usually 1 token)
+            }
+        };
+        const result = await transformer.transformResponse(anthropicResponse);
+        expect(result.usage?.output_tokens).toBeLessThan(50);
+        expect(result.usage?.reasoning_tokens).toBeGreaterThan(0);
+        expect(result.usage?.output_tokens! + result.usage?.reasoning_tokens!).toBe(50);
+    });
+
     test("transformStream converts Anthropic events to unified chunks", async () => {
         const encoder = new TextEncoder();
         const events = [
             'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","model":"claude-3","usage":{"input_tokens":10}}}\n\n',
-            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
-            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}\n\n',
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"I think"}}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}\n\n',
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Hello"}}\n\n',
             'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}\n\n'
         ];
 
@@ -111,11 +149,13 @@ describe("AnthropicTransformer", () => {
             results.push(value);
         }
 
-        expect(results).toHaveLength(3); // message_start, content_block_delta, message_delta
+        expect(results).toHaveLength(4); // message_start, thinking_delta, text_delta, message_delta
         expect(results[0].delta.role).toBe("assistant");
-        expect(results[1].delta.content).toBe("Hello");
-        expect(results[2].finish_reason).toBe("stop");
-        expect(results[2].usage.completion_tokens).toBe(5);
+        expect(results[1].delta.reasoning_content).toBe("I think");
+        expect(results[2].delta.content).toBe("Hello");
+        expect(results[3].finish_reason).toBe("stop");
+        expect(results[3].usage.output_tokens).toBe(1); // "Hello" is 1 token
+        expect(results[3].usage.reasoning_tokens).toBe(4); // 5 total - 1 real = 4 thinking
     });
 
     test("formatStream converts unified chunks to Anthropic event stream", async () => {

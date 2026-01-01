@@ -352,19 +352,19 @@ export class GeminiTransformer implements Transformer {
             });
         }
 
+        const promptTokenCount = response.usageMetadata?.promptTokenCount || 0;
+        const candidatesTokenCount = response.usageMetadata?.candidatesTokenCount || 0;
+        const totalTokenCount = response.usageMetadata?.totalTokenCount || 0;
+        const thoughtsTokenCount = response.usageMetadata?.thoughtsTokenCount || 0;
+        const cachedContentTokenCount = response.usageMetadata?.cachedContentTokenCount || 0;
+
         const usage = response.usageMetadata ? {
-            prompt_tokens: response.usageMetadata.promptTokenCount || 0,
-            completion_tokens: response.usageMetadata.candidatesTokenCount || 0,
-            total_tokens: response.usageMetadata.totalTokenCount || 0,
-             prompt_tokens_details: {
-                cached_tokens: response.usageMetadata.cachedContentTokenCount || 0,
-                text_tokens: text_tokens > 0 ? text_tokens : undefined,
-                image_tokens: image_tokens > 0 ? image_tokens : undefined,
-                audio_tokens: audio_tokens > 0 ? audio_tokens : undefined
-            },
-            completion_tokens_details: {
-                reasoning_tokens: response.usageMetadata.thoughtsTokenCount || 0
-            }
+            input_tokens: promptTokenCount,
+            output_tokens: candidatesTokenCount,
+            total_tokens: totalTokenCount,
+            reasoning_tokens: thoughtsTokenCount,
+            cached_tokens: cachedContentTokenCount,
+            cache_creation_tokens: 0
         } : undefined;
 
         return {
@@ -413,15 +413,13 @@ export class GeminiTransformer implements Transformer {
                 }
             ],
             usageMetadata: response.usage ? {
-                promptTokenCount: response.usage.prompt_tokens,
-                candidatesTokenCount: response.usage.completion_tokens,
+                promptTokenCount: response.usage.input_tokens,
+                candidatesTokenCount: response.usage.output_tokens,
                 totalTokenCount: response.usage.total_tokens,
-                promptTokensDetails: response.usage.prompt_tokens_details ? [
-                    ...(response.usage.prompt_tokens_details.text_tokens ? [{ modality: 'TEXT', tokenCount: response.usage.prompt_tokens_details.text_tokens }] : []),
-                    ...(response.usage.prompt_tokens_details.image_tokens ? [{ modality: 'IMAGE', tokenCount: response.usage.prompt_tokens_details.image_tokens }] : []),
-                    ...(response.usage.prompt_tokens_details.audio_tokens ? [{ modality: 'AUDIO', tokenCount: response.usage.prompt_tokens_details.audio_tokens }] : []),
-                ] : undefined,
-                thoughtsTokenCount: response.usage.completion_tokens_details?.reasoning_tokens
+                promptTokensDetails: [
+                    { modality: 'TEXT', tokenCount: response.usage.input_tokens }
+                ],
+                thoughtsTokenCount: response.usage.reasoning_tokens
             } : undefined,
             modelVersion: response.model
         };
@@ -514,23 +512,23 @@ export class GeminiTransformer implements Transformer {
                                         });
                                     }
 
+                                    const promptTokenCount = chunk.usageMetadata?.promptTokenCount || 0;
+                                    const candidatesTokenCount = chunk.usageMetadata?.candidatesTokenCount || 0;
+                                    const totalTokenCount = chunk.usageMetadata?.totalTokenCount || 0;
+                                    const thoughtsTokenCount = chunk.usageMetadata?.thoughtsTokenCount || 0;
+                                    const cachedContentTokenCount = chunk.usageMetadata?.cachedContentTokenCount || 0;
+
                                     controller.enqueue({
                                         id: chunk.responseId,
                                         model: chunk.modelVersion,
                                         finish_reason: candidate.finishReason.toLowerCase(),
                                         usage: chunk.usageMetadata ? {
-                                            prompt_tokens: chunk.usageMetadata.promptTokenCount,
-                                            completion_tokens: chunk.usageMetadata.candidatesTokenCount,
-                                            total_tokens: chunk.usageMetadata.totalTokenCount,
-                                            prompt_tokens_details: {
-                                                cached_tokens: chunk.usageMetadata.cachedContentTokenCount || 0,
-                                                text_tokens: text_tokens > 0 ? text_tokens : undefined,
-                                                image_tokens: image_tokens > 0 ? image_tokens : undefined,
-                                                audio_tokens: audio_tokens > 0 ? audio_tokens : undefined
-                                            },
-                                            completion_tokens_details: {
-                                                reasoning_tokens: chunk.usageMetadata.thoughtsTokenCount || 0
-                                            }
+                                            input_tokens: promptTokenCount,
+                                            output_tokens: candidatesTokenCount,
+                                            total_tokens: totalTokenCount,
+                                            reasoning_tokens: thoughtsTokenCount,
+                                            cached_tokens: cachedContentTokenCount,
+                                            cache_creation_tokens: 0
                                         } : undefined
                                     });
                                 }
@@ -593,15 +591,13 @@ export class GeminiTransformer implements Transformer {
                                     index: 0
                                 }],
                                 usageMetadata: chunk.usage ? {
-                                    promptTokenCount: chunk.usage.prompt_tokens,
-                                    candidatesTokenCount: chunk.usage.completion_tokens,
+                                    promptTokenCount: chunk.usage.input_tokens,
+                                    candidatesTokenCount: chunk.usage.output_tokens,
                                     totalTokenCount: chunk.usage.total_tokens,
-                                    promptTokensDetails: chunk.usage.prompt_tokens_details ? [
-                                        ...(chunk.usage.prompt_tokens_details.text_tokens ? [{ modality: 'TEXT', tokenCount: chunk.usage.prompt_tokens_details.text_tokens }] : []),
-                                        ...(chunk.usage.prompt_tokens_details.image_tokens ? [{ modality: 'IMAGE', tokenCount: chunk.usage.prompt_tokens_details.image_tokens }] : []),
-                                        ...(chunk.usage.prompt_tokens_details.audio_tokens ? [{ modality: 'AUDIO', tokenCount: chunk.usage.prompt_tokens_details.audio_tokens }] : []),
-                                    ] : undefined,
-                                    thoughtsTokenCount: chunk.usage.completion_tokens_details?.reasoning_tokens
+                                    promptTokensDetails: [
+                                        { modality: 'TEXT', tokenCount: chunk.usage.input_tokens }
+                                    ],
+                                    thoughtsTokenCount: chunk.usage.reasoning_tokens
                                 } : undefined
                             };
                             controller.enqueue(encoder.encode(`data: ${JSON.stringify(geminiChunk)}

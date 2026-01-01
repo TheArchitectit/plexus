@@ -1,6 +1,7 @@
 import { Transformer } from '../types/transformer';
 import { UnifiedChatRequest, UnifiedChatResponse, UnifiedMessage, UnifiedTool, MessageContent } from '../types/unified';
 import { logger } from '../utils/logger';
+import { countTokens } from '@anthropic-ai/tokenizer';
 
 export class AnthropicTransformer implements Transformer {
   name = 'Anthropic';
@@ -129,11 +130,11 @@ export class AnthropicTransformer implements Transformer {
         stop_reason: 'end_turn',
         stop_sequence: null,
         usage: {
-            input_tokens: response.usage?.prompt_tokens || 0,
-            output_tokens: response.usage?.completion_tokens || 0,
-            cache_read_input_tokens: response.usage?.prompt_tokens_details?.cached_tokens || 0,
-            // Anthropic doesn't explicitly return reasoning tokens in usage object typically, but if we had to map it:
-            // It might be implicitly part of output_tokens.
+            input_tokens: response.usage?.input_tokens || 0,
+            output_tokens: response.usage?.output_tokens || 0,
+            thinkingTokens: response.usage?.reasoning_tokens || 0,
+            cache_read_input_tokens: response.usage?.cached_tokens || 0,
+            cache_creation_input_tokens: response.usage?.cache_creation_tokens || 0
         }
     };
   }
@@ -242,6 +243,20 @@ export class AnthropicTransformer implements Transformer {
         }
     }
 
+    const inputTokens = response.usage?.input_tokens || 0;
+    const totalOutputTokens = response.usage?.output_tokens || 0;
+    const cacheReadTokens = response.usage?.cache_read_input_tokens || 0;
+    const cacheCreationTokens = response.usage?.cache_creation_input_tokens || 0;
+    
+    let realOutputTokens = totalOutputTokens;
+    let imputedThinkingTokens = 0;
+
+    // Only impute if there is thinking content
+    if (reasoning.length > 0) {
+        realOutputTokens = countTokens(text);
+        imputedThinkingTokens = Math.max(0, totalOutputTokens - realOutputTokens);
+    }
+
     return {
         id: response.id,
         model: response.model,
@@ -249,12 +264,12 @@ export class AnthropicTransformer implements Transformer {
         reasoning_content: reasoning || null,
         tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         usage: {
-            prompt_tokens: response.usage?.input_tokens || 0,
-            completion_tokens: response.usage?.output_tokens || 0,
-            total_tokens: (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0),
-            prompt_tokens_details: {
-                cached_tokens: response.usage?.cache_read_input_tokens || 0
-            }
+            input_tokens: inputTokens,
+            output_tokens: realOutputTokens,
+            total_tokens: inputTokens + totalOutputTokens,
+            reasoning_tokens: imputedThinkingTokens,
+            cached_tokens: cacheReadTokens,
+            cache_creation_tokens: cacheCreationTokens
         }
     };
   }
@@ -266,6 +281,8 @@ export class AnthropicTransformer implements Transformer {
 
     return new ReadableStream({
         async start(controller) {
+            let accumulatedText = "";
+            let seenThinking = false;
             const reader = stream.getReader();
             try {
                 while (true) {
@@ -298,10 +315,12 @@ export class AnthropicTransformer implements Transformer {
                                     break;
                                 case 'content_block_delta':
                                     if (data.delta.type === 'text_delta') {
+                                        accumulatedText += data.delta.text;
                                         chunk = {
                                             delta: { content: data.delta.text }
                                         };
                                     } else if (data.delta.type === 'thinking_delta') {
+                                        seenThinking = true;
                                         chunk = {
                                             delta: { reasoning_content: data.delta.thinking }
                                         };
@@ -334,14 +353,28 @@ export class AnthropicTransformer implements Transformer {
                                     }
                                     break;
                                 case 'message_delta':
+                                    const inputTokens = data.usage?.input_tokens || 0;
+                                    const totalOutputTokens = data.usage?.output_tokens || 0;
+                                    
+                                    let realOutputTokens = totalOutputTokens;
+                                    let imputedThinkingTokens = 0;
+
+                                    if (seenThinking) {
+                                        realOutputTokens = countTokens(accumulatedText);
+                                        imputedThinkingTokens = Math.max(0, totalOutputTokens - realOutputTokens);
+                                    }
+
                                     chunk = {
                                         finish_reason: data.delta.stop_reason === 'end_turn' ? 'stop' : 
                                                       data.delta.stop_reason === 'tool_use' ? 'tool_calls' : 
                                                       data.delta.stop_reason,
                                         usage: data.usage ? {
-                                            prompt_tokens: data.usage.input_tokens,
-                                            completion_tokens: data.usage.output_tokens,
-                                            total_tokens: data.usage.input_tokens + data.usage.output_tokens
+                                            input_tokens: inputTokens,
+                                            output_tokens: realOutputTokens,
+                                            total_tokens: inputTokens + totalOutputTokens,
+                                            reasoning_tokens: imputedThinkingTokens,
+                                            cached_tokens: 0,
+                                            cache_creation_tokens: 0
                                         } : undefined
                                     };
                                     break;
@@ -446,7 +479,8 @@ export class AnthropicTransformer implements Transformer {
                                 stop_sequence: null
                             },
                             usage: chunk.usage ? {
-                                output_tokens: chunk.usage.completion_tokens
+                                output_tokens: chunk.usage.output_tokens,
+                                thinkingTokens: chunk.usage.reasoning_tokens
                             } : undefined
                         };
                         controller.enqueue(encoder.encode(`event: message_delta\ndata: ${JSON.stringify(messageDelta)}\n\n`));
