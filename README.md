@@ -1,6 +1,6 @@
-# Plexus 2
+# Plexus
 
-**A High-Performance, Universal LLM API Gateway & Transformation Layer.**
+**A Universal LLM API Gateway & Transformation Layer.**
 
 Plexus 2 unifies interactions with multiple AI providers—OpenAI, Anthropic, Gemini, and more—under a single, standard API. It handles protocol translation, load balancing, and observability, allowing you to switch models and providers without rewriting your client code.
 
@@ -20,7 +20,7 @@ Plexus 2 unifies interactions with multiple AI providers—OpenAI, Anthropic, Ge
 
 ## The Plexus Dashboard
 
-Plexus 2 comes with a comprehensive, real-time dashboard for managing your AI gateway.
+Plexus comes with a comprehensive, real-time dashboard for managing your AI gateway.
 
 ### Observability & Debugging
 Gain deep insights into your LLM traffic. View request logs, analyze detailed traces, and debug raw payloads.
@@ -55,28 +55,28 @@ Track your API usage and trends over time.
 
 ## Installation
 
-Plexus 2 is built with [Bun](https://bun.sh/).
+Plexus is built with [Bun](https://bun.sh/).
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-repo/plexus2.git
-   cd plexus2
+   git clone https://github.com/mcowger/plexus.git
+   cd plexus
    ```
 
 2. **Install dependencies**:
    ```bash
-   bun install
+   bun run install:all
    ```
 
 ## Development
 
-Plexus 2 includes a unified development environment that manages both the backend API and the frontend dashboard.
+Plexus includes a unified development environment that manages both the backend API and the frontend dashboard.
 
 ### Starting the Dev Stack
 
 To start the full stack in development mode:
 ```bash
-bun run scripts/dev.ts
+bun run dev
 ```
 
 This single command orchestrates the following:
@@ -91,7 +91,7 @@ Open your browser to: `http://localhost:4000`
 
 ## Compiling to Standalone Executables
 
-Plexus 2 can be compiled into a single, self-contained binary that includes the Bun runtime, all backend logic, and the pre-built frontend dashboard.
+Plexus can be compiled into a single, self-contained binary that includes the Bun runtime, all backend logic, and the pre-built frontend dashboard.
 
 ### Build Commands
 
