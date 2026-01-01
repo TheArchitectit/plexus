@@ -1,7 +1,6 @@
-import { expect, test, describe, beforeEach, afterEach } from "bun:test";
+import { expect, test, describe, beforeEach } from "bun:test";
 import { CooldownManager } from "../cooldown-manager";
 import { UsageStorageService } from "../usage-storage";
-import { Database } from "bun:sqlite";
 
 describe("CooldownManager Persistence", () => {
     let storage: UsageStorageService;

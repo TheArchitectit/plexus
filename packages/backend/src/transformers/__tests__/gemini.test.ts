@@ -266,4 +266,36 @@ describe("GeminiTransformer", () => {
         expect(result.usageMetadata.promptTokenCount).toBe(104);
         expect(result.usageMetadata.thoughtsTokenCount).toBe(310);
     });
+
+    test("parseRequest and transformRequest preserve response format and thinking config", async () => {
+        const input = {
+            model: "gemini-2.0-flash-thinking",
+            contents: [{ role: "user", parts: [{ text: "Think about JSON" }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseJsonSchema: { type: "OBJECT", properties: { result: { type: "STRING" } } },
+                thinkingConfig: {
+                    includeThoughts: true,
+                    thinkingBudget: 1024
+                },
+                maxOutputTokens: 2048,
+                temperature: 0.5
+            }
+        };
+
+        const unified = await transformer.parseRequest(input);
+        
+        expect(unified.response_format?.type).toBe("json_schema");
+        expect(unified.response_format?.json_schema).toEqual(input.generationConfig.responseJsonSchema);
+        expect(unified.reasoning?.enabled).toBe(true);
+        expect(unified.reasoning?.max_tokens).toBe(1024);
+
+        const transformed = await transformer.transformRequest(unified);
+
+        expect(transformed.generationConfig!.responseMimeType).toBe("application/json");
+        expect(transformed.generationConfig!.responseJsonSchema).toEqual(input.generationConfig.responseJsonSchema);
+        expect(transformed.generationConfig!.thinkingConfig!.includeThoughts).toBe(true);
+        expect(transformed.generationConfig!.thinkingConfig!.thinkingBudget).toBe(1024);
+        expect(transformed.generationConfig!.maxOutputTokens).toBe(2048);
+    });
 });

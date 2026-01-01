@@ -64,6 +64,22 @@ export class GeminiTransformer implements Transformer {
             unifiedChatRequest.stream = true;
         }
 
+        // Map response format
+        if (generationConfig.responseMimeType === 'application/json') {
+            unifiedChatRequest.response_format = {
+                type: generationConfig.responseJsonSchema ? 'json_schema' : 'json_object',
+                json_schema: generationConfig.responseJsonSchema
+            };
+        }
+
+        // Map thinking config
+        if (generationConfig.thinkingConfig) {
+            unifiedChatRequest.reasoning = {
+                enabled: generationConfig.thinkingConfig.includeThoughts,
+                max_tokens: generationConfig.thinkingConfig.thinkingBudget
+            };
+        }
+
         // Map Contents to Messages
         if (Array.isArray(contents)) {
             contents.forEach((content) => {
@@ -277,6 +293,27 @@ export class GeminiTransformer implements Transformer {
             }
         };
 
+        // Transform Response Format (JSON/Schema)
+        if (request.response_format) {
+            if (request.response_format.type === 'json_object' || request.response_format.type === 'json_schema') {
+                req.generationConfig!.responseMimeType = 'application/json';
+                if (request.response_format.json_schema) {
+                    req.generationConfig!.responseJsonSchema = request.response_format.json_schema;
+                }
+            }
+        }
+
+        // Transform Thinking Config
+        if (request.reasoning?.enabled) {
+             if (!req.generationConfig!.thinkingConfig) {
+                 req.generationConfig!.thinkingConfig = {};
+             }
+             req.generationConfig!.thinkingConfig.includeThoughts = true;
+             if (request.reasoning.max_tokens) {
+                 req.generationConfig!.thinkingConfig.thinkingBudget = request.reasoning.max_tokens;
+             }
+        }
+
         // Transform Tool Config
         if (request.tool_choice) {
              const toolConfig: any = { functionCallingConfig: {} };
@@ -294,13 +331,6 @@ export class GeminiTransformer implements Transformer {
              if (toolConfig.functionCallingConfig.mode) {
                  req.toolConfig = toolConfig;
              }
-        }
-
-        if (request.reasoning?.effort) {
-             if (!req.generationConfig!.thinkingConfig) {
-                 req.generationConfig!.thinkingConfig = {};
-             }
-             req.generationConfig!.thinkingConfig.includeThoughts = true;
         }
 
         return req;
