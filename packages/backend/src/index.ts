@@ -64,13 +64,18 @@ app.post('/v1/chat/completions', async (c) => {
             // Background processing of the stream for logging
             (async () => {
                 const reader = logStream.getReader();
-                let chunkCount = 0;
                 try {
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
-                        chunkCount++;
-                        // Try to extract usage from value if possible (implementation specific)
+                        
+                        // Extract usage if present in the chunk
+                        if (value && value.usage) {
+                            usageRecord.tokensInput = value.usage.prompt_tokens;
+                            usageRecord.tokensOutput = value.usage.completion_tokens;
+                            usageRecord.tokensCached = value.usage.prompt_tokens_details?.cached_tokens;
+                            usageRecord.tokensReasoning = value.usage.completion_tokens_details?.reasoning_tokens;
+                        }
                     }
                     usageRecord.responseStatus = 'success';
                 } catch (e) {
@@ -172,7 +177,14 @@ app.post('/v1/messages', async (c) => {
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
-                        // Inspect chunks for usage if possible
+                        
+                        // Extract usage if present in the chunk
+                        if (value && value.usage) {
+                            usageRecord.tokensInput = value.usage.prompt_tokens;
+                            usageRecord.tokensOutput = value.usage.completion_tokens;
+                            usageRecord.tokensCached = value.usage.prompt_tokens_details?.cached_tokens;
+                            usageRecord.tokensReasoning = value.usage.completion_tokens_details?.reasoning_tokens;
+                        }
                     }
                     usageRecord.responseStatus = 'success';
                 } catch (e) {
