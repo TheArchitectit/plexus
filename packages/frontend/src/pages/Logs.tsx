@@ -177,8 +177,8 @@ export const Logs = () => {
                                         </td>
                                         <td style={{ padding: '12px' }}>
                                             <div style={{display:'flex', flexDirection:'column'}}>
-                                                <span>In: {log.incomingModelAlias || '-'}</span>
-                                                <span style={{color:'var(--color-text-secondary)', fontSize:'0.9em'}}>Sel: {log.selectedModelName || '-'}</span>
+                                                <span>REQ: {log.incomingModelAlias || '-'}</span>
+                                                <span style={{color:'var(--color-text-secondary)', fontSize:'0.9em'}}>SEL: {log.selectedModelName || '-'}</span>
                                             </div>
                                         </td>
                                         <td style={{ padding: '12px' }}>{log.provider || '-'}</td>

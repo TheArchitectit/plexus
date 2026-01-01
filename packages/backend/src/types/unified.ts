@@ -79,6 +79,7 @@ export interface UnifiedChatRequest {
     max_tokens?: number;
     enabled?: boolean;
   };
+  incomingApiType?: string;
   // Store original input provider type if needed for some logic, though ideally we are fully unified
 }
 

@@ -53,6 +53,7 @@ app.post('/v1/chat/completions', async (c) => {
         logger.debug('Incoming OpenAI Request', body);
         const transformer = new OpenAITransformer();
         const unifiedRequest = await transformer.parseRequest(body);
+        unifiedRequest.incomingApiType = 'openai';
         
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         
@@ -99,6 +100,7 @@ app.post('/v1/messages', async (c) => {
         logger.debug('Incoming Anthropic Request', body);
         const transformer = new AnthropicTransformer();
         const unifiedRequest = await transformer.parseRequest(body);
+        unifiedRequest.incomingApiType = 'anthropic';
         
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         

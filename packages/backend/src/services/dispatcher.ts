@@ -43,7 +43,11 @@ export class Dispatcher {
             Object.assign(headers, route.config.headers);
         }
 
-        logger.info(`Dispatching ${request.model} to ${route.provider}:${route.model} via ${transformer.name}`);
+        const incomingApi = request.incomingApiType === 'openai' ? 'OpenAI' : 
+                           request.incomingApiType === 'anthropic' ? 'Anthropic' : 
+                           request.incomingApiType || 'Unknown';
+
+        logger.info(`Dispatching ${request.model} to ${route.provider}:${route.model} ${incomingApi} <-> ${transformer.name}`);
         logger.silly('Upstream Request Payload', providerPayload);
         
         const response = await fetch(url, {
