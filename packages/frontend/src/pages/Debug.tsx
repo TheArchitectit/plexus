@@ -15,6 +15,8 @@ interface DebugLogDetail extends DebugLogMeta {
     transformedRequest: string | object;
     rawResponse: string | object;
     transformedResponse: string | object;
+    rawResponseSnapshot?: string | object;
+    transformedResponseSnapshot?: string | object;
 }
 
 export const Debug: React.FC = () => {
@@ -137,12 +139,26 @@ export const Debug: React.FC = () => {
                                 content={formatContent(detail.rawResponse)} 
                                 color="text-orange-400"
                             />
+                             {detail.rawResponseSnapshot && (
+                                <AccordionPanel 
+                                    title="Raw Response (Reconstructed)" 
+                                    content={formatContent(detail.rawResponseSnapshot)} 
+                                    color="text-orange-400"
+                                />
+                             )}
                              <AccordionPanel 
                                 title="Transformed Response" 
                                 content={formatContent(detail.transformedResponse)} 
                                 color="text-green-400"
                                 defaultOpen={true}
                             />
+                            {detail.transformedResponseSnapshot && (
+                                <AccordionPanel 
+                                    title="Transformed Response (Reconstructed)" 
+                                    content={formatContent(detail.transformedResponseSnapshot)} 
+                                    color="text-green-400"
+                                />
+                             )}
                         </div>
                     ) : (
                         <div className="debug-empty">

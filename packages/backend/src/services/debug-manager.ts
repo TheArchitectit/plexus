@@ -1,5 +1,6 @@
 import { UsageStorageService } from './usage-storage';
 import { logger } from '../utils/logger';
+import { StreamReconstructor } from '../utils/stream-reconstructor';
 
 export interface DebugLogRecord {
     requestId: string;
@@ -7,6 +8,8 @@ export interface DebugLogRecord {
     transformedRequest?: any;
     rawResponse?: any;
     transformedResponse?: any;
+    rawResponseSnapshot?: any;
+    transformedResponseSnapshot?: any;
     createdAt?: number;
 }
 
@@ -126,6 +129,14 @@ export class DebugManager {
         if (!this.storage) return;
         const log = this.pendingLogs.get(requestId);
         if (log) {
+            // Attempt to reconstruct streams if they exist and appear to be SSE
+            if (typeof log.rawResponse === 'string' && log.rawResponse.includes('data: ')) {
+                log.rawResponseSnapshot = StreamReconstructor.reconstruct(log.rawResponse);
+            }
+            if (typeof log.transformedResponse === 'string' && log.transformedResponse.includes('data: ')) {
+                log.transformedResponseSnapshot = StreamReconstructor.reconstruct(log.transformedResponse);
+            }
+
             this.storage.saveDebugLog(log);
             this.pendingLogs.delete(requestId);
         }

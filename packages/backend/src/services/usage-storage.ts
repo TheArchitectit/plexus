@@ -117,9 +117,19 @@ export class UsageStorageService extends EventEmitter {
                     transformed_request TEXT,
                     raw_response TEXT,
                     transformed_response TEXT,
+                    raw_response_snapshot TEXT,
+                    transformed_response_snapshot TEXT,
                     created_at INTEGER
                 );
             `);
+            
+            // Migration: Add columns if they don't exist (primitive check)
+            try {
+                this.db.run("ALTER TABLE debug_logs ADD COLUMN raw_response_snapshot TEXT;");
+            } catch (e) { /* ignore if exists */ }
+            try {
+                this.db.run("ALTER TABLE debug_logs ADD COLUMN transformed_response_snapshot TEXT;");
+            } catch (e) { /* ignore if exists */ }
             
             logger.info("Usage storage initialized");
         } catch (error) {
@@ -175,10 +185,14 @@ export class UsageStorageService extends EventEmitter {
             const query = this.db.prepare(`
                 INSERT INTO debug_logs (
                     request_id, raw_request, transformed_request, 
-                    raw_response, transformed_response, created_at
+                    raw_response, transformed_response, 
+                    raw_response_snapshot, transformed_response_snapshot,
+                    created_at
                 ) VALUES (
                     $requestId, $rawRequest, $transformedRequest, 
-                    $rawResponse, $transformedResponse, $createdAt
+                    $rawResponse, $transformedResponse, 
+                    $rawResponseSnapshot, $transformedResponseSnapshot,
+                    $createdAt
                 )
             `);
 
@@ -188,6 +202,8 @@ export class UsageStorageService extends EventEmitter {
                 $transformedRequest: typeof record.transformedRequest === 'string' ? record.transformedRequest : JSON.stringify(record.transformedRequest),
                 $rawResponse: typeof record.rawResponse === 'string' ? record.rawResponse : JSON.stringify(record.rawResponse),
                 $transformedResponse: typeof record.transformedResponse === 'string' ? record.transformedResponse : JSON.stringify(record.transformedResponse),
+                $rawResponseSnapshot: record.rawResponseSnapshot ? JSON.stringify(record.rawResponseSnapshot) : null,
+                $transformedResponseSnapshot: record.transformedResponseSnapshot ? JSON.stringify(record.transformedResponseSnapshot) : null,
                 $createdAt: record.createdAt
             });
             
@@ -230,7 +246,9 @@ export class UsageStorageService extends EventEmitter {
                 rawRequest: row.raw_request,
                 transformedRequest: row.transformed_request,
                 rawResponse: row.raw_response,
-                transformedResponse: row.transformed_response
+                transformedResponse: row.transformed_response,
+                rawResponseSnapshot: row.raw_response_snapshot,
+                transformedResponseSnapshot: row.transformed_response_snapshot
             };
         } catch (error) {
             logger.error(`Failed to get debug log for ${requestId}`, error);
