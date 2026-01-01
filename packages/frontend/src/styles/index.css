@@ -584,6 +584,19 @@ body {
   margin: -24px; /* Offset card padding */
 }
 
+@keyframes pulse-fade {
+  0% {
+    background-color: rgba(245, 158, 11, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-pulse-fade {
+  animation: pulse-fade 2s ease-out;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

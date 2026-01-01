@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { stream } from 'hono/streaming';
+import { streamSSE } from 'hono/streaming';
 import { logger } from './utils/logger';
 import { loadConfig, getConfig, getConfigPath, validateConfig } from './config';
 import { Dispatcher } from './services/dispatcher';
@@ -202,6 +202,28 @@ app.get('/v0/management/usage', (c) => {
     } catch (e: any) {
         return c.json({ error: e.message }, 500);
     }
+});
+
+app.get('/v0/management/events', async (c) => {
+    return streamSSE(c, async (stream) => {
+        const listener = async (record: any) => {
+            await stream.writeSSE({
+                data: JSON.stringify(record),
+                event: 'log',
+                id: String(Date.now()),
+            });
+        };
+
+        usageStorage.on('created', listener);
+
+        stream.onAbort(() => {
+            usageStorage.off('created', listener);
+        });
+
+        while (true) {
+            await stream.sleep(10000);
+        }
+    });
 });
 
 // Health check

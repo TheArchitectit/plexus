@@ -3,6 +3,7 @@ import { logger } from "../utils/logger";
 import { UsageRecord } from "../types/usage";
 import fs from 'node:fs';
 import path from 'node:path';
+import { EventEmitter } from 'node:events';
 
 export interface UsageFilters {
     startDate?: string;
@@ -22,10 +23,11 @@ export interface PaginationOptions {
     offset: number;
 }
 
-export class UsageStorageService {
+export class UsageStorageService extends EventEmitter {
     private db: Database;
 
     constructor(connectionString?: string) {
+        super();
         if (connectionString) {
             this.db = new Database(connectionString);
             this.init();
@@ -140,6 +142,7 @@ export class UsageStorageService {
             });
             
             logger.debug(`Usage record saved for request ${record.requestId}`);
+            this.emit('created', record);
         } catch (error) {
             logger.error("Failed to save usage record", error);
         }

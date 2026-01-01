@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -12,10 +12,17 @@ export const Logs = () => {
     const [loading, setLoading] = useState(false);
     const [limit] = useState(20);
     const [offset, setOffset] = useState(0);
+    const [newestLogId, setNewestLogId] = useState<string | null>(null);
     const [filters, setFilters] = useState({
         incomingModelAlias: '',
         provider: ''
     });
+
+    const filtersRef = useRef(filters);
+
+    useEffect(() => {
+        filtersRef.current = filters;
+    }, [filters]);
 
     const loadLogs = async () => {
         setLoading(true);
@@ -37,6 +44,49 @@ export const Logs = () => {
     useEffect(() => {
         loadLogs();
     }, [offset, limit]); // Refresh when page changes
+
+    useEffect(() => {
+        if (offset !== 0) return;
+
+        const es = new EventSource('/v0/management/events');
+        
+        es.addEventListener('log', (event: MessageEvent) => {
+            try {
+                const newLog = JSON.parse(event.data);
+                const currentFilters = filtersRef.current;
+                
+                // Client-side filtering to match server-side LIKE behavior
+                let matches = true;
+                if (currentFilters.incomingModelAlias && 
+                    !newLog.incomingModelAlias?.toLowerCase().includes(currentFilters.incomingModelAlias.toLowerCase())) {
+                    matches = false;
+                }
+                if (currentFilters.provider && 
+                    !newLog.provider?.toLowerCase().includes(currentFilters.provider.toLowerCase())) {
+                    matches = false;
+                }
+
+                if (matches) {
+                    setLogs(prev => {
+                        // Prevent duplicates if multiple events fire (though unlikely with unique IDs, simple check helps)
+                        if (prev.some(l => l.requestId === newLog.requestId)) return prev;
+                        
+                        const updated = [newLog, ...prev];
+                        if (updated.length > limit) return updated.slice(0, limit);
+                        return updated;
+                    });
+                    setTotal(prev => prev + 1);
+                    setNewestLogId(newLog.requestId);
+                }
+            } catch (e) {
+                console.error("Failed to process log event", e);
+            }
+        });
+
+        return () => {
+            es.close();
+        };
+    }, [offset, limit]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -109,7 +159,11 @@ export const Logs = () => {
                                 </tr>
                             ) : (
                                 logs.map((log) => (
-                                    <tr key={log.requestId} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
+                                    <tr 
+                                        key={log.requestId} 
+                                        style={{ borderBottom: '1px solid var(--color-border-light)' }}
+                                        className={log.requestId === newestLogId ? 'animate-pulse-fade' : ''}
+                                    >
                                         <td style={{ padding: '12px' }} title={log.requestId}>
                                             {log.requestId.substring(0, 8)}...
                                         </td>
