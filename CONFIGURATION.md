@@ -73,8 +73,18 @@ This section defines the "virtual" models or aliases that clients will use when 
 
 ## Environment Variables
 
-When running the standalone binary, you can specify your configuration file via the `CONFIG_FILE` environment variable:
+When running Plexus, you can use the following environment variables to control its behavior:
+
+- **`CONFIG_FILE`**: Path to the `plexus.yaml` configuration file.
+    - Default: `config/plexus.yaml` (relative to project root).
+- **`DATA_DIR`**: Directory where Plexus stores its SQLite database (`usage.sqlite`) for logs and cooldowns.
+    - Default: Falls back to the directory containing your configuration file, or a `data/` directory in the current working directory.
+- **`LOG_LEVEL`**: The verbosity of the server logs.
+    - Supported values: `error`, `warn`, `info`, `debug`.
+    - Default: `info`.
+
+### Example Usage
 
 ```bash
-CONFIG_FILE=./config/plexus.yaml ./plexus
+CONFIG_FILE=./my-config.yaml DATA_DIR=./data LOG_LEVEL=debug ./plexus
 ```
