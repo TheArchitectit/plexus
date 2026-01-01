@@ -62,6 +62,7 @@ export type ThinkLevel = "none" | "low" | "medium" | "high";
 // Unified Request
 
 export interface UnifiedChatRequest {
+  requestId?: string;
   messages: UnifiedMessage[];
   model: string;
   max_tokens?: number;

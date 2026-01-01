@@ -10,6 +10,7 @@ import { handleResponse } from './utils/response-handler';
 import { getClientIp } from './utils/ip';
 import { z } from 'zod';
 import { CooldownManager } from './services/cooldown-manager';
+import { DebugManager } from './services/debug-manager';
 
 const app = new Hono();
 const dispatcher = new Dispatcher();
@@ -17,6 +18,8 @@ const usageStorage = new UsageStorageService();
 
 // Initialize CooldownManager with storage
 CooldownManager.getInstance().setStorage(usageStorage);
+// Initialize DebugManager with storage
+DebugManager.getInstance().setStorage(usageStorage);
 
 // Load config on startup
 try {
@@ -57,7 +60,10 @@ app.post('/v1/chat/completions', async (c) => {
         const transformer = new OpenAITransformer();
         const unifiedRequest = await transformer.parseRequest(body);
         unifiedRequest.incomingApiType = 'openai';
+        unifiedRequest.requestId = requestId;
         
+        DebugManager.getInstance().startLog(requestId, body);
+
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         
         return await handleResponse(
@@ -104,6 +110,9 @@ app.post('/v1/messages', async (c) => {
         const transformer = new AnthropicTransformer();
         const unifiedRequest = await transformer.parseRequest(body);
         unifiedRequest.incomingApiType = 'anthropic';
+        unifiedRequest.requestId = requestId;
+
+        DebugManager.getInstance().startLog(requestId, body);
         
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         
@@ -156,6 +165,9 @@ app.post('/v1beta/models/:modelWithAction', async (c) => {
         const transformer = new GeminiTransformer();
         const unifiedRequest = await transformer.parseRequest({ ...body, model: modelName });
         unifiedRequest.incomingApiType = 'gemini';
+        unifiedRequest.requestId = requestId;
+
+        DebugManager.getInstance().startLog(requestId, body);
         
         // Check if streaming based on action
         if (modelWithAction.includes('streamGenerateContent')) {
@@ -302,6 +314,20 @@ app.delete('/v0/management/cooldowns/:provider', (c) => {
     const provider = c.req.param('provider');
     CooldownManager.getInstance().clearCooldown(provider);
     return c.json({ success: true });
+});
+
+// Debug API
+app.get('/v0/management/debug', (c) => {
+    return c.json({ enabled: DebugManager.getInstance().isEnabled() });
+});
+
+app.post('/v0/management/debug', async (c) => {
+    const body = await c.req.json();
+    if (typeof body.enabled === 'boolean') {
+        DebugManager.getInstance().setEnabled(body.enabled);
+        return c.json({ enabled: DebugManager.getInstance().isEnabled() });
+    }
+    return c.json({ error: "Invalid body. Expected { enabled: boolean }" }, 400);
 });
 
 // Health check

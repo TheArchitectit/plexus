@@ -5,6 +5,7 @@ import { Transformer } from '../types/transformer';
 import { UsageRecord } from '../types/usage';
 import { UsageStorageService } from '../services/usage-storage';
 import { logger } from './logger';
+import { DebugManager } from '../services/debug-manager';
 
 export async function handleResponse(
     c: Context,
@@ -56,9 +57,15 @@ export async function handleResponse(
             c.header('Cache-Control', 'no-cache');
             c.header('Connection', 'keep-alive');
             
-            const clientStream = transformer.formatStream ? 
+            let clientStream = transformer.formatStream ? 
                                transformer.formatStream(clientStreamSource) : 
                                clientStreamSource;
+
+            if (usageRecord.requestId && DebugManager.getInstance().isEnabled()) {
+                const [s1, s2] = clientStream.tee();
+                clientStream = s1;
+                DebugManager.getInstance().captureStream(usageRecord.requestId, s2, 'transformedResponse');
+            }
 
             const reader = clientStream.getReader();
             try {
@@ -79,6 +86,11 @@ export async function handleResponse(
     }
 
     const responseBody = await transformer.formatResponse(unifiedResponse);
+    
+    if (usageRecord.requestId) {
+        DebugManager.getInstance().addTransformedResponse(usageRecord.requestId, responseBody);
+        DebugManager.getInstance().flush(usageRecord.requestId);
+    }
     
     // Populate usage stats
     if (unifiedResponse.usage) {

@@ -391,4 +391,32 @@ export const api = {
         return [];
     }
   },
+
+  getDebugMode: async (): Promise<boolean> => {
+      try {
+          const res = await fetch(`${API_BASE}/v0/management/debug`);
+          if (!res.ok) throw new Error('Failed to fetch debug status');
+          const json = await res.json();
+          return !!json.enabled;
+      } catch (e) {
+          console.error("API Error getDebugMode", e);
+          return false;
+      }
+  },
+
+  setDebugMode: async (enabled: boolean): Promise<boolean> => {
+      try {
+          const res = await fetch(`${API_BASE}/v0/management/debug`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled })
+          });
+          if (!res.ok) throw new Error('Failed to set debug status');
+          const json = await res.json();
+          return !!json.enabled;
+      } catch (e) {
+          console.error("API Error setDebugMode", e);
+          throw e;
+      }
+  }
 };

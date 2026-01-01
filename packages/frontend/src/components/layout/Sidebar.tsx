@@ -1,9 +1,34 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Activity, Settings, Server, Box, FileText } from 'lucide-react';
+import { LayoutDashboard, Activity, Settings, Server, Box, FileText, Bug } from 'lucide-react';
 import { clsx } from 'clsx';
+import { api } from '../../lib/api';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
 
 export const Sidebar: React.FC = () => {
+  const [debugMode, setDebugMode] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    api.getDebugMode().then(setDebugMode);
+  }, []);
+
+  const handleToggleClick = () => {
+      setShowConfirm(true);
+  };
+
+  const confirmToggle = async () => {
+      try {
+          const newState = await api.setDebugMode(!debugMode);
+          setDebugMode(newState);
+      } catch (e) {
+          console.error("Failed to toggle debug mode", e);
+      } finally {
+          setShowConfirm(false);
+      }
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -40,7 +65,46 @@ export const Sidebar: React.FC = () => {
             <span>Settings</span>
             </NavLink>
         </div>
+
+        <div className="nav-section mt-auto">
+            <h3 className="nav-section-title">System</h3>
+            <button 
+                onClick={handleToggleClick}
+                className={clsx(
+                    "nav-item debug-btn",
+                    debugMode && "active"
+                )}
+             >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Bug size={20} />
+                    <span>Debug Mode</span>
+                </div>
+                <span className="debug-status">
+                    {debugMode ? 'Enabled' : 'Disabled'}
+                </span>
+             </button>
+        </div>
       </nav>
+      
+      <Modal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        title={debugMode ? "Disable Debug Mode?" : "Enable Debug Mode?"}
+        footer={
+            <>
+                <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
+                <Button variant={debugMode ? "default" : "danger"} onClick={confirmToggle}>
+                    {debugMode ? "Disable" : "Enable"}
+                </Button>
+            </>
+        }
+      >
+        <p>
+            {debugMode 
+                ? "Disabling debug mode will stop capturing full request/response payloads." 
+                : "Enabling debug mode will capture FULL raw request and response payloads, including personal data if present. This can consume significant storage."}
+        </p>
+      </Modal>
     </aside>
   );
 };

@@ -258,6 +258,36 @@ body {
   font-size: 13px;
 }
 
+/* Debug Button */
+.debug-btn {
+  background: transparent;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.debug-btn.active {
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444; /* var(--color-danger) but forced */
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
+.debug-btn.active:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.debug-status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.debug-btn.active .debug-status {
+  color: rgba(239, 68, 68, 0.8);
+}
+
 /* Cards */
 .card {
   background: var(--glass-bg);
@@ -666,4 +696,3 @@ body {
 /* Utility Spacing */
 .mb-6 { margin-bottom: 24px; }
 .mt-4 { margin-top: 16px; }
-

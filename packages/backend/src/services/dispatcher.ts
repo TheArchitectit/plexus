@@ -3,6 +3,7 @@ import { Router } from './router';
 import { TransformerFactory } from './transformer-factory';
 import { logger } from '../utils/logger';
 import { CooldownManager } from './cooldown-manager';
+import { DebugManager } from './debug-manager';
 
 export class Dispatcher {
     async dispatch(request: UnifiedChatRequest): Promise<UnifiedChatResponse> {
@@ -17,6 +18,10 @@ export class Dispatcher {
         const requestWithTargetModel = { ...request, model: route.model };
         
         const providerPayload = await transformer.transformRequest(requestWithTargetModel);
+
+        if (request.requestId) {
+            DebugManager.getInstance().addTransformedRequest(request.requestId, providerPayload);
+        }
         
         // 4. Execute Request
         // Ensure api_base_url doesn't end with slash if endpoint starts with slash, or handle cleanly
@@ -75,9 +80,17 @@ export class Dispatcher {
         // 5. Transform Response
         if (request.stream) {
             logger.info('Streaming response detected, transforming stream');
+            
+            let rawStream = response.body!;
+            if (request.requestId && DebugManager.getInstance().isEnabled()) {
+                const [s1, s2] = rawStream.tee();
+                rawStream = s1;
+                DebugManager.getInstance().captureStream(request.requestId, s2, 'rawResponse');
+            }
+
             const unifiedStream = transformer.transformStream ? 
-                                transformer.transformStream(response.body!) : 
-                                response.body;
+                                transformer.transformStream(rawStream) : 
+                                rawStream;
 
             return {
                 id: 'stream-' + Date.now(),
@@ -93,6 +106,15 @@ export class Dispatcher {
         }
 
         const responseText = await response.text();
+        if (request.requestId && DebugManager.getInstance().isEnabled()) {
+            // Try to parse as JSON for cleaner logging if possible, otherwise string
+            try {
+                DebugManager.getInstance().addRawResponse(request.requestId, JSON.parse(responseText));
+            } catch {
+                DebugManager.getInstance().addRawResponse(request.requestId, responseText);
+            }
+        }
+
         if (!responseText || responseText.trim() === '') {
              logger.warn('Received empty response from provider');
              return {

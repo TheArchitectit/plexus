@@ -4,6 +4,7 @@ import { UsageRecord } from "../types/usage";
 import fs from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { DebugLogRecord } from './debug-manager';
 
 export interface UsageFilters {
     startDate?: string;
@@ -107,6 +108,18 @@ export class UsageStorageService extends EventEmitter {
                     created_at INTEGER
                 );
             `);
+
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS debug_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    request_id TEXT NOT NULL,
+                    raw_request TEXT,
+                    transformed_request TEXT,
+                    raw_response TEXT,
+                    transformed_response TEXT,
+                    created_at INTEGER
+                );
+            `);
             
             logger.info("Usage storage initialized");
         } catch (error) {
@@ -154,6 +167,33 @@ export class UsageStorageService extends EventEmitter {
             this.emit('created', record);
         } catch (error) {
             logger.error("Failed to save usage record", error);
+        }
+    }
+
+    saveDebugLog(record: DebugLogRecord) {
+        try {
+            const query = this.db.prepare(`
+                INSERT INTO debug_logs (
+                    request_id, raw_request, transformed_request, 
+                    raw_response, transformed_response, created_at
+                ) VALUES (
+                    $requestId, $rawRequest, $transformedRequest, 
+                    $rawResponse, $transformedResponse, $createdAt
+                )
+            `);
+
+            query.run({
+                $requestId: record.requestId,
+                $rawRequest: typeof record.rawRequest === 'string' ? record.rawRequest : JSON.stringify(record.rawRequest),
+                $transformedRequest: typeof record.transformedRequest === 'string' ? record.transformedRequest : JSON.stringify(record.transformedRequest),
+                $rawResponse: typeof record.rawResponse === 'string' ? record.rawResponse : JSON.stringify(record.rawResponse),
+                $transformedResponse: typeof record.transformedResponse === 'string' ? record.transformedResponse : JSON.stringify(record.transformedResponse),
+                $createdAt: record.createdAt
+            });
+            
+            logger.debug(`Debug log saved for request ${record.requestId}`);
+        } catch (error) {
+            logger.error("Failed to save debug log", error);
         }
     }
 
