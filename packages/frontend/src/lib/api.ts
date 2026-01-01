@@ -27,7 +27,11 @@ export interface Model {
   id: string;
   name: string;
   providerId: string;
-  contextWindow: number;
+}
+
+export interface Alias {
+    id: string;
+    targets: Array<{ provider: string; model: string }>;
 }
 
 // Backend Types
@@ -113,13 +117,43 @@ export const api = {
     }
   },
 
-  getUsageData: async (): Promise<UsageData[]> => {
+  getUsageData: async (range: 'hour' | 'day' | 'week' | 'month' = 'week'): Promise<UsageData[]> => {
     try {
         const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 7);
+        let bucketFormat: (d: Date) => string;
+        let buckets = 0;
+        let step = 0; // ms
+
+        switch (range) {
+            case 'hour':
+                startDate.setHours(startDate.getHours() - 1);
+                bucketFormat = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                buckets = 60;
+                step = 60 * 1000; // 1 min
+                break;
+            case 'day':
+                startDate.setHours(startDate.getHours() - 24);
+                bucketFormat = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Hour resolution
+                buckets = 24;
+                step = 60 * 60 * 1000; // 1 hour
+                break;
+            case 'week':
+            default:
+                startDate.setDate(startDate.getDate() - 7);
+                bucketFormat = (d) => d.toLocaleDateString();
+                buckets = 7;
+                step = 24 * 60 * 60 * 1000; // 1 day
+                break;
+            case 'month':
+                startDate.setDate(startDate.getDate() - 30);
+                bucketFormat = (d) => d.toLocaleDateString();
+                buckets = 30;
+                step = 24 * 60 * 60 * 1000; // 1 day
+                break;
+        }
         
         const params = new URLSearchParams({
-            limit: '2000',
+            limit: '5000',
             startDate: startDate.toISOString()
         });
         
@@ -128,25 +162,44 @@ export const api = {
         const json = await res.json() as BackendResponse<UsageRecord[]>;
         const records = json.data || [];
 
-        // Group by day
-        const grouped = records.reduce((acc, r) => {
-            const day = new Date(r.date).toLocaleDateString();
-            if (!acc[day]) acc[day] = { timestamp: day, requests: 0, tokens: 0 };
-            acc[day].requests++;
-            acc[day].tokens += (r.tokensInput || 0) + (r.tokensOutput || 0);
-            return acc;
-        }, {} as Record<string, UsageData>);
-
-        // Fill in missing days
-        const result: UsageData[] = [];
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dayStr = d.toLocaleDateString();
-            result.push(grouped[dayStr] || { timestamp: dayStr, requests: 0, tokens: 0 });
-        }
+        // Grouping
+        const grouped: Record<string, UsageData> = {};
         
-        return result;
+        // Initialize buckets
+        const now = Date.now();
+        for (let i = buckets; i >= 0; i--) {
+            const t = new Date(now - (i * step));
+            // Snap to bucket start
+            if (range === 'day') t.setMinutes(0, 0, 0); 
+            if (range === 'week' || range === 'month') t.setHours(0, 0, 0, 0);
+            
+            const key = bucketFormat(t);
+            if (!grouped[key]) {
+                grouped[key] = { timestamp: key, requests: 0, tokens: 0 };
+            }
+        }
+
+        records.forEach(r => {
+            const d = new Date(r.date);
+            if (d < startDate) return;
+            
+            let key = bucketFormat(d);
+            // Fix key generation for aggregation to match initialized buckets if needed, 
+            // but simplified formatting usually aligns enough for visual graph
+            
+            // For 'day' (24h), we want to group by hour. bucketFormat returns HH:MM.
+            // If we initialized buckets as HH:00, we need to snap record time to HH:00
+            if (range === 'day') d.setMinutes(0, 0, 0);
+            if (range === 'week' || range === 'month') d.setHours(0, 0, 0, 0);
+            
+            key = bucketFormat(d);
+
+            if (!grouped[key]) grouped[key] = { timestamp: key, requests: 0, tokens: 0 };
+            grouped[key].requests++;
+            grouped[key].tokens += (r.tokensInput || 0) + (r.tokensOutput || 0);
+        });
+
+        return Object.values(grouped);
     } catch (e) {
         console.error("API Error getUsageData", e);
         return [];
@@ -255,8 +308,7 @@ export const api = {
                         models.push({
                             id: m,
                             name: m,
-                            providerId: pKey,
-                            contextWindow: 0 // Unknown from config
+                            providerId: pKey
                         });
                     });
                 }
@@ -265,6 +317,27 @@ export const api = {
         return models;
     } catch (e) {
         console.error("API Error getModels", e);
+        return [];
+    }
+  },
+
+  getAliases: async (): Promise<Alias[]> => {
+    try {
+        const yamlStr = await api.getConfig();
+        const config = parse(yamlStr) as PlexusConfig;
+        const aliases: Alias[] = [];
+
+        if (config.models) {
+            Object.entries(config.models).forEach(([key, val]) => {
+                aliases.push({
+                    id: key,
+                    targets: val.targets || []
+                });
+            });
+        }
+        return aliases;
+    } catch (e) {
+        console.error("API Error getAliases", e);
         return [];
     }
   },

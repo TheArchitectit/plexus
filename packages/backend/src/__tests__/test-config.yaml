@@ -1,0 +1,12 @@
+providers:
+  openai:
+    type: openai
+    api_base_url: https://api.openai.com/v1
+    api_key: sk-test-key
+    models:
+      - gpt-4
+models:
+  gpt-4:
+    targets:
+      - provider: openai
+        model: gpt-4

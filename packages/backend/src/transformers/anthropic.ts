@@ -3,6 +3,7 @@ import { UnifiedChatRequest, UnifiedChatResponse, UnifiedMessage, UnifiedTool, M
 import { logger } from '../utils/logger';
 
 export class AnthropicTransformer implements Transformer {
+  name = 'Anthropic';
   defaultEndpoint = '/messages';
   
   // --- 1. Client (Anthropic) -> Unified ---

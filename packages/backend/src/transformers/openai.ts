@@ -2,6 +2,7 @@ import { Transformer } from '../types/transformer';
 import { UnifiedChatRequest, UnifiedChatResponse } from '../types/unified';
 
 export class OpenAITransformer implements Transformer {
+  name = 'OpenAI';
   defaultEndpoint = '/chat/completions';
 
   async parseRequest(input: any): Promise<UnifiedChatRequest> {

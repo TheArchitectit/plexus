@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { api, Model } from '../lib/api';
+import { api, Model, Alias } from '../lib/api';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { Search } from 'lucide-react';
 
 export const Models = () => {
   const [models, setModels] = useState<Model[]>([]);
+  const [aliases, setAliases] = useState<Alias[]>([]);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     api.getModels().then(setModels);
+    api.getAliases().then(setAliases);
   }, []);
 
   const filteredModels = models.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredAliases = aliases.filter(a => a.id.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="dashboard">
@@ -33,29 +36,57 @@ export const Models = () => {
            </div>
       </Card>
 
-      <Card>
+      <Card title="Model Aliases" className="mb-6">
         <div className="table-wrapper">
             <table className="data-table">
                 <thead>
                     <tr>
-                        <th style={{paddingLeft: '24px'}}>Name</th>
-                        <th>ID</th>
-                        <th>Provider</th>
-                        <th style={{paddingRight: '24px'}}>Context Window</th>
+                        <th style={{paddingLeft: '24px'}}>Alias</th>
+                        <th style={{paddingRight: '24px'}}>Targets</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filteredAliases.map(alias => (
+                        <tr key={alias.id}>
+                            <td style={{fontWeight: 600, paddingLeft: '24px'}}>{alias.id}</td>
+                            <td style={{paddingRight: '24px'}}>
+                                {alias.targets.map((t, i) => (
+                                    <div key={i} style={{fontSize: '12px', color: 'var(--color-text-secondary)'}}>
+                                        {t.provider} &rarr; {t.model}
+                                    </div>
+                                ))}
+                            </td>
+                        </tr>
+                    ))}
+                    {filteredAliases.length === 0 && (
+                        <tr>
+                            <td colSpan={2} className="empty">No aliases found</td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+      </Card>
+
+      <Card title="Provider Models">
+        <div className="table-wrapper">
+            <table className="data-table">
+                <thead>
+                    <tr>
+                        <th style={{paddingLeft: '24px'}}>Model ID</th>
+                        <th style={{paddingRight: '24px'}}>Provider</th>
                     </tr>
                 </thead>
                 <tbody>
                     {filteredModels.map(model => (
                         <tr key={model.id}>
-                            <td style={{fontWeight: 600, paddingLeft: '24px'}}>{model.name}</td>
-                            <td style={{fontFamily: 'monospace', color: 'var(--color-text-secondary)'}}>{model.id}</td>
-                            <td>{model.providerId}</td>
-                            <td style={{paddingRight: '24px'}}>{model.contextWindow > 0 ? model.contextWindow.toLocaleString() + ' tokens' : '-'}</td>
+                            <td style={{fontWeight: 600, paddingLeft: '24px'}}>{model.id}</td>
+                            <td style={{paddingRight: '24px'}}>{model.providerId}</td>
                         </tr>
                     ))}
                     {filteredModels.length === 0 && (
                         <tr>
-                            <td colSpan={4} className="empty">No models found</td>
+                            <td colSpan={2} className="empty">No models found</td>
                         </tr>
                     )}
                 </tbody>

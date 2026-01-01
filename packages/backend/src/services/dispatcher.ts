@@ -43,7 +43,7 @@ export class Dispatcher {
             Object.assign(headers, route.config.headers);
         }
 
-        logger.info(`Dispatching to ${url} (Model: ${route.model})`);
+        logger.info(`Dispatching ${request.model} to ${route.provider}:${route.model} via ${transformer.name}`);
         logger.silly('Upstream Request Payload', providerPayload);
         
         const response = await fetch(url, {

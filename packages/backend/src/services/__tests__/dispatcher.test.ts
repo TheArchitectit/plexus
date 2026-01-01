@@ -38,6 +38,7 @@ describe("Dispatcher", () => {
     };
 
     const mockTransformer = {
+        name: "OpenAI",
         defaultEndpoint: "/chat/completions",
         transformRequest: mock(() => Promise.resolve({ transformed: "request" })),
         transformResponse: mock(() => Promise.resolve({ 

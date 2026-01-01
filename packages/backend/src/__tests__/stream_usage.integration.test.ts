@@ -1,13 +1,19 @@
-import { describe, expect, test, mock, beforeEach, afterEach, spyOn } from "bun:test";
+import { describe, expect, test, mock, beforeEach, afterEach, spyOn, beforeAll } from "bun:test";
 import { Dispatcher } from "../services/dispatcher";
 import { UsageStorageService } from "../services/usage-storage";
-
-// Import the app
-import server from "../index";
+import path from 'path';
 
 describe("Streaming Usage Integration", () => {
     let dispatchSpy: any;
     let saveRequestSpy: any;
+    let server: any;
+
+    beforeAll(async () => {
+        const configPath = path.resolve(__dirname, './test-config.yaml');
+        process.env.CONFIG_FILE = configPath;
+        const module = await import("../index");
+        server = module.default;
+    });
 
     beforeEach(() => {
         dispatchSpy = spyOn(Dispatcher.prototype, 'dispatch');

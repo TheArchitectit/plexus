@@ -1,6 +1,9 @@
 import { UnifiedChatRequest, UnifiedChatResponse } from './unified';
 
 export interface Transformer {
+  // Name of the API type (e.g. 'OpenAI', 'Anthropic')
+  readonly name: string;
+
   // Endpoint suffix (e.g. '/chat/completions', '/messages')
   readonly defaultEndpoint: string;
 
