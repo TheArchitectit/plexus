@@ -25,6 +25,7 @@ Uses existing cassettes. No API keys or network access are required.
 cd packages/backend
 bun test
 ```
+*Tip: You can also run this via the VS Code task `Bun: Backend Tests`.*
 
 ### 2. Record Mode (Live API)
 To capture new network interactions for ALL tests:
@@ -37,6 +38,17 @@ bun run update-cassettes
 ```
 
 *Note: The suite automatically scrubs sensitive headers and model names before saving to disk.*
+
+### 3. Manual Testing (Dev Environment)
+
+To test the full system manually (Frontend + Backend):
+
+1.  Start the development stack:
+    ```bash
+    bun dev
+    ```
+2.  Open the Dashboard at `http://localhost:3000`.
+3.  Send requests to the API proxy at `http://localhost:3000/v1/...` using `curl` or `testcommands/test_request.ts`.
 
 ## Configuration Overrides
 The following environment variables are used during **Record Mode**:

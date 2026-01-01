@@ -36,3 +36,4 @@ config/plexus.yaml
 config/usage.sqlite
 
 llms/
+CAP-UI/

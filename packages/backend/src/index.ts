@@ -330,7 +330,7 @@ app.get('/v0/management/usage', (c) => {
 // Health check
 app.get('/health', (c) => c.text('OK'));
 
-const port = parseInt(process.env.PORT || '3000');
+const port = parseInt(process.env.PORT || '4000');
 logger.info(`Server starting on port ${port}`);
 
 export default {

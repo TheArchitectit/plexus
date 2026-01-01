@@ -50,11 +50,13 @@ Uses a "Transformer" architecture in `packages/backend/src/transformers/`:
 - **Web Framework:** [Hono](https://hono.dev/)
 - **Configuration:** YAML (via `yaml` package)
 - **Validation:** [Zod](https://zod.dev/)
+- **Libraries:** Where possible, use native Bun libraries
 
 ### 4.2 System Components
 - **`packages/backend`**: The core Hono server. Contains the dispatcher, router, and transformer logic.
 - **`packages/frontend`**: React-based dashboard (work in progress).
 - **`llms/`**: A reference implementation (Fastify-based) containing extensive transformer logic for diverse providers (Vertex, Gemini, Cerebras, etc.) used to guide development in `packages/backend`.
+- **`CAP-UI/`**: A reference implementation of a management UI and usage tracking tool used to guide development in `packages/frontend`.  Do not use it as a reference for backend code.   Primarily use it for UI techniques and layout.
 - **`testcommands/`**: TypeScript-based CLI tools and JSON payloads for verifying transformations and streaming.
 
 ## 5. Directory Structure
@@ -66,5 +68,6 @@ Uses a "Transformer" architecture in `packages/backend/src/transformers/`:
   - `utils/`: Shared utilities (Logger).
 
 ## 6. Development & Testing
-- Use `bun run dev` from the root to start the backend.
-- Verification can be done using the scripts in `testcommands/test_request.ts`.
+- **Full Stack Dev:** Run `bun dev` from the root to start both the Backend (port 4000, watch mode) and Frontend (port 3000, hot-reload).
+- **Backend Only:** Run `bun run dev:backend` (port 3000 default).
+- **Verification:** Use the scripts in `testcommands/test_request.ts` against `http://localhost:3000` (which proxies to backend).

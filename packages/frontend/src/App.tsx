@@ -1,16 +1,24 @@
 import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { MainLayout } from './components/layout/MainLayout';
+import { Dashboard } from './pages/Dashboard';
+import { Usage } from './pages/Usage';
+import { Providers } from './pages/Providers';
+import { Models } from './pages/Models';
+import { Config } from './pages/Config';
 
 const App = () => {
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>Plexus Dashboard</h1>
-      <p>This is a placeholder for the Plexus management dashboard.</p>
-      <ul>
-        <li>Monitoring</li>
-        <li>Configuration Management</li>
-        <li>Request Logs</li>
-      </ul>
-    </div>
+    <MainLayout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/usage" element={<Usage />} />
+          <Route path="/providers" element={<Providers />} />
+          <Route path="/models" element={<Models />} />
+          <Route path="/config" element={<Config />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+    </MainLayout>
   );
 };
 

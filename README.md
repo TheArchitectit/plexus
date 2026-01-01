@@ -27,18 +27,40 @@ Plexus 2 is built with [Bun](https://bun.sh/).
 
 2. **Install dependencies**:
    ```bash
-   bun run install:all
+   bun install
    ```
 
-## Usage
+## Development
 
-### Starting the Server
+Plexus 2 includes a unified development environment that manages both the backend API and the frontend dashboard.
 
-To start the gateway in development mode:
+### Starting the Dev Stack
+
+To start the full stack in development mode:
 ```bash
-bun run dev
+bun dev
 ```
-The server will start on port `3000` by default.
+
+This single command orchestrates the following:
+1.  **Backend (Port 4000):** Starts the API server in **watch mode**. Any changes to `packages/backend/src` will automatically restart the server.
+2.  **Frontend (Port 3000):** Starts the React dev server with **hot-reloading**.
+    -   Automatically bundles and serves the UI from `packages/frontend/src`.
+    -   Proxies API requests (`/v1/*`, `/health`, etc.) to the backend.
+    -   Handles SPA routing automatically.
+
+### Accessing the Dashboard
+Open your browser to:
+`http://localhost:3000`
+
+### VS Code Integration
+
+Pre-configured tasks and launch settings are available in the `.vscode` directory:
+
+-   **Run Dev Stack:** Press `Cmd+Shift+B` (or `Ctrl+Shift+B`) and select `Bun: Dev Stack` to start the full environment.
+-   **Debugging:** 
+    -   Select `Debug Backend` from the Run & Debug sidebar to debug the API server.
+    -   Select `Debug Dev Orchestrator` to debug the orchestration script.
+-   **Note:** Requires the [Bun for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=Oven.bun-vscode) extension.
 
 ### Making Requests
 
@@ -51,11 +73,11 @@ Example OpenAI-compatible request:
 ```bash
 curl http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d 
+  -d '{
     "model": "minimax-m2.1",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
-  
+  }'
 ```
 
 ## Configuration (plexus.yaml)

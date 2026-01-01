@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run dev:backend",
+    "dev": "bun run scripts/dev.ts",
     "dev:backend": "cd packages/backend && bun run dev",
     "dev:frontend": "cd packages/frontend && bun run dev",
     "install:all": "bun install && (cd llms && bun install) && (cd packages/backend && bun install) && (cd packages/frontend && bun install)",

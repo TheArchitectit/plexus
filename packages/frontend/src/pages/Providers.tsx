@@ -1,0 +1,178 @@
+import React, { useEffect, useState } from 'react';
+import { api, Provider } from '../lib/api';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Badge } from '../components/ui/Badge';
+
+export const Providers = () => {
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
+
+  // Form State
+  const [formData, setFormData] = useState({
+      id: '',
+      name: '',
+      type: '',
+      apiKey: ''
+  });
+
+  useEffect(() => {
+    loadProviders();
+  }, []);
+
+  const loadProviders = () => {
+      api.getProviders().then(setProviders).catch(err => console.error(err));
+  };
+
+  const handleEdit = (provider: Provider) => {
+    setEditingProvider(provider);
+    setFormData({
+        id: provider.id,
+        name: provider.name,
+        type: provider.type,
+        apiKey: provider.apiKey
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleAdd = () => {
+      setEditingProvider(null);
+      setFormData({ id: '', name: '', type: '', apiKey: '' });
+      setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this provider?')) {
+        const updated = providers.filter(p => p.id !== id);
+        setProviders(updated); // Optimistic update
+        try {
+            await api.saveProviders(updated);
+        } catch (e) {
+            console.error("Failed to delete", e);
+            loadProviders(); // Revert on error
+        }
+    }
+  };
+
+  const handleClose = () => {
+      setIsModalOpen(false);
+      setEditingProvider(null);
+  };
+
+  const handleSave = async () => {
+      let updatedProviders: Provider[];
+      
+      if (editingProvider) {
+          // Update existing
+          updatedProviders = providers.map(p => 
+              p.id === editingProvider.id 
+                  ? { ...p, name: formData.name, type: formData.type, apiKey: formData.apiKey } 
+                  : p
+          );
+      } else {
+          // Add new
+          // Use name as ID if id is empty, or generate one
+          const newId = formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+          const newProvider: Provider = {
+              id: newId,
+              name: formData.name,
+              type: formData.type,
+              apiKey: formData.apiKey,
+              enabled: true
+          };
+          updatedProviders = [...providers, newProvider];
+      }
+
+      setProviders(updatedProviders); // Optimistic
+      setIsModalOpen(false);
+
+      try {
+          await api.saveProviders(updatedProviders);
+      } catch (e) {
+          console.error("Failed to save", e);
+          loadProviders(); // Revert
+          alert("Failed to save provider: " + e);
+      }
+  };
+
+  return (
+    <div className="dashboard">
+      <div className="page-header">
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%'}}>
+            <div>
+                <h1 className="page-title">Providers</h1>
+                <p className="page-description">Manage AI provider integrations.</p>
+            </div>
+            <Button onClick={handleAdd} leftIcon={<Plus size={16}/>}>Add Provider</Button>
+        </div>
+      </div>
+
+      <div className="providers-grid">
+        {providers.map(provider => (
+          <div key={provider.id} className="provider-quota-card">
+            <div className="quota-header">
+                <div className="quota-provider-info">
+                    <div className="quota-name-group">
+                        <span className="quota-name">{provider.name}</span>
+                        <span className="quota-window">{provider.type}</span>
+                    </div>
+                </div>
+                 <Badge status={provider.enabled ? 'connected' : 'disconnected'}>
+                    {provider.enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+            </div>
+            <div className="quota-body" style={{justifyContent: 'space-between', alignItems: 'center'}}>
+                <div className="quota-stats">
+                     <span className="quota-label">API Key</span>
+                     <span className="quota-limit" style={{fontSize: '14px'}}>
+                         {provider.apiKey ? `••••••••${provider.apiKey.slice(-4)}` : 'Not Set'}
+                     </span>
+                </div>
+                <div style={{display: 'flex', gap: '8px'}}>
+                    <button className="settings-btn" onClick={() => handleEdit(provider)}><Edit2 size={14}/></button>
+                    <button className="settings-btn" style={{color: 'var(--color-danger)', borderColor: 'var(--color-danger)'}} onClick={() => handleDelete(provider.id)}><Trash2 size={14}/></button>
+                </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleClose}
+        title={editingProvider ? "Edit Provider" : "Add Provider"}
+        footer={
+            <>
+                <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+                <Button onClick={handleSave}>Save</Button>
+            </>
+        }
+      >
+          <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+              <Input 
+                label="Name" 
+                value={formData.name} 
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="e.g. OpenAI Production" 
+              />
+              <Input 
+                label="Type" 
+                value={formData.type} 
+                onChange={(e) => setFormData({...formData, type: e.target.value})}
+                placeholder="openai, anthropic..." 
+              />
+              <Input 
+                label="API Key" 
+                type="password" 
+                value={formData.apiKey} 
+                onChange={(e) => setFormData({...formData, apiKey: e.target.value})}
+                placeholder="sk-..." 
+              />
+          </div>
+      </Modal>
+    </div>
+  );
+};
