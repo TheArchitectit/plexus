@@ -80,8 +80,9 @@ When running Plexus, you can use the following environment variables to control 
 - **`DATA_DIR`**: Directory where Plexus stores its SQLite database (`usage.sqlite`) for logs and cooldowns.
     - Default: Falls back to the directory containing your configuration file, or a `data/` directory in the current working directory.
 - **`LOG_LEVEL`**: The verbosity of the server logs.
-    - Supported values: `error`, `warn`, `info`, `debug`.
+    - Supported values: `error`, `warn`, `info`, `debug`, `silly`.
     - Default: `info`.
+    - Note: `silly` logs all request/response/transformations.
 
 ### Example Usage
 
