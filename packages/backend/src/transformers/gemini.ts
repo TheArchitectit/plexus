@@ -47,7 +47,7 @@ export class GeminiTransformer implements Transformer {
     async parseRequest(input: any): Promise<UnifiedChatRequest> {
         // Input is expected to be a Gemini GenerateContentRequest-like object
         const contents: Content[] = input.contents || [];
-        const tools: Tool[] = input.tools || [];
+        const tools: any[] = input.tools || [];
         const model: string = input.model || '';
         const generationConfig = input.generationConfig || {};
         
@@ -57,7 +57,7 @@ export class GeminiTransformer implements Transformer {
             max_tokens: generationConfig.maxOutputTokens,
             temperature: generationConfig.temperature,
             stream: false, // Default, usually controlled by endpoint/header in Gemini but input might have it
-            tool_choice: undefined // Gemini handles this via toolConfig usually
+            tool_choice: undefined
         };
 
         if (input.stream) {
@@ -147,8 +147,9 @@ export class GeminiTransformer implements Transformer {
         if (Array.isArray(tools)) {
             unifiedChatRequest.tools = [];
             tools.forEach((tool) => {
-                if (tool.functionDeclarations) {
-                    tool.functionDeclarations.forEach((fd) => {
+                const functions = tool.functionDeclarations || tool.function_declarations;
+                if (functions) {
+                    functions.forEach((fd: any) => {
                         unifiedChatRequest.tools!.push({
                             type: 'function',
                             function: {
@@ -160,6 +161,18 @@ export class GeminiTransformer implements Transformer {
                     });
                 }
             });
+        }
+
+        // Map Tool Config
+        const toolConfig = input.toolConfig || input.tool_config;
+        if (toolConfig) {
+            const fcConfig = toolConfig.functionCallingConfig || toolConfig.function_calling_config;
+            if (fcConfig) {
+                const mode = fcConfig.mode;
+                if (mode === 'AUTO') unifiedChatRequest.tool_choice = 'auto';
+                else if (mode === 'NONE') unifiedChatRequest.tool_choice = 'none';
+                else if (mode === 'ANY') unifiedChatRequest.tool_choice = 'required';
+            }
         }
 
         return unifiedChatRequest;
@@ -263,6 +276,25 @@ export class GeminiTransformer implements Transformer {
                 temperature: request.temperature,
             }
         };
+
+        // Transform Tool Config
+        if (request.tool_choice) {
+             const toolConfig: any = { functionCallingConfig: {} };
+             if (request.tool_choice === 'auto') {
+                 toolConfig.functionCallingConfig.mode = 'AUTO';
+             } else if (request.tool_choice === 'none') {
+                 toolConfig.functionCallingConfig.mode = 'NONE';
+             } else if (request.tool_choice === 'required') {
+                 toolConfig.functionCallingConfig.mode = 'ANY';
+             } else if (typeof request.tool_choice === 'object' && request.tool_choice.type === 'function') {
+                 toolConfig.functionCallingConfig.mode = 'ANY';
+                 toolConfig.functionCallingConfig.allowedFunctionNames = [request.tool_choice.function.name];
+             }
+             
+             if (toolConfig.functionCallingConfig.mode) {
+                 req.toolConfig = toolConfig;
+             }
+        }
 
         if (request.reasoning?.effort) {
              if (!req.generationConfig!.thinkingConfig) {

@@ -33,6 +33,53 @@ describe("GeminiTransformer", () => {
         expect(result.max_tokens).toBe(100);
     });
 
+    test("parseRequest handles snake_case tools and tool_config", async () => {
+        const input = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        { "text": "What is the weather like in London?" }
+                    ]
+                }
+            ],
+            "tools": [
+                {
+                    "function_declarations": [
+                        {
+                            "name": "get_weather",
+                            "description": "Get the current weather",
+                            "parameters": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "location": { "type": "STRING" }
+                                },
+                                "required": ["location"]
+                            }
+                        }
+                    ]
+                }
+            ],
+            "tool_config": {
+                "function_calling_config": {
+                    "mode": "AUTO"
+                }
+            }
+        };
+
+        const result = await transformer.parseRequest(input);
+        expect(result.tools).toHaveLength(1);
+        expect(result.tools![0].function.name).toBe("get_weather");
+        expect(result.tool_choice).toBe("auto");
+
+        // Verify it also transforms back correctly
+        const transformed = await transformer.transformRequest(result);
+        expect(transformed.tools).toHaveLength(1);
+        // @ts-ignore
+        expect(transformed.tools[0].functionDeclarations).toBeDefined();
+        expect(transformed.toolConfig.functionCallingConfig.mode).toBe("AUTO");
+    });
+
     test("transformRequest returns valid Gemini provider payload", async () => {
         const unified: UnifiedChatRequest = {
             model: "gemini-1.5-pro",
