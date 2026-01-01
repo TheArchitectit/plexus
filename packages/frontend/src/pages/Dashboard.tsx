@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { api, Stat } from '../lib/api';
+import { api, Stat, UsageData } from '../lib/api';
 import { Activity, Server, Zap, Database } from 'lucide-react';
+import { RecentActivityChart } from '../components/dashboard/RecentActivityChart';
 
 const icons: Record<string, React.ReactNode> = {
   'Total Requests': <Activity size={20} />,
@@ -13,9 +15,19 @@ const icons: Record<string, React.ReactNode> = {
 
 export const Dashboard = () => {
   const [stats, setStats] = useState<Stat[]>([]);
+  const [usageData, setUsageData] = useState<UsageData[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    api.getStats().then(setStats);
+    const loadData = async () => {
+        const [statsData, usage] = await Promise.all([
+            api.getStats(),
+            api.getUsageData()
+        ]);
+        setStats(statsData);
+        setUsageData(usage);
+    };
+    loadData();
   }, []);
 
   return (
@@ -51,12 +63,12 @@ export const Dashboard = () => {
 
       <div className="charts-row">
           <Card className="chart-large" title="Recent Activity">
-             <div className="empty-state">Activity Chart Placeholder</div>
+             <RecentActivityChart data={usageData} />
           </Card>
           <Card className="chart-small" title="Quick Actions">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <button className="btn btn-primary" style={{ width: '100%' }}>New Provider</button>
-                  <button className="btn btn-secondary" style={{ width: '100%' }}>View Logs</button>
+                  <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => navigate('/logs')}>View Logs</button>
               </div>
           </Card>
       </div>

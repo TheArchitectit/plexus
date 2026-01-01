@@ -31,14 +31,24 @@ export interface Model {
 }
 
 // Backend Types
-interface UsageRecord {
+export interface UsageRecord {
     requestId: string;
     date: string;
-    tokensInput: number;
-    tokensOutput: number;
+    sourceIp?: string;
+    apiKey?: string;
+    incomingApiType?: string;
+    provider?: string;
+    incomingModelAlias?: string;
+    selectedModelName?: string;
+    outgoingApiType?: string;
+    tokensInput?: number;
+    tokensOutput?: number;
+    tokensReasoning?: number;
+    tokensCached?: number;
+    startTime: number;
     durationMs: number;
-    provider: string;
-    // ... other fields
+    isStreamed: boolean;
+    responseStatus: string;
 }
 
 interface BackendResponse<T> {
@@ -141,6 +151,18 @@ export const api = {
         console.error("API Error getUsageData", e);
         return [];
     }
+  },
+
+  getLogs: async (limit: number = 50, offset: number = 0, filters: Record<string, any> = {}): Promise<{ data: UsageRecord[], total: number }> => {
+      const params = new URLSearchParams({
+          limit: limit.toString(),
+          offset: offset.toString(),
+          ...filters
+      });
+
+      const res = await fetch(`${API_BASE}/v0/management/usage?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch logs');
+      return await res.json() as BackendResponse<UsageRecord[]>;
   },
 
   getConfig: async (): Promise<string> => {

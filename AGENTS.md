@@ -68,6 +68,6 @@ Uses a "Transformer" architecture in `packages/backend/src/transformers/`:
   - `utils/`: Shared utilities (Logger).
 
 ## 6. Development & Testing
-- **Full Stack Dev:** Run `bun dev` from the root to start both the Backend (port 4000, watch mode) and Frontend (port 3000, hot-reload).
-- **Backend Only:** Run `bun run dev:backend` (port 3000 default).
-- **Verification:** Use the scripts in `testcommands/test_request.ts` against `http://localhost:3000` (which proxies to backend).
+- **Full Stack Dev:** Run `bun run scripts/dev.ts` from the root to start both the Backend (port 4000, watch mode) and Frontend Builder (watch mode).
+- **Backend Only:** Run `bun run dev:backend` (port 4000 default).
+- **Verification:** Use the scripts in `testcommands/test_request.ts` against `http://localhost:4000`.

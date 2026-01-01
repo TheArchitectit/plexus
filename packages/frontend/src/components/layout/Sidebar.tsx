@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Activity, Settings, Server, Box } from 'lucide-react';
+import { LayoutDashboard, Activity, Settings, Server, Box, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export const Sidebar: React.FC = () => {
@@ -19,6 +19,10 @@ export const Sidebar: React.FC = () => {
         <NavLink to="/usage" className={({ isActive }) => clsx('nav-item', isActive && 'active')}>
           <Activity size={20} />
           <span>Usage</span>
+        </NavLink>
+        <NavLink to="/logs" className={({ isActive }) => clsx('nav-item', isActive && 'active')}>
+          <FileText size={20} />
+          <span>Logs</span>
         </NavLink>
         
         <div className="nav-section">

@@ -43,7 +43,7 @@ try {
   // Determine endpoint based on path
   const isMessages = jsonFile.includes("messages/") || jsonFile.startsWith("messages");
   const endpoint = isMessages ? "/v1/messages" : "/v1/chat/completions";
-  const url = `http://localhost:3000${endpoint}`;
+  const url = `http://localhost:4000${endpoint}`;
   
   console.log(`Sending request to ${url}`);
   console.log(`Model: ${model}`);

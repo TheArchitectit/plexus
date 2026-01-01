@@ -69,7 +69,12 @@ export class Dispatcher {
                 id: 'stream-' + Date.now(),
                 model: request.model,
                 content: null,
-                stream: unifiedStream
+                stream: unifiedStream,
+                plexus: {
+                    provider: route.provider,
+                    model: route.model,
+                    apiType: route.config.type
+                }
             };
         }
 
@@ -79,13 +84,23 @@ export class Dispatcher {
              return {
                  id: 'empty-' + Date.now(),
                  model: request.model,
-                 content: null
+                 content: null,
+                 plexus: {
+                    provider: route.provider,
+                    model: route.model,
+                    apiType: route.config.type
+                 }
              };
         }
 
         const responseBody = JSON.parse(responseText);
         logger.silly('Upstream Response Payload', responseBody);
         const unifiedResponse = await transformer.transformResponse(responseBody);
+        unifiedResponse.plexus = {
+            provider: route.provider,
+            model: route.model,
+            apiType: route.config.type
+        };
         
         return unifiedResponse;
     }

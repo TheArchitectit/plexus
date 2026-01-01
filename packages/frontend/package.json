@@ -5,8 +5,7 @@
   "private": true,
   "scripts": {
     "build": "bun run build.ts",
-    "serve": "bun run server.ts",
-    "dev": "bun build ./src/main.tsx --outdir ./dist --watch"
+    "dev": "NODE_ENV=development bun build ./src/main.tsx --outdir ./dist --watch"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -15,8 +14,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@codemirror/lang-yaml": "^6.1.2",
-    "@uiw/react-codemirror": "^4.25.4",
+    "@monaco-editor/react": "4.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",

@@ -6,6 +6,8 @@ import { Dispatcher } from './services/dispatcher';
 import { AnthropicTransformer, OpenAITransformer } from './transformers';
 import { UsageStorageService } from './services/usage-storage';
 import { UsageRecord } from './types/usage';
+import { handleResponse } from './utils/response-handler';
+import { getClientIp } from './utils/ip';
 import fs from 'node:fs';
 import { z } from 'zod';
 
@@ -34,7 +36,7 @@ app.post('/v1/chat/completions', async (c) => {
     let usageRecord: Partial<UsageRecord> = {
         requestId,
         date: new Date().toISOString(),
-        sourceIp: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+        sourceIp: getClientIp(c),
         incomingApiType: 'openai',
         startTime,
         isStreamed: false,
@@ -54,79 +56,15 @@ app.post('/v1/chat/completions', async (c) => {
         
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         
-        // Update record with selected model info if available
-        usageRecord.selectedModelName = unifiedResponse.model;
-        usageRecord.provider = unifiedResponse.model.split(':')[0]; // rudimentary provider extraction if model is provider:name
-        usageRecord.isStreamed = !!unifiedResponse.stream;
-
-        if (unifiedResponse.stream) {
-            // Tee the stream to track usage
-            const [logStream, clientStreamSource] = unifiedResponse.stream.tee();
-
-            // Background processing of the stream for logging
-            (async () => {
-                const reader = logStream.getReader();
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        
-                        // Extract usage if present in the chunk
-                        if (value && value.usage) {
-                            usageRecord.tokensInput = value.usage.prompt_tokens;
-                            usageRecord.tokensOutput = value.usage.completion_tokens;
-                            usageRecord.tokensCached = value.usage.prompt_tokens_details?.cached_tokens;
-                            usageRecord.tokensReasoning = value.usage.completion_tokens_details?.reasoning_tokens;
-                        }
-                    }
-                    usageRecord.responseStatus = 'success';
-                } catch (e) {
-                    usageRecord.responseStatus = 'error_stream';
-                } finally {
-                    usageRecord.durationMs = Date.now() - startTime;
-                    // Save record
-                    usageStorage.saveRequest(usageRecord as UsageRecord);
-                }
-            })();
-
-            return stream(c, async (stream) => {
-                c.header('Content-Type', 'text/event-stream');
-                c.header('Cache-Control', 'no-cache');
-                c.header('Connection', 'keep-alive');
-                
-                const clientStream = transformer.formatStream ? 
-                                   transformer.formatStream(clientStreamSource) : 
-                                   clientStreamSource;
-
-                const reader = clientStream.getReader();
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        await stream.write(value);
-                    }
-                } finally {
-                    reader.releaseLock();
-                }
-            });
-        }
-
-        const responseBody = await transformer.formatResponse(unifiedResponse);
-        
-        // Populate usage stats
-        if (unifiedResponse.usage) {
-            usageRecord.tokensInput = unifiedResponse.usage.prompt_tokens;
-            usageRecord.tokensOutput = unifiedResponse.usage.completion_tokens;
-            usageRecord.tokensCached = unifiedResponse.usage.prompt_tokens_details?.cached_tokens;
-            usageRecord.tokensReasoning = unifiedResponse.usage.completion_tokens_details?.reasoning_tokens;
-        }
-
-        usageRecord.responseStatus = 'success';
-        usageRecord.durationMs = Date.now() - startTime;
-        usageStorage.saveRequest(usageRecord as UsageRecord);
-
-        logger.debug('Outgoing OpenAI Response', responseBody);
-        return c.json(responseBody);
+        return await handleResponse(
+            c,
+            unifiedResponse,
+            transformer,
+            usageRecord,
+            usageStorage,
+            startTime,
+            'openai'
+        );
     } catch (e: any) {
         usageRecord.responseStatus = 'error';
         usageRecord.durationMs = Date.now() - startTime;
@@ -144,7 +82,7 @@ app.post('/v1/messages', async (c) => {
     let usageRecord: Partial<UsageRecord> = {
         requestId,
         date: new Date().toISOString(),
-        sourceIp: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+        sourceIp: getClientIp(c),
         incomingApiType: 'anthropic',
         startTime,
         isStreamed: false,
@@ -164,76 +102,15 @@ app.post('/v1/messages', async (c) => {
         
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         
-        // Update record
-        usageRecord.selectedModelName = unifiedResponse.model;
-        usageRecord.provider = unifiedResponse.model.split(':')[0];
-        usageRecord.isStreamed = !!unifiedResponse.stream;
-
-        if (unifiedResponse.stream) {
-            const [logStream, clientStreamSource] = unifiedResponse.stream.tee();
-
-            // Background processing of the stream for logging
-            (async () => {
-                const reader = logStream.getReader();
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        
-                        // Extract usage if present in the chunk
-                        if (value && value.usage) {
-                            usageRecord.tokensInput = value.usage.prompt_tokens;
-                            usageRecord.tokensOutput = value.usage.completion_tokens;
-                            usageRecord.tokensCached = value.usage.prompt_tokens_details?.cached_tokens;
-                            usageRecord.tokensReasoning = value.usage.completion_tokens_details?.reasoning_tokens;
-                        }
-                    }
-                    usageRecord.responseStatus = 'success';
-                } catch (e) {
-                    usageRecord.responseStatus = 'error_stream';
-                } finally {
-                    usageRecord.durationMs = Date.now() - startTime;
-                    usageStorage.saveRequest(usageRecord as UsageRecord);
-                }
-            })();
-
-            return stream(c, async (stream) => {
-                c.header('Content-Type', 'text/event-stream');
-                c.header('Cache-Control', 'no-cache');
-                c.header('Connection', 'keep-alive');
-                
-                const clientStream = transformer.formatStream ? 
-                                   transformer.formatStream(clientStreamSource) : 
-                                   clientStreamSource;
-
-                const reader = clientStream.getReader();
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        await stream.write(value);
-                    }
-                } finally {
-                    reader.releaseLock();
-                }
-            });
-        }
-
-        const responseBody = await transformer.formatResponse(unifiedResponse);
-        
-        if (unifiedResponse.usage) {
-            usageRecord.tokensInput = unifiedResponse.usage.prompt_tokens;
-            usageRecord.tokensOutput = unifiedResponse.usage.completion_tokens;
-            usageRecord.tokensCached = unifiedResponse.usage.prompt_tokens_details?.cached_tokens;
-            usageRecord.tokensReasoning = unifiedResponse.usage.completion_tokens_details?.reasoning_tokens;
-        }
-
-        usageRecord.responseStatus = 'success';
-        usageRecord.durationMs = Date.now() - startTime;
-        usageStorage.saveRequest(usageRecord as UsageRecord);
-
-        logger.debug('Outgoing Anthropic Response', responseBody);
-        return c.json(responseBody);
+        return await handleResponse(
+            c,
+            unifiedResponse,
+            transformer,
+            usageRecord,
+            usageStorage,
+            startTime,
+            'anthropic'
+        );
     } catch (e: any) {
         usageRecord.responseStatus = 'error';
         usageRecord.durationMs = Date.now() - startTime;
@@ -329,6 +206,11 @@ app.get('/v0/management/usage', (c) => {
 
 // Health check
 app.get('/health', (c) => c.text('OK'));
+
+import { serveStatic } from 'hono/bun';
+
+app.use('/*', serveStatic({ root: '../frontend/dist' }));
+app.get('*', serveStatic({ path: '../frontend/dist/index.html' }));
 
 const port = parseInt(process.env.PORT || '4000');
 logger.info(`Server starting on port ${port}`);

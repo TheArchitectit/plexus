@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import CodeMirror from '@uiw/react-codemirror';
-import { yaml } from '@codemirror/lang-yaml';
+import Editor from '@monaco-editor/react';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { Save, RotateCcw } from 'lucide-react';
@@ -34,38 +33,18 @@ export const Config = () => {
                  <Button variant="primary" size="sm" onClick={handleSave} isLoading={isSaving} leftIcon={<Save size={14}/>}>Save Changes</Button>
             </div>
         </div>
-        <div className="code-editor-container">
-            <CodeMirror
+        <div className="code-editor-container" style={{ height: '500px', borderRadius: '4px', overflow: 'hidden' }}>
+            <Editor
+              height="100%"
+              defaultLanguage="yaml"
               value={config}
-              height="500px"
-              extensions={[yaml()]}
-              onChange={(value) => setConfig(value)}
-              theme="dark"
-              basicSetup={{
-                  lineNumbers: true,
-                  highlightActiveLineGutter: true,
-                  highlightSpecialChars: true,
-                  history: true,
-                  foldGutter: true,
-                  drawSelection: true,
-                  dropCursor: true,
-                  allowMultipleSelections: true,
-                  indentOnInput: true,
-                  syntaxHighlighting: true,
-                  bracketMatching: true,
-                  closeBrackets: true,
-                  autocompletion: true,
-                  rectangularSelection: true,
-                  crosshairCursor: true,
-                  highlightActiveLine: true,
-                  highlightSelectionMatches: true,
-                  closeBracketsKeymap: true,
-                  defaultKeymap: true,
-                  searchKeymap: true,
-                  historyKeymap: true,
-                  foldKeymap: true,
-                  completionKeymap: true,
-                  lintKeymap: true,
+              theme="vs-dark"
+              onChange={(value) => setConfig(value || '')}
+              options={{
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                fontFamily: '"Fira code", "Fira Mono", monospace',
               }}
             />
         </div>

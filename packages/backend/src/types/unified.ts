@@ -100,6 +100,11 @@ export interface UnifiedChatResponse {
   model: string;
   created?: number;
   content: string | null;
+  plexus?: {
+      provider?: string;
+      model?: string;
+      apiType?: string;
+  };
   reasoning_content?: string | null;
   usage?: {
     prompt_tokens: number;

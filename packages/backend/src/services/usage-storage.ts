@@ -166,19 +166,19 @@ export class UsageStorageService {
             params.$incomingApiType = filters.incomingApiType;
         }
         if (filters.provider) {
-            queryStr += " AND provider = $provider";
-            countQueryStr += " AND provider = $provider";
-            params.$provider = filters.provider;
+            queryStr += " AND provider LIKE $provider";
+            countQueryStr += " AND provider LIKE $provider";
+            params.$provider = `%${filters.provider}%`;
         }
         if (filters.incomingModelAlias) {
-            queryStr += " AND incoming_model_alias = $incomingModelAlias";
-            countQueryStr += " AND incoming_model_alias = $incomingModelAlias";
-            params.$incomingModelAlias = filters.incomingModelAlias;
+            queryStr += " AND incoming_model_alias LIKE $incomingModelAlias";
+            countQueryStr += " AND incoming_model_alias LIKE $incomingModelAlias";
+            params.$incomingModelAlias = `%${filters.incomingModelAlias}%`;
         }
         if (filters.selectedModelName) {
-            queryStr += " AND selected_model_name = $selectedModelName";
-            countQueryStr += " AND selected_model_name = $selectedModelName";
-            params.$selectedModelName = filters.selectedModelName;
+            queryStr += " AND selected_model_name LIKE $selectedModelName";
+            countQueryStr += " AND selected_model_name LIKE $selectedModelName";
+            params.$selectedModelName = `%${filters.selectedModelName}%`;
         }
         if (filters.outgoingApiType) {
             queryStr += " AND outgoing_api_type = $outgoingApiType";

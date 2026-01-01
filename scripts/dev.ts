@@ -16,14 +16,15 @@ const backend = spawn(["bun", "run", "--watch", "src/index.ts"], {
   stderr: "inherit",
 });
 
-// 2. Start Frontend Server (delegated to package script)
-console.log("🌐 [Frontend] Starting Dev Server (Port 3000)...");
-const frontend = spawn(["bun", "run", "dev-server.ts"], {
+// 2. Start Frontend Builder
+console.log("🔨 [Frontend] Starting Builder (Watch Mode)...");
+const frontend = spawn(["bun", "run", "dev"], {
   cwd: FRONTEND_DIR,
   stdout: "inherit",
   stderr: "inherit",
 });
 
+console.log(`✅ Backend serving at http://localhost:${BACKEND_PORT}`);
 console.log(`👀 Watching for changes...`);
 
 // Cleanup on exit
