@@ -219,6 +219,33 @@ describe("UsageStorageService", () => {
         expect(service.getUsage({}, { limit: 10, offset: 0 }).total).toBe(0);
     });
 
+    test("should delete usage logs older than specified date", () => {
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+        
+        // Log from 5 days ago
+        service.saveRequest({ 
+            requestId: "old-req", 
+            date: new Date(now - 5 * oneDay).toISOString(), 
+            startTime: 0, durationMs: 0, isStreamed: false, responseStatus: "ok"
+        });
+        
+        // Log from 1 day ago
+        service.saveRequest({ 
+            requestId: "new-req", 
+            date: new Date(now - 1 * oneDay).toISOString(), 
+            startTime: 0, durationMs: 0, isStreamed: false, responseStatus: "ok"
+        });
+
+        // Delete logs older than 3 days ago
+        const cutoffDate = new Date(now - 3 * oneDay);
+        service.deleteAllUsageLogs(cutoffDate);
+
+        const logs = service.getUsage({}, { limit: 10, offset: 0 });
+        expect(logs.total).toBe(1);
+        expect(logs.data[0].requestId).toBe("new-req");
+    });
+
     test("should delete a debug log", () => {
         const logRecord = {
             requestId: "debug-req-1",

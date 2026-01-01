@@ -283,7 +283,18 @@ app.get('/v0/management/usage', (c) => {
 });
 
 app.delete('/v0/management/usage', (c) => {
-    const success = usageStorage.deleteAllUsageLogs();
+    const olderThanDays = c.req.query('olderThanDays');
+    let beforeDate: Date | undefined;
+
+    if (olderThanDays) {
+        const days = parseInt(olderThanDays);
+        if (!isNaN(days)) {
+            beforeDate = new Date();
+            beforeDate.setDate(beforeDate.getDate() - days);
+        }
+    }
+
+    const success = usageStorage.deleteAllUsageLogs(beforeDate);
     if (!success) return c.json({ error: "Failed to delete usage logs" }, 500);
     return c.json({ success: true });
 });

@@ -4,6 +4,7 @@ import Editor from '@monaco-editor/react';
 import { RefreshCw, Clock, Database, ArrowRight, ChevronDown, ChevronRight, Copy, Check, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 
 interface DebugLogMeta {
     requestId: string;
@@ -26,6 +27,12 @@ export const Debug: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
+    // Delete Modal State
+    const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
+    const [isSingleDeleteModalOpen, setIsSingleDeleteModalOpen] = useState(false);
+    const [selectedLogIdForDelete, setSelectedLogIdForDelete] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const fetchLogs = async () => {
         setLoading(true);
         try {
@@ -39,32 +46,45 @@ export const Debug: React.FC = () => {
         }
     };
 
-    const handleDeleteAll = async () => {
-        if (!confirm("Are you sure you want to delete ALL debug logs?")) return;
-        setLoading(true);
+    const handleDeleteAll = () => {
+        setIsDeleteAllModalOpen(true);
+    };
+
+    const confirmDeleteAll = async () => {
+        setIsDeleting(true);
         try {
             await api.deleteAllDebugLogs();
             await fetchLogs();
             setSelectedId(null);
             setDetail(null);
+            setIsDeleteAllModalOpen(false);
         } finally {
-            setLoading(false);
+            setIsDeleting(false);
         }
     };
 
-    const handleDelete = async (e: React.MouseEvent, requestId: string) => {
+    const handleDelete = (e: React.MouseEvent, requestId: string) => {
         e.stopPropagation();
-        if (!confirm("Delete this log?")) return;
-        
+        setSelectedLogIdForDelete(requestId);
+        setIsSingleDeleteModalOpen(true);
+    };
+
+    const confirmDeleteSingle = async () => {
+        if (!selectedLogIdForDelete) return;
+        setIsDeleting(true);
         try {
-            await api.deleteDebugLog(requestId);
-            setLogs(logs.filter(l => l.requestId !== requestId));
-            if (selectedId === requestId) {
+            await api.deleteDebugLog(selectedLogIdForDelete);
+            setLogs(logs.filter(l => l.requestId !== selectedLogIdForDelete));
+            if (selectedId === selectedLogIdForDelete) {
                 setSelectedId(null);
                 setDetail(null);
             }
+            setIsSingleDeleteModalOpen(false);
+            setSelectedLogIdForDelete(null);
         } catch (e) {
             console.error("Failed to delete log", e);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -220,6 +240,38 @@ export const Debug: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            <Modal 
+                isOpen={isDeleteAllModalOpen} 
+                onClose={() => setIsDeleteAllModalOpen(false)}
+                title="Confirm Deletion"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsDeleteAllModalOpen(false)}>Cancel</Button>
+                        <Button variant="danger" onClick={confirmDeleteAll} disabled={isDeleting}>
+                            {isDeleting ? 'Deleting...' : 'Delete All Logs'}
+                        </Button>
+                    </>
+                }
+            >
+                <p>Are you sure you want to delete ALL debug logs? This action cannot be undone.</p>
+            </Modal>
+
+            <Modal 
+                isOpen={isSingleDeleteModalOpen} 
+                onClose={() => setIsSingleDeleteModalOpen(false)}
+                title="Confirm Deletion"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>Cancel</Button>
+                        <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>
+                            {isDeleting ? 'Deleting...' : 'Delete Log'}
+                        </Button>
+                    </>
+                }
+            >
+                <p>Are you sure you want to delete this debug log? This action cannot be undone.</p>
+            </Modal>
         </div>
     );
 };

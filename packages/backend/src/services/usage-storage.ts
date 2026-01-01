@@ -388,13 +388,19 @@ export class UsageStorageService extends EventEmitter {
         }
     }
 
-    deleteAllUsageLogs(): boolean {
+    deleteAllUsageLogs(beforeDate?: Date): boolean {
         try {
-            this.db.run("DELETE FROM request_usage");
-            logger.info("Deleted all usage logs");
+            if (beforeDate) {
+                const query = this.db.prepare("DELETE FROM request_usage WHERE date < $beforeDate");
+                query.run({ $beforeDate: beforeDate.toISOString() });
+                logger.info(`Deleted usage logs older than ${beforeDate.toISOString()}`);
+            } else {
+                this.db.run("DELETE FROM request_usage");
+                logger.info("Deleted all usage logs");
+            }
             return true;
         } catch (error) {
-            logger.error("Failed to delete all usage logs", error);
+            logger.error("Failed to delete usage logs", error);
             return false;
         }
     }

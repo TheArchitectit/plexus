@@ -450,9 +450,13 @@ export const api = {
       }
   },
 
-  deleteAllUsageLogs: async (): Promise<boolean> => {
+  deleteAllUsageLogs: async (olderThanDays?: number): Promise<boolean> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/usage`, {
+          let url = `${API_BASE}/v0/management/usage`;
+          if (olderThanDays !== undefined) {
+              url += `?olderThanDays=${olderThanDays}`;
+          }
+          const res = await fetch(url, {
               method: 'DELETE'
           });
           return res.ok;

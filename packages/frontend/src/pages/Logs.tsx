@@ -3,6 +3,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Modal } from '../components/ui/Modal';
 import { api, UsageRecord } from '../lib/api';
 import { ChevronLeft, ChevronRight, Search, Filter, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -18,6 +19,16 @@ export const Logs = () => {
         incomingModelAlias: '',
         provider: ''
     });
+
+    // Delete Modal State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteMode, setDeleteMode] = useState<'all' | 'older'>('older');
+    const [olderThanDays, setOlderThanDays] = useState(7);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Single Delete State
+    const [selectedLogIdForDelete, setSelectedLogIdForDelete] = useState<string | null>(null);
+    const [isSingleDeleteModalOpen, setIsSingleDeleteModalOpen] = useState(false);
 
     const filtersRef = useRef(filters);
 
@@ -42,27 +53,45 @@ export const Logs = () => {
         }
     };
 
-    const handleDeleteAll = async () => {
-        if (!confirm("Are you sure you want to delete ALL usage logs?")) return;
-        setLoading(true);
+    const handleDeleteAll = () => {
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        setIsDeleting(true);
         try {
-            await api.deleteAllUsageLogs();
+            if (deleteMode === 'all') {
+                await api.deleteAllUsageLogs();
+            } else {
+                await api.deleteAllUsageLogs(olderThanDays);
+            }
             // Reset to first page
             setOffset(0);
             await loadLogs();
+            setIsDeleteModalOpen(false);
         } finally {
-            setLoading(false);
+            setIsDeleting(false);
         }
     };
 
-    const handleDelete = async (requestId: string) => {
-        if (!confirm("Delete this usage log?")) return;
+    const handleDelete = (requestId: string) => {
+        setSelectedLogIdForDelete(requestId);
+        setIsSingleDeleteModalOpen(true);
+    };
+
+    const confirmDeleteSingle = async () => {
+        if (!selectedLogIdForDelete) return;
+        setIsDeleting(true);
         try {
-            await api.deleteUsageLog(requestId);
-            setLogs(logs.filter(l => l.requestId !== requestId));
+            await api.deleteUsageLog(selectedLogIdForDelete);
+            setLogs(logs.filter(l => l.requestId !== selectedLogIdForDelete));
             setTotal(prev => Math.max(0, prev - 1));
+            setIsSingleDeleteModalOpen(false);
+            setSelectedLogIdForDelete(null);
         } catch (e) {
             console.error("Failed to delete log", e);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -260,6 +289,73 @@ export const Logs = () => {
                     </div>
                 </div>
             </Card>
+
+            <Modal 
+                isOpen={isDeleteModalOpen} 
+                onClose={() => setIsDeleteModalOpen(false)}
+                title="Confirm Deletion"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
+                        <Button variant="danger" onClick={confirmDelete} disabled={isDeleting}>
+                            {isDeleting ? 'Deleting...' : 'Delete Logs'}
+                        </Button>
+                    </>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <p>Select which logs you would like to delete:</p>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input 
+                            type="radio" 
+                            id="delete-older" 
+                            name="deleteMode" 
+                            checked={deleteMode === 'older'}
+                            onChange={() => setDeleteMode('older')}
+                        />
+                        <label htmlFor="delete-older">Delete logs older than</label>
+                        <Input 
+                            type="number" 
+                            min="1" 
+                            value={olderThanDays} 
+                            onChange={(e) => setOlderThanDays(parseInt(e.target.value) || 1)}
+                            style={{ width: '60px', padding: '4px 8px' }}
+                            disabled={deleteMode !== 'older'}
+                        />
+                        <span>days</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input 
+                            type="radio" 
+                            id="delete-all" 
+                            name="deleteMode" 
+                            checked={deleteMode === 'all'}
+                            onChange={() => setDeleteMode('all')}
+                        />
+                        <label htmlFor="delete-all" style={{ color: 'var(--color-danger)' }}>
+                            Delete ALL logs (Cannot be undone)
+                        </label>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal 
+                isOpen={isSingleDeleteModalOpen} 
+                onClose={() => setIsSingleDeleteModalOpen(false)}
+                title="Confirm Deletion"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>Cancel</Button>
+                        <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>
+                            {isDeleting ? 'Deleting...' : 'Delete Log'}
+                        </Button>
+                    </>
+                }
+            >
+                <p>Are you sure you want to delete log <strong>{selectedLogIdForDelete}</strong>? This action cannot be undone.</p>
+            </Modal>
         </div>
     );
 };
