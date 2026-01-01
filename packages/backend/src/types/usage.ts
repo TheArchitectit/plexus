@@ -16,4 +16,5 @@ export interface UsageRecord {
     durationMs: number;
     isStreamed: boolean;
     responseStatus: string; // "success", "error", or "HTTP <code"
+    hasDebug?: boolean;
 }

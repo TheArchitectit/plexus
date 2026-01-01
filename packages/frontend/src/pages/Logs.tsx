@@ -5,10 +5,12 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { api, UsageRecord } from '../lib/api';
-import { ChevronLeft, ChevronRight, Search, Filter, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Filter, Trash2, Bug } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useNavigate } from 'react-router-dom';
 
 export const Logs = () => {
+    const navigate = useNavigate();
     const [logs, setLogs] = useState<UsageRecord[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -205,16 +207,17 @@ export const Logs = () => {
                                 <th style={{ padding: '12px' }}>Streamed</th>
                                 <th style={{ padding: '12px' }}>Status</th>
                                 <th style={{ padding: '12px', width: '40px' }}></th>
+                                <th style={{ padding: '12px', width: '40px' }}></th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={12} style={{ padding: '20px', textAlign: 'center' }}>Loading...</td>
+                                    <td colSpan={13} style={{ padding: '20px', textAlign: 'center' }}>Loading...</td>
                                 </tr>
                             ) : logs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={12} style={{ padding: '20px', textAlign: 'center' }}>No logs found</td>
+                                    <td colSpan={13} style={{ padding: '20px', textAlign: 'center' }}>No logs found</td>
                                 </tr>
                             ) : (
                                 logs.map((log) => (
@@ -250,6 +253,17 @@ export const Logs = () => {
                                             <Badge status={log.responseStatus === 'success' ? 'connected' : 'error'}>
                                                 {log.responseStatus}
                                             </Badge>
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                            {log.hasDebug && (
+                                                <button 
+                                                    onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
+                                                    className="debug-delete-btn"
+                                                    title="View Debug Trace"
+                                                >
+                                                    <Bug size={14} className="text-blue-400" />
+                                                </button>
+                                            )}
                                         </td>
                                         <td style={{ padding: '12px' }}>
                                             <button 

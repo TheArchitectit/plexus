@@ -246,6 +246,31 @@ describe("UsageStorageService", () => {
         expect(logs.data[0].requestId).toBe("new-req");
     });
 
+    test("should populate hasDebug flag", () => {
+        service.saveRequest({ 
+            requestId: "req-with-debug", 
+            date: new Date().toISOString(), 
+            startTime: 0, durationMs: 0, isStreamed: false, responseStatus: "ok"
+        });
+        service.saveDebugLog({
+            requestId: "req-with-debug",
+            createdAt: Date.now()
+        });
+
+        service.saveRequest({ 
+            requestId: "req-no-debug", 
+            date: new Date().toISOString(), 
+            startTime: 0, durationMs: 0, isStreamed: false, responseStatus: "ok"
+        });
+
+        const result = service.getUsage({}, { limit: 10, offset: 0 });
+        const withDebug = result.data.find(r => r.requestId === "req-with-debug");
+        const noDebug = result.data.find(r => r.requestId === "req-no-debug");
+
+        expect(withDebug?.hasDebug).toBe(true);
+        expect(noDebug?.hasDebug).toBe(false);
+    });
+
     test("should delete a debug log", () => {
         const logRecord = {
             requestId: "debug-req-1",

@@ -4,6 +4,8 @@
 
 ![Dashboard Overview](docs/images/splash.png)
 
+### [🚀 API Reference](docs/API.md) | [⚙️ Configuration Guide](CONFIGURATION.md)
+
 Plexus unifies interactions with multiple AI providers—OpenAI, Anthropic, Gemini, and more—under a single, standard API. It handles protocol translation, load balancing, and observability, allowing you to switch models and providers without rewriting your client code.
 
 ![Dashboard Overview](docs/images/homepage.png)

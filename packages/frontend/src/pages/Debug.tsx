@@ -5,6 +5,7 @@ import { RefreshCw, Clock, Database, ArrowRight, ChevronDown, ChevronRight, Copy
 import { clsx } from 'clsx';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { useLocation } from 'react-router-dom';
 
 interface DebugLogMeta {
     requestId: string;
@@ -21,6 +22,7 @@ interface DebugLogDetail extends DebugLogMeta {
 }
 
 export const Debug: React.FC = () => {
+    const location = useLocation();
     const [logs, setLogs] = useState<DebugLogMeta[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [detail, setDetail] = useState<DebugLogDetail | null>(null);
@@ -33,12 +35,19 @@ export const Debug: React.FC = () => {
     const [selectedLogIdForDelete, setSelectedLogIdForDelete] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    useEffect(() => {
+        if (location.state?.requestId) {
+            setSelectedId(location.state.requestId);
+            // clear state so it doesn't persist on refresh if we wanted, but standard behavior is fine
+        }
+    }, [location.state]);
+
     const fetchLogs = async () => {
         setLoading(true);
         try {
             const data = await api.getDebugLogs(50);
             setLogs(data);
-            if (data.length > 0 && !selectedId) {
+            if (data.length > 0 && !selectedId && !location.state?.requestId) {
                 // Optionally select first? No, let user choose.
             }
         } finally {

@@ -281,7 +281,12 @@ export class UsageStorageService extends EventEmitter {
     }
 
     getUsage(filters: UsageFilters, pagination: PaginationOptions): { data: UsageRecord[], total: number } {
-        let queryStr = "SELECT * FROM request_usage WHERE 1=1";
+        let queryStr = `
+            SELECT request_usage.*, 
+            EXISTS(SELECT 1 FROM debug_logs WHERE debug_logs.request_id = request_usage.request_id) as has_debug
+            FROM request_usage 
+            WHERE 1=1
+        `;
         let countQueryStr = "SELECT COUNT(*) as count FROM request_usage WHERE 1=1";
         const params: any = {};
 
@@ -362,7 +367,8 @@ export class UsageStorageService extends EventEmitter {
                 startTime: row.start_time,
                 durationMs: row.duration_ms,
                 isStreamed: !!row.is_streamed,
-                responseStatus: row.response_status
+                responseStatus: row.response_status,
+                hasDebug: !!row.has_debug
             }));
 
             return {
