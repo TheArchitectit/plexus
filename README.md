@@ -52,6 +52,37 @@ This single command orchestrates the following:
 Open your browser to:
 `http://localhost:4000`
 
+## Compiling to Standalone Executables
+
+Plexus 2 can be compiled into a single, self-contained binary that includes the Bun runtime, all backend logic, and the pre-built frontend dashboard. This allows you to distribute and run Plexus without needing Bun or Node.js installed on the target machine.
+
+### Build Commands
+
+The following commands will build the frontend and then compile the application:
+
+- **macOS (ARM64/Apple Silicon):**
+  ```bash
+  bun run compile:macos
+  ```
+- **Linux (x64):**
+  ```bash
+  bun run compile:linux
+  ```
+- **Windows (x64):**
+  ```bash
+  bun run compile:windows
+  ```
+
+The resulting executable will be named `plexus-macos` (or `plexus-linux` / `plexus.exe`) in the project root.
+
+### Running the Executable
+
+When running the standalone binary, you can specify your configuration file via the `CONFIG_FILE` environment variable:
+
+```bash
+CONFIG_FILE=./config/plexus.yaml ./plexus
+```
+
 ### VS Code Integration
 
 Pre-configured tasks and launch settings are available in the `.vscode` directory:

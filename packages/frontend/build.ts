@@ -29,14 +29,14 @@ const runBuild = async () => {
 
     // HTML Injection
     let html = await readFile("index.html", "utf-8");
-    html = html.replace('src="./src/main.tsx"', 'src="/main.js"');
-    html = html.replace('src="/src/main.tsx"', 'src="/main.js"'); // Handle both absolute/relative
+    html = html.replace('src="./src/main.tsx"', 'src="main.js"');
+    html = html.replace('src="/src/main.tsx"', 'src="main.js"'); // Handle both absolute/relative
     html = html.replace('type="module"', ''); 
 
     if (existsSync("dist/main.css")) {
       // Check if link already exists to avoid dupes
-      if (!html.includes('href="/main.css"')) {
-           html = html.replace('</head>', '  <link rel="stylesheet" href="/main.css">\n  </head>');
+      if (!html.includes('href="main.css"')) {
+           html = html.replace('</head>', '  <link rel="stylesheet" href="main.css">\n  </head>');
       }
     }
 
