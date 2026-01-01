@@ -9,7 +9,8 @@ packages/frontend/node_modules
 packages/frontend/dist
 *.log
 .DS_Store
-plexus-linux
+plexus-linux-amd64
+plexus-linux-arm64
 plexus-macos
 plexus.exe
 testcommands

@@ -1,0 +1,15 @@
+services:
+  plexus:
+    build: .
+    image: plexus:latest
+    container_name: plexus
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./config:/app/config
+      # - ./data:/app/data
+    environment:
+      - LOG_LEVEL=info
+      - DATA_DIR=/app/config
+      - CONFIG_FILE=/app/config/plexus.yaml
