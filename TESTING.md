@@ -4,10 +4,12 @@ This project uses [Polly.js](https://netflix.github.io/pollyjs/) for robust E2E 
 
 ## E2E VCR Tests
 
-The E2E tests are located in `packages/backend/src/services/__tests__/e2e_vcr.test.ts`.
+The E2E tests are split by API type:
+- **Chat API**: `packages/backend/src/services/__tests__/e2e_vcr_chat.test.ts` (Cases: `cases/chat/`)
+- **Messages API**: `packages/backend/src/services/__tests__/e2e_vcr_messages.test.ts` (Cases: `cases/messages/`)
 
 ### How it works:
-1.  **Dynamic Discovery**: The suite loads all `.json` files from `packages/backend/src/services/__tests__/cases/`.
+1.  **Dynamic Discovery**: Each suite loads `.json` files from its respective directory in `cases/`.
 2.  **Cassette Recording (Polly.js)**: 
     -   Requests to upstream providers are intercepted.
     -   In **Record Mode**, real API calls are made and saved to `__cassettes__/` as JSON files.
@@ -21,36 +23,34 @@ Uses existing cassettes. No API keys or network access are required.
 
 ```bash
 cd packages/backend
-bun test src/services/__tests__/e2e_vcr.test.ts
+bun test
 ```
 
 ### 2. Record Mode (Live API)
-To capture new network interactions:
+To capture new network interactions for ALL tests:
 
 ```bash
 # From project root
-PLEXUS_TEST_API_KEY="your-key" \
-PLEXUS_TEST_BASE_URL="https://api.provider.com/v1" \
-PLEXUS_TEST_MODEL="model-name" \
+PLEXUS_TEST_API_KEY="your-openai-key" \
+PLEXUS_TEST_ANTHROPIC_API_KEY="your-anthropic-key" \
 bun run update-cassettes
 ```
 
-*Note: The suite automatically scrubs the `Authorization` header before saving it to disk.*
+*Note: The suite automatically scrubs sensitive headers and model names before saving to disk.*
 
 ## Configuration Overrides
 The following environment variables are used during **Record Mode**:
 
-| Variable | Description | Default | 
+| Variable | Description | Default |
 | :--- | :--- | :--- |
-| `RECORD` | Set to `1` to enable live recording. | `0` (Replay) |
-| `PLEXUS_TEST_API_KEY` | API Key for the upstream provider. | `syn_test_key` |
-| `PLEXUS_TEST_BASE_URL` | Base URL for the upstream provider. | `https://api.synthetic.new/openai/v1` |
-| `PLEXUS_TEST_MODEL` | Target model name on the provider. | `hf:MiniMaxAI/MiniMax-M2.1` |
+| `PLEXUS_TEST_API_KEY` | OpenAI-compatible API Key. | `scrubbed_key` |
+| `PLEXUS_TEST_ANTHROPIC_API_KEY` | Anthropic API Key. | `scrubbed_key` |
+| `PLEXUS_TEST_BASE_URL` | Base URL for OpenAI provider. | `https://api.upstream.mock/openai/v1` |
+| `PLEXUS_TEST_ANTHROPIC_BASE_URL` | Base URL for Anthropic provider. | `https://api.anthropic.com/v1` |
 
 ## Adding New Test Cases
 
-1.  Add a new JSON request body to `packages/backend/src/services/__tests__/cases/`.
+1.  Add a new JSON request body to `cases/chat/` (for OpenAI-like) or `cases/messages/` (for Anthropic-like).
 2.  Run the **Record Mode** command above to capture the network interaction.
 3.  Commit the new case and its corresponding cassette in `__cassettes__/`.
 
-```

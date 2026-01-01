@@ -55,10 +55,10 @@ mock.module("../../config", () => ({
     loadConfig: () => mockConfig
 }));
 
-const CASES_DIR = path.join(import.meta.dir, "cases");
+const CASES_DIR = path.join(import.meta.dir, "cases", "chat");
 const CASSETTES_DIR = path.join(import.meta.dir, "__cassettes__");
 
-describe("E2E Tests", () => {
+describe("E2E Chat Tests", () => {
     let dispatcher: Dispatcher;
     let polly: Polly;
 
@@ -79,14 +79,14 @@ describe("E2E Tests", () => {
     const testFiles = fs.readdirSync(CASES_DIR).filter(f => f.endsWith(".json"));
 
     for (const file of testFiles) {
-        test(`Case: ${file}`, async () => {
+        test(`Case: chat/${file}`, async () => {
             const commandPath = path.join(CASES_DIR, file);
             const clientRequest: UnifiedChatRequest = JSON.parse(fs.readFileSync(commandPath, "utf8"));
             clientRequest.model = "minimax-m2.1";
 
             // Initialize Polly for this test case
-            // Use 'file' as recording name for clear mapping
-            polly = new Polly(file, {
+            // Prefix with 'chat/' to match cassette folder structure
+            polly = new Polly(`chat/${file}`, {
                 adapters: ["fetch"],
                 persister: "fs",
                 persisterOptions: {
@@ -97,7 +97,7 @@ describe("E2E Tests", () => {
                 mode: shouldRecord ? "record" : "replay",
                 matchRequestsBy: {
                     headers: false,
-                    body: false, // Rely on order/method as scrubbing changes the body/url between record/replay
+                    body: false, 
                     url: false,
                     order: true,
                     method: true
@@ -111,33 +111,29 @@ describe("E2E Tests", () => {
 
                 // 1. Scrub Headers
                 recording.request.headers = recording.request.headers.map((h: any) => {
-                    if (['authorization', 'api-key', 'x-api-key'].includes(h.name.toLowerCase())) {
+                    const name = h.name.toLowerCase();
+                    if (['authorization', 'api-key', 'x-api-key'].includes(name)) {
                          h.value = `Bearer ${SCRUBBED_KEY}`;
                     }
                     return h;
                 });
                 
                 // 2. Scrub URL Host
-                if (process.env.PLEXUS_TEST_BASE_URL) {
-                    try {
-                        const baseUrl = new URL(process.env.PLEXUS_TEST_BASE_URL);
-                        const reqUrl = new URL(recording.request.url);
-                        if (reqUrl.origin === baseUrl.origin) {
-                            recording.request.url = recording.request.url.replace(baseUrl.origin, new URL(SCRUBBED_BASE_URL).origin);
-                        }
-                    } catch (e) {}
-                } else {
-                     recording.request.url = recording.request.url.replace(/https?:\/\/[^\/]+/, new URL(SCRUBBED_BASE_URL).origin);
-                }
+                const scrubHost = (url: string) => {
+                    return url.replace(/https?:\/\/[^\/]+/, "https://api.upstream.mock");
+                };
+                recording.request.url = scrubHost(recording.request.url);
 
                 // 3. Scrub Request Body (Model name)
                 if (recording.request.postData && recording.request.postData.text) {
-                    recording.request.postData.text = recording.request.postData.text.split(realModel).join(SCRUBBED_MODEL);
+                    recording.request.postData.text = recording.request.postData.text
+                        .split(realModel).join(SCRUBBED_MODEL);
                 }
 
                 // 4. Scrub Response Body (Model name)
                 if (recording.response.content && recording.response.content.text) {
-                    recording.response.content.text = recording.response.content.text.split(realModel).join(SCRUBBED_MODEL);
+                    recording.response.content.text = recording.response.content.text
+                        .split(realModel).join(SCRUBBED_MODEL);
                 }
 
                 // 5. Scrub Response Headers (Cookies)

@@ -7,7 +7,7 @@
     "dev": "bun run --watch src/index.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "update-cassettes": "RECORD=1 bun test src/services/__tests__/e2e_vcr.test.ts"
+    "update-cassettes": "RECORD=1 bun test src/services/__tests__/e2e_vcr_*.test.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
