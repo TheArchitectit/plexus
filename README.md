@@ -72,6 +72,28 @@ Plexus is built with [Bun](https://bun.sh/).
    bun run install:all
    ```
 
+### Docker
+
+You can also run Plexus using Docker. This is the recommended way for production deployments.
+
+**Build the image:**
+```bash
+docker build -t plexus .
+```
+
+**Run the container:**
+```bash
+docker run -p 4000:4000 \
+  -v $(pwd)/config/plexus.example.yaml:/app/config/plexus.yaml \
+  -v plexus-data:/app/data \
+  -e LOG_LEVEL=info \
+  plexus
+```
+
+-   Mount your configuration file to `/app/config/plexus.yaml`.
+-   Mount a volume to `/app/data` to persist usage logs and other data.
+-   Set `LOG_LEVEL` to control verbosity.
+
 ## Development
 
 Plexus includes a unified development environment that manages both the backend API and the frontend dashboard.
