@@ -4,9 +4,12 @@ import { logger } from './utils/logger';
 import { loadConfig } from './config';
 import { Dispatcher } from './services/dispatcher';
 import { AnthropicTransformer, OpenAITransformer } from './transformers';
+import { UsageStorageService } from './services/usage-storage';
+import { UsageRecord } from './types/usage';
 
 const app = new Hono();
 const dispatcher = new Dispatcher();
+const usageStorage = new UsageStorageService();
 
 // Load config on startup
 try {
@@ -24,23 +27,69 @@ app.use('*', async (c, next) => {
 
 // OpenAI Compatible Endpoint
 app.post('/v1/chat/completions', async (c) => {
+    const requestId = crypto.randomUUID();
+    const startTime = Date.now();
+    let usageRecord: Partial<UsageRecord> = {
+        requestId,
+        date: new Date().toISOString(),
+        sourceIp: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+        incomingApiType: 'openai',
+        startTime,
+        isStreamed: false,
+        responseStatus: 'pending'
+    };
+
     try {
         const body = await c.req.json();
+        usageRecord.incomingModelAlias = body.model;
+        // API Key extraction (best effort placeholder)
+        const authHeader = c.req.header('Authorization');
+        usageRecord.apiKey = authHeader ? authHeader.replace('Bearer ', '').substring(0, 8) + '...' : null;
+
         logger.debug('Incoming OpenAI Request', body);
         const transformer = new OpenAITransformer();
         const unifiedRequest = await transformer.parseRequest(body);
         
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         
+        // Update record with selected model info if available
+        usageRecord.selectedModelName = unifiedResponse.model;
+        usageRecord.provider = unifiedResponse.model.split(':')[0]; // rudimentary provider extraction if model is provider:name
+        usageRecord.isStreamed = !!unifiedResponse.stream;
+
         if (unifiedResponse.stream) {
+            // Tee the stream to track usage
+            const [logStream, clientStreamSource] = unifiedResponse.stream.tee();
+
+            // Background processing of the stream for logging
+            (async () => {
+                const reader = logStream.getReader();
+                let chunkCount = 0;
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunkCount++;
+                        // Try to extract usage from value if possible (implementation specific)
+                    }
+                    usageRecord.responseStatus = 'success';
+                } catch (e) {
+                    usageRecord.responseStatus = 'error_stream';
+                } finally {
+                    usageRecord.durationMs = Date.now() - startTime;
+                    // Save record
+                    usageStorage.saveRequest(usageRecord as UsageRecord);
+                }
+            })();
+
             return stream(c, async (stream) => {
                 c.header('Content-Type', 'text/event-stream');
                 c.header('Cache-Control', 'no-cache');
                 c.header('Connection', 'keep-alive');
                 
                 const clientStream = transformer.formatStream ? 
-                                   transformer.formatStream(unifiedResponse.stream) : 
-                                   unifiedResponse.stream;
+                                   transformer.formatStream(clientStreamSource) : 
+                                   clientStreamSource;
 
                 const reader = clientStream.getReader();
                 try {
@@ -56,9 +105,26 @@ app.post('/v1/chat/completions', async (c) => {
         }
 
         const responseBody = await transformer.formatResponse(unifiedResponse);
+        
+        // Populate usage stats
+        if (unifiedResponse.usage) {
+            usageRecord.tokensInput = unifiedResponse.usage.prompt_tokens;
+            usageRecord.tokensOutput = unifiedResponse.usage.completion_tokens;
+            usageRecord.tokensCached = unifiedResponse.usage.prompt_tokens_details?.cached_tokens;
+            usageRecord.tokensReasoning = unifiedResponse.usage.completion_tokens_details?.reasoning_tokens;
+        }
+
+        usageRecord.responseStatus = 'success';
+        usageRecord.durationMs = Date.now() - startTime;
+        usageStorage.saveRequest(usageRecord as UsageRecord);
+
         logger.debug('Outgoing OpenAI Response', responseBody);
         return c.json(responseBody);
     } catch (e: any) {
+        usageRecord.responseStatus = 'error';
+        usageRecord.durationMs = Date.now() - startTime;
+        usageStorage.saveRequest(usageRecord as UsageRecord);
+
         logger.error('Error processing OpenAI request', e);
         return c.json({ error: { message: e.message, type: 'api_error' } }, 500);
     }
@@ -66,23 +132,65 @@ app.post('/v1/chat/completions', async (c) => {
 
 // Anthropic Compatible Endpoint
 app.post('/v1/messages', async (c) => {
+    const requestId = crypto.randomUUID();
+    const startTime = Date.now();
+    let usageRecord: Partial<UsageRecord> = {
+        requestId,
+        date: new Date().toISOString(),
+        sourceIp: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+        incomingApiType: 'anthropic',
+        startTime,
+        isStreamed: false,
+        responseStatus: 'pending'
+    };
+
     try {
         const body = await c.req.json();
+        usageRecord.incomingModelAlias = body.model;
+        // API Key extraction
+        const authHeader = c.req.header('x-api-key');
+        usageRecord.apiKey = authHeader ? authHeader.substring(0, 8) + '...' : null;
+
         logger.debug('Incoming Anthropic Request', body);
         const transformer = new AnthropicTransformer();
         const unifiedRequest = await transformer.parseRequest(body);
         
         const unifiedResponse = await dispatcher.dispatch(unifiedRequest);
         
+        // Update record
+        usageRecord.selectedModelName = unifiedResponse.model;
+        usageRecord.provider = unifiedResponse.model.split(':')[0];
+        usageRecord.isStreamed = !!unifiedResponse.stream;
+
         if (unifiedResponse.stream) {
+            const [logStream, clientStreamSource] = unifiedResponse.stream.tee();
+
+            // Background processing of the stream for logging
+            (async () => {
+                const reader = logStream.getReader();
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        // Inspect chunks for usage if possible
+                    }
+                    usageRecord.responseStatus = 'success';
+                } catch (e) {
+                    usageRecord.responseStatus = 'error_stream';
+                } finally {
+                    usageRecord.durationMs = Date.now() - startTime;
+                    usageStorage.saveRequest(usageRecord as UsageRecord);
+                }
+            })();
+
             return stream(c, async (stream) => {
                 c.header('Content-Type', 'text/event-stream');
                 c.header('Cache-Control', 'no-cache');
                 c.header('Connection', 'keep-alive');
                 
                 const clientStream = transformer.formatStream ? 
-                                   transformer.formatStream(unifiedResponse.stream) : 
-                                   unifiedResponse.stream;
+                                   transformer.formatStream(clientStreamSource) : 
+                                   clientStreamSource;
 
                 const reader = clientStream.getReader();
                 try {
@@ -98,9 +206,25 @@ app.post('/v1/messages', async (c) => {
         }
 
         const responseBody = await transformer.formatResponse(unifiedResponse);
+        
+        if (unifiedResponse.usage) {
+            usageRecord.tokensInput = unifiedResponse.usage.prompt_tokens;
+            usageRecord.tokensOutput = unifiedResponse.usage.completion_tokens;
+            usageRecord.tokensCached = unifiedResponse.usage.prompt_tokens_details?.cached_tokens;
+            usageRecord.tokensReasoning = unifiedResponse.usage.completion_tokens_details?.reasoning_tokens;
+        }
+
+        usageRecord.responseStatus = 'success';
+        usageRecord.durationMs = Date.now() - startTime;
+        usageStorage.saveRequest(usageRecord as UsageRecord);
+
         logger.debug('Outgoing Anthropic Response', responseBody);
         return c.json(responseBody);
     } catch (e: any) {
+        usageRecord.responseStatus = 'error';
+        usageRecord.durationMs = Date.now() - startTime;
+        usageStorage.saveRequest(usageRecord as UsageRecord);
+
         logger.error('Error processing Anthropic request', e);
         // Anthropic error format
         return c.json({ type: 'error', error: { type: 'api_error', message: e.message } }, 500);
