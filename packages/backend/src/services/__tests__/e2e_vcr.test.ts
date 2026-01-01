@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeEach, afterEach } from "bun:test";
 import { Dispatcher } from "../dispatcher";
 import { UnifiedChatRequest } from "../../types/unified";
-import fs from "fs";
+import * as fs from "node:fs";
 import path from "path";
 import { Polly } from "@pollyjs/core";
 import NodeHttpAdapter from "@pollyjs/adapter-fetch";

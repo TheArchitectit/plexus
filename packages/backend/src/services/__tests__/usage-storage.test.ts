@@ -139,42 +139,50 @@ describe("UsageStorageService", () => {
         expect(result2.data[0].requestId).toBe("req-2");
     });
 
-    test("should filter usage by provider and date", () => {
-         const record1: UsageRecord = {
+    test("should filter usage with partial text match (LIKE)", () => {
+        const record1: UsageRecord = {
             requestId: "req-1",
-            date: "2023-01-01T12:00:00Z",
+            date: new Date().toISOString(),
             sourceIp: "127.0.0.1",
-            apiKey: "key-1",
+            apiKey: "key",
             incomingApiType: "openai",
-            provider: "openai",
-            incomingModelAlias: "gpt-4",
+            provider: "openai-production",
+            incomingModelAlias: "gpt-4-turbo",
             selectedModelName: "gpt-4-0613",
             outgoingApiType: "openai",
             tokensInput: 10,
             tokensOutput: 20,
             tokensReasoning: 0,
             tokensCached: 0,
-            startTime: 1000,
-            durationMs: 500,
+            startTime: Date.now(),
+            durationMs: 100,
             isStreamed: false,
             responseStatus: "success"
         };
         const record2: UsageRecord = {
             ...record1,
             requestId: "req-2",
-            provider: "anthropic",
-            date: "2023-01-02T12:00:00Z"
+            provider: "anthropic-claude",
+            incomingModelAlias: "claude-3-opus",
+            selectedModelName: "claude-3-opus-20240229"
         };
 
         service.saveRequest(record1);
         service.saveRequest(record2);
 
-        const result = service.getUsage({ provider: "openai" }, { limit: 10, offset: 0 });
-        expect(result.total).toBe(1);
-        expect(result.data[0].requestId).toBe("req-1");
+        // Filter by partial provider
+        const resProvider = service.getUsage({ provider: "openai" }, { limit: 10, offset: 0 });
+        expect(resProvider.total).toBe(1);
+        expect(resProvider.data[0].requestId).toBe("req-1");
 
-        const result2 = service.getUsage({ startDate: "2023-01-02T00:00:00Z" }, { limit: 10, offset: 0 });
-        expect(result2.total).toBe(1);
-        expect(result2.data[0].requestId).toBe("req-2");
+        // Filter by partial model alias
+        const resModel = service.getUsage({ incomingModelAlias: "claude" }, { limit: 10, offset: 0 });
+        expect(resModel.total).toBe(1);
+        expect(resModel.data[0].requestId).toBe("req-2");
+        
+        // Filter by partial selected model
+        const resSelected = service.getUsage({ selectedModelName: "0613" }, { limit: 10, offset: 0 });
+        expect(resSelected.total).toBe(1);
+        expect(resSelected.data[0].requestId).toBe("req-1");
     });
 });
