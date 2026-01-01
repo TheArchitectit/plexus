@@ -4,6 +4,24 @@ import { UsageRecord } from "../types/usage";
 import fs from 'node:fs';
 import path from 'node:path';
 
+export interface UsageFilters {
+    startDate?: string;
+    endDate?: string;
+    incomingApiType?: string;
+    provider?: string;
+    incomingModelAlias?: string;
+    selectedModelName?: string;
+    outgoingApiType?: string;
+    minDurationMs?: number;
+    maxDurationMs?: number;
+    responseStatus?: string;
+}
+
+export interface PaginationOptions {
+    limit: number;
+    offset: number;
+}
+
 export class UsageStorageService {
     private db: Database;
 
@@ -124,6 +142,101 @@ export class UsageStorageService {
             logger.debug(`Usage record saved for request ${record.requestId}`);
         } catch (error) {
             logger.error("Failed to save usage record", error);
+        }
+    }
+
+    getUsage(filters: UsageFilters, pagination: PaginationOptions): { data: UsageRecord[], total: number } {
+        let queryStr = "SELECT * FROM request_usage WHERE 1=1";
+        let countQueryStr = "SELECT COUNT(*) as count FROM request_usage WHERE 1=1";
+        const params: any = {};
+
+        if (filters.startDate) {
+            queryStr += " AND date >= $startDate";
+            countQueryStr += " AND date >= $startDate";
+            params.$startDate = filters.startDate;
+        }
+        if (filters.endDate) {
+            queryStr += " AND date <= $endDate";
+            countQueryStr += " AND date <= $endDate";
+            params.$endDate = filters.endDate;
+        }
+        if (filters.incomingApiType) {
+            queryStr += " AND incoming_api_type = $incomingApiType";
+            countQueryStr += " AND incoming_api_type = $incomingApiType";
+            params.$incomingApiType = filters.incomingApiType;
+        }
+        if (filters.provider) {
+            queryStr += " AND provider = $provider";
+            countQueryStr += " AND provider = $provider";
+            params.$provider = filters.provider;
+        }
+        if (filters.incomingModelAlias) {
+            queryStr += " AND incoming_model_alias = $incomingModelAlias";
+            countQueryStr += " AND incoming_model_alias = $incomingModelAlias";
+            params.$incomingModelAlias = filters.incomingModelAlias;
+        }
+        if (filters.selectedModelName) {
+            queryStr += " AND selected_model_name = $selectedModelName";
+            countQueryStr += " AND selected_model_name = $selectedModelName";
+            params.$selectedModelName = filters.selectedModelName;
+        }
+        if (filters.outgoingApiType) {
+            queryStr += " AND outgoing_api_type = $outgoingApiType";
+            countQueryStr += " AND outgoing_api_type = $outgoingApiType";
+            params.$outgoingApiType = filters.outgoingApiType;
+        }
+        if (filters.minDurationMs !== undefined) {
+            queryStr += " AND duration_ms >= $minDurationMs";
+            countQueryStr += " AND duration_ms >= $minDurationMs";
+            params.$minDurationMs = filters.minDurationMs;
+        }
+        if (filters.maxDurationMs !== undefined) {
+            queryStr += " AND duration_ms <= $maxDurationMs";
+            countQueryStr += " AND duration_ms <= $maxDurationMs";
+            params.$maxDurationMs = filters.maxDurationMs;
+        }
+        if (filters.responseStatus) {
+            queryStr += " AND response_status = $responseStatus";
+            countQueryStr += " AND response_status = $responseStatus";
+            params.$responseStatus = filters.responseStatus;
+        }
+
+        queryStr += " ORDER BY date DESC LIMIT $limit OFFSET $offset";
+        
+        const dataParams = { ...params, $limit: pagination.limit, $offset: pagination.offset };
+
+        try {
+            const countResult = this.db.query(countQueryStr).get(params) as { count: number };
+            const dataResult = this.db.query(queryStr).all(dataParams) as any[];
+
+            // Map snake_case to camelCase for UsageRecord
+            const mappedData: UsageRecord[] = dataResult.map(row => ({
+                requestId: row.request_id,
+                date: row.date,
+                sourceIp: row.source_ip,
+                apiKey: row.api_key,
+                incomingApiType: row.incoming_api_type,
+                provider: row.provider,
+                incomingModelAlias: row.incoming_model_alias,
+                selectedModelName: row.selected_model_name,
+                outgoingApiType: row.outgoing_api_type,
+                tokensInput: row.tokens_input,
+                tokensOutput: row.tokens_output,
+                tokensReasoning: row.tokens_reasoning,
+                tokensCached: row.tokens_cached,
+                startTime: row.start_time,
+                durationMs: row.duration_ms,
+                isStreamed: !!row.is_streamed,
+                responseStatus: row.response_status
+            }));
+
+            return {
+                data: mappedData,
+                total: countResult.count
+            };
+        } catch (error) {
+            logger.error("Failed to query usage", error);
+            throw error;
         }
     }
 }

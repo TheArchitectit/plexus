@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { stream } from 'hono/streaming';
 import { logger } from './utils/logger';
-import { loadConfig } from './config';
+import { loadConfig, getConfig } from './config';
 import { Dispatcher } from './services/dispatcher';
 import { AnthropicTransformer, OpenAITransformer } from './transformers';
 import { UsageStorageService } from './services/usage-storage';
@@ -248,6 +248,50 @@ app.post('/v1/responses', async (c) => {
      // TODO: Implement Responses API transformation
      // For now, treat same as Chat Completions?
      return c.json({ error: "Not implemented" }, 501);
+});
+
+// Management API
+app.get('/v0/management/config', (c) => {
+    const config = getConfig();
+    return c.json({
+        logLevel: logger.level,
+        providers: Object.keys(config.providers).map(key => ({
+            name: key,
+            type: config.providers[key].type,
+            models: config.providers[key].models
+        })),
+        models: Object.keys(config.models).map(key => ({
+            alias: key,
+            targets: config.models[key].targets
+        }))
+    });
+});
+
+app.get('/v0/management/usage', (c) => {
+    const query = c.req.query();
+    const limit = parseInt(query.limit || '50');
+    const offset = parseInt(query.offset || '0');
+
+    const filters: any = {
+        startDate: query.startDate,
+        endDate: query.endDate,
+        incomingApiType: query.incomingApiType,
+        provider: query.provider,
+        incomingModelAlias: query.incomingModelAlias,
+        selectedModelName: query.selectedModelName,
+        outgoingApiType: query.outgoingApiType,
+        responseStatus: query.responseStatus
+    };
+
+    if (query.minDurationMs) filters.minDurationMs = parseInt(query.minDurationMs);
+    if (query.maxDurationMs) filters.maxDurationMs = parseInt(query.maxDurationMs);
+
+    try {
+        const result = usageStorage.getUsage(filters, { limit, offset });
+        return c.json(result);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
 });
 
 // Health check
