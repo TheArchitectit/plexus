@@ -6,7 +6,8 @@
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
     "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test:watch": "bun test --watch",
+    "update-cassettes": "RECORD=1 bun test src/services/__tests__/e2e_vcr.test.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
@@ -16,6 +17,9 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@pollyjs/adapter-fetch": "^6.0.7",
+    "@pollyjs/core": "^6.0.6",
+    "@pollyjs/persister-fs": "^6.0.6",
     "@types/node": "^22.0.0",
     "@types/winston": "^2.4.4"
   }

@@ -10,7 +10,8 @@
     "dev": "bun run dev:backend",
     "dev:backend": "cd packages/backend && bun run dev",
     "dev:frontend": "cd packages/frontend && bun run dev",
-    "install:all": "bun install && (cd llms && bun install) && (cd packages/backend && bun install) && (cd packages/frontend && bun install)"
+    "install:all": "bun install && (cd llms && bun install) && (cd packages/backend && bun install) && (cd packages/frontend && bun install)",
+    "update-cassettes": "cd packages/backend && RECORD=1 bun test src/services/__tests__/e2e_vcr.test.ts"
   },
   "peerDependencies": {
     "typescript": "^5"

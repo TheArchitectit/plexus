@@ -73,7 +73,17 @@ export class Dispatcher {
             };
         }
 
-        const responseBody = await response.json();
+        const responseText = await response.text();
+        if (!responseText || responseText.trim() === '') {
+             logger.warn('Received empty response from provider');
+             return {
+                 id: 'empty-' + Date.now(),
+                 model: request.model,
+                 content: null
+             };
+        }
+
+        const responseBody = JSON.parse(responseText);
         logger.silly('Upstream Response Payload', responseBody);
         const unifiedResponse = await transformer.transformResponse(responseBody);
         
