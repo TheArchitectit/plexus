@@ -16,6 +16,16 @@
     {
       "type": "bun",
       "request": "launch",
+      "name": "Debug Backend Tests",
+      "program": "bun",
+      "args": ["test"],
+      "cwd": "${workspaceFolder}/packages/backend",
+      "console": "integratedTerminal",
+      "stopOnEntry": false
+    },
+    {
+      "type": "bun",
+      "request": "launch",
       "name": "Debug Dev Orchestrator",
       "program": "${workspaceFolder}/scripts/dev.ts",
       "cwd": "${workspaceFolder}",

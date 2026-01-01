@@ -16,15 +16,33 @@
       }
     },
     {
+      "label": "Bun: Dev Backend",
+      "type": "shell",
+      "command": "bun run dev:backend",
+      "problemMatcher": []
+    },
+    {
+      "label": "Bun: Dev Frontend",
+      "type": "shell",
+      "command": "bun run dev:frontend",
+      "problemMatcher": []
+    },
+    {
       "label": "Bun: Install All",
       "type": "shell",
-      "command": "bun install",
+      "command": "bun run install:all",
       "problemMatcher": []
     },
     {
       "label": "Bun: Backend Tests",
       "type": "shell",
       "command": "cd packages/backend && bun test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Bun: Build Frontend",
+      "type": "shell",
+      "command": "cd packages/frontend && bun run build",
       "problemMatcher": []
     },
     {
