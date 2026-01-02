@@ -15,9 +15,14 @@
     "compile:linux": "bun run build:frontend && bun build packages/backend/src/index.ts packages/frontend/dist/index.html packages/frontend/dist/main.js packages/frontend/dist/main.css --compile --target=bun-linux-x64 --outfile plexus-linux",
     "compile:windows": "bun run build:frontend && bun build packages/backend/src/index.ts packages/frontend/dist/index.html packages/frontend/dist/main.js packages/frontend/dist/main.css --compile --target=bun-windows-x64 --outfile plexus.exe",
     "build:bin": "bun run build:frontend && bun build packages/backend/src/index.ts packages/frontend/dist/index.html packages/frontend/dist/main.js packages/frontend/dist/main.css --compile --outfile plexus",
-    "install:all": "bun install && (cd llms && bun install) && (cd packages/backend && bun install) && (cd packages/frontend && bun install)"
+    "install:all": "bun install && (cd packages/backend && bun install) && (cd packages/frontend && bun install)",
+    "release": "bun run scripts/release.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "devDependencies": {
+    "@google/genai": "^1.34.0",
+    "bun-types": "^1.3.5"
   }
 }
