@@ -73,14 +73,21 @@ const ModelConfigSchema = z.object({
   targets: z.array(ModelTargetSchema),
 });
 
+const KeyConfigSchema = z.object({
+  secret: z.string(),
+  comment: z.string().optional(),
+});
+
 const PlexusConfigSchema = z.object({
   providers: z.record(z.string(), ProviderConfigSchema),
   models: z.record(z.string(), ModelConfigSchema),
+  keys: z.record(z.string(), KeyConfigSchema),
 });
 
 export type PlexusConfig = z.infer<typeof PlexusConfigSchema>;
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
+export type KeyConfig = z.infer<typeof KeyConfigSchema>;
 export type ModelTarget = z.infer<typeof ModelTargetSchema>;
 
 // --- Loader ---
@@ -108,6 +115,14 @@ function logConfigStats(config: PlexusConfig) {
       const targetCount = alias.targets.length;
       logger.info(`  - ${name}: ${targetCount} targets`);
     });
+
+    if (config.keys) {
+      const keyCount = Object.keys(config.keys).length;
+      logger.info(`Loaded ${keyCount} API Keys:`);
+      Object.keys(config.keys).forEach((keyName) => {
+        logger.info(`  - ${keyName}`);
+      });
+    }
 }
 
 export function validateConfig(yamlContent: string): PlexusConfig {

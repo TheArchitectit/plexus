@@ -20,6 +20,7 @@ Plexus unifies interactions with multiple AI providers—OpenAI, Anthropic, Gemi
 - **Load Balancing**: Distribute requests across multiple backends for the same model alias, with configurable selection & routing options.
   - Automatic Cooldown for providers experiencing issues.
 - **Reasoning Support**: Unified handling of reasoning/thinking content from modern models, including Gemini `thoughtSignatures`.
+- **API Key Authentication**: Secure your gateway with standard Bearer token authentication for all inference endpoints.
 - **Cost Tracking & Management**: Comprehensive cost tracking with support for multiple pricing strategies:
   - **Simple**: Fixed per-token rates.
   - **OpenRouter**: Automatic fetching of real-time pricing.

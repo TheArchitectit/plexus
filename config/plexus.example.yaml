@@ -28,6 +28,13 @@
 #                 If multiple targets are provided, Plexus will perform 
 #                 selection based on the defined 'selector'.
 #
+# 3. KEYS SECTION
+# ---------------
+# Define valid API keys for accessing the Plexus gateway.
+#
+#   secret:       The actual bearer token string clients must provide.
+#   comment:      (Optional) Description or owner of the key.
+#
 ###############################################################################
 
 providers:
@@ -167,3 +174,14 @@ models:
         model: gpt-4o
       - provider: anthropic
         model: claude-3-5-sonnet-latest
+
+keys:
+  # Example API Key for accessing Plexus
+  my-app-key:
+    secret: "sk-plexus-example-key-123"
+    comment: "Key for the main application"
+  
+  # Another key for testing
+  test-key:
+    secret: "sk-plexus-test-key-456"
+    comment: "CI/CD Test Key"

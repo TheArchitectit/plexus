@@ -14,11 +14,20 @@ describe("Streaming Usage Integration", () => {
     beforeAll(async () => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-test-'));
         process.env.DATA_DIR = tempDir;
+        process.env.BYPASS_AUTH_FOR_TESTING = 'true';
 
         const configPath = path.resolve(__dirname, './test-config.yaml');
         process.env.CONFIG_FILE = configPath;
+        
+        // Load the module
         const module = await import("../index");
         server = module.default;
+        
+        // Force reload of config in case it was cached without keys
+        const { loadConfig, setConfigForTesting, validateConfig } = await import("../config");
+        const configContent = fs.readFileSync(configPath, 'utf8');
+        const config = validateConfig(configContent);
+        setConfigForTesting(config);
     });
 
     afterAll(() => {

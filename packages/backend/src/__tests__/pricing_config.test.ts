@@ -19,6 +19,7 @@ models:
     targets:
       - provider: synthetic
         model: hf:MiniMaxAI/MiniMax-M2.1
+keys: {}
 `;
     const config = validateConfig(yamlContent);
     expect(config.providers.synthetic.models).toBeDefined();
@@ -51,6 +52,7 @@ models:
     targets:
       - provider: synthetic
         model: hf:othermodel/model
+keys: {}
 `;
     const config = validateConfig(yamlContent);
     const models = config.providers.synthetic.models as any;
@@ -72,6 +74,7 @@ models:
     targets:
       - provider: openai
         model: gpt-4
+keys: {}
 `;
     const config = validateConfig(yamlContent);
     expect(Array.isArray(config.providers.openai.models)).toBe(true);
@@ -88,6 +91,7 @@ providers:
         pricing:
           source: openrouter
 models: {}
+keys: {}
 `;
     expect(() => validateConfig(yamlContent)).toThrow();
   });
@@ -103,6 +107,7 @@ providers:
         pricing:
           source: defined
 models: {}
+keys: {}
 `;
     expect(() => validateConfig(yamlContent)).toThrow();
   });

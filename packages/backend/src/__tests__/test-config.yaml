@@ -11,3 +11,7 @@ models:
     targets:
       - provider: openai
         model: gpt-4
+keys:
+  test-key:
+    secret: "sk-test-key"
+    comment: "Test Key"

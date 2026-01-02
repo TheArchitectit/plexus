@@ -137,3 +137,24 @@ This section defines the "virtual" models or aliases that clients will use when 
     - `provider`: Must match a key defined in the `providers` section.
     - `model`: The specific model name to use on that provider.
 
+#### `keys`
+This section defines the API keys required to access the Plexus gateway inference endpoints (e.g., `/v1/chat/completions`).
+
+- **Key Name**: A unique identifier for the key (e.g., `client-app-1`).
+- **`secret`**: The actual bearer token string clients must provide in the `Authorization` header.
+- **`comment`**: (Optional) A friendly description or owner name for the key.
+
+**Example:**
+```yaml
+keys:
+  production-app:
+    secret: "sk-plexus-abc-123"
+    comment: "Main production application"
+  
+  testing-key:
+    secret: "sk-plexus-test-456"
+    comment: "Key for CI/CD tests"
+```
+
+Once keys are defined, clients must include the `Authorization: Bearer <secret>` header in their requests. Note that `/v1/models` remains accessible without authentication to support model discovery.
+

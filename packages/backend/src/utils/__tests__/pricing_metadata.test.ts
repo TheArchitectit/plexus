@@ -145,6 +145,11 @@ describe("handleResponse - Pricing Metadata", () => {
 
         expect(usageRecord.costSource).toBe("defined");
         const metadata = JSON.parse(usageRecord.costMetadata || "{}");
-        expect(metadata).toEqual(pricing);
+        expect(metadata).toEqual({
+            ...pricing,
+            input: pricing.range[0].input_per_m,
+            output: pricing.range[0].output_per_m,
+            range: pricing.range[0]
+        });
     });
 });

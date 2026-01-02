@@ -18,6 +18,30 @@ mock.module("../logger", () => ({
     }
 }));
 
+// Mock PricingManager
+mock.module("../../services/pricing-manager", () => {
+    const pricingMap = new Map();
+    pricingMap.set("minimax/minimax-m2.1", {
+        prompt: "0.0000003",
+        completion: "0.0000012",
+        input_cache_read: "0.00000003"
+    });
+    pricingMap.set("z-ai/glm-4.7", {
+        prompt: "0.0000004",
+        completion: "0.0000015"
+    });
+
+    return {
+        PricingManager: {
+            getInstance: () => ({
+                getPricing: (slug: string) => pricingMap.get(slug),
+                loadPricing: () => Promise.resolve(),
+                isInitialized: () => true
+            })
+        }
+    };
+});
+
 describe("handleResponse - OpenRouter Pricing", () => {
     const mockStorage = {
         saveRequest: mock()

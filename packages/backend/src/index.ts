@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import { bearerAuth } from 'hono/bearer-auth';
 import { logger } from './utils/logger';
 import { loadConfig, getConfig, getConfigPath, validateConfig } from './config';
 import { Dispatcher } from './services/dispatcher';
@@ -42,6 +43,34 @@ app.use('*', async (c, next) => {
         logger.info(`${c.req.method} ${c.req.path}`);
     }
     await next();
+});
+
+// Auth Middleware
+app.use('/v1/*', async (c, next) => {
+    if (process.env.BYPASS_AUTH_FOR_TESTING === 'true') {
+        await next();
+        return;
+    }
+
+    if (c.req.path === '/v1/models') {
+        await next();
+        return;
+    }
+
+    const config = getConfig();
+    if (!config.keys) {
+         return c.json({ error: { message: "Unauthorized: No API keys configured", type: "auth_error" } }, 401);
+    }
+
+    const auth = bearerAuth({
+        verifyToken: async (token, c) => {
+            const currentConfig = getConfig();
+            if (!currentConfig.keys) return false;
+            return Object.values(currentConfig.keys).some(k => k.secret === token);
+        }
+    });
+
+    await auth(c, next);
 });
 
 // OpenAI Compatible Endpoint
