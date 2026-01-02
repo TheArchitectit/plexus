@@ -7,16 +7,11 @@ export class TransformerFactory {
             case 'anthropic':
                 return new AnthropicTransformer();
             case 'google':
-            case 'gemini':
                 return new GeminiTransformer();
             case 'openai':
-            case 'openrouter':
-            case 'deepseek':
-            case 'groq':
                 return new OpenAITransformer();
             default:
-                // Default to OpenAI compatible
-                return new OpenAITransformer();
+                throw new Error(`Unsupported provider type: ${providerType}`);
         }
     }
 }
