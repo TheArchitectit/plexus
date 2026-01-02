@@ -7,7 +7,17 @@ import { logger } from './utils/logger';
 // --- Zod Schemas ---
 
 const PricingRangeSchema = z.object({
-  lower_bound: z.number().min(0).default(0),
+  // This strategy is used to define a range of pricing for a model
+  // There can be multiple ranges defined for different usage levels
+  // They are based on the number of input tokens.
+  // If the input token count falls within a range, the corresponding pricing applies.
+  // Example: 
+  //   lower_bound: 0, upper_bound: 1000, input_per_m: 0.01, output_per_m: 0.02 
+  //   ## In the above case, if the number of input tokens is between 0 and 1000, the pricing will be 0.01 per million input tokens and 0.02 per million output tokens
+  //   lower_bound: 1001, upper_bound: 5000, input_per_m: 0.008, output_per_m: 0.018
+  //   ## In the above case, if the number of input tokens is between 1001 and 5000, the pricing will be 0.008 per million input tokens and 0.018 per million output tokens
+  //.  # If the upper bound is Infinity, the pricing will apply to all token counts above the lower bound
+  lower_bound: z.number().min(0).default(0), 
   upper_bound: z.number().default(Infinity),
   input_per_m: z.number().min(0),
   output_per_m: z.number().min(0),

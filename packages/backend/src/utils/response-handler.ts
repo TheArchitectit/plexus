@@ -8,24 +8,42 @@ import { logger } from './logger';
 import { DebugManager } from '../services/debug-manager';
 
 function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any) {
-    if (!pricing || pricing.source !== 'simple') return;
+    if (!pricing) return;
 
     const inputTokens = usageRecord.tokensInput || 0;
     const outputTokens = usageRecord.tokensOutput || 0;
     const cachedTokens = usageRecord.tokensCached || 0;
 
-    // Prices are usually per 1M tokens in simple config, let's assume that based on your example (0.15 for input)
-    // Actually, your prompt said "input: 0.15", "output: 0.20", "cached: 0.1". 
-    // Usually these are per Million tokens in LLM pricing.
-    
-    const inputCost = (inputTokens / 1_000_000) * pricing.input;
-    const outputCost = (outputTokens / 1_000_000) * pricing.output;
-    const cachedCost = (cachedTokens / 1_000_000) * (pricing.cached || 0);
+    let inputCost = 0;
+    let outputCost = 0;
+    let cachedCost = 0;
+    let calculated = false;
 
-    usageRecord.costInput = Number(inputCost.toFixed(8));
-    usageRecord.costOutput = Number(outputCost.toFixed(8));
-    usageRecord.costCached = Number(cachedCost.toFixed(8));
-    usageRecord.costTotal = Number((inputCost + outputCost + cachedCost).toFixed(8));
+    if (pricing.source === 'simple') {
+        inputCost = (inputTokens / 1_000_000) * pricing.input;
+        outputCost = (outputTokens / 1_000_000) * pricing.output;
+        cachedCost = (cachedTokens / 1_000_000) * (pricing.cached || 0);
+        calculated = true;
+    } else if (pricing.source === 'defined' && Array.isArray(pricing.range)) {
+        const match = pricing.range.find((r: any) => {
+            const lower = r.lower_bound ?? 0;
+            const upper = r.upper_bound ?? Infinity;
+            return inputTokens >= lower && inputTokens <= upper;
+        });
+
+        if (match) {
+            inputCost = (inputTokens / 1_000_000) * match.input_per_m;
+            outputCost = (outputTokens / 1_000_000) * match.output_per_m;
+            calculated = true;
+        }
+    }
+
+    if (calculated) {
+        usageRecord.costInput = Number(inputCost.toFixed(8));
+        usageRecord.costOutput = Number(outputCost.toFixed(8));
+        usageRecord.costCached = Number(cachedCost.toFixed(8));
+        usageRecord.costTotal = Number((inputCost + outputCost + cachedCost).toFixed(8));
+    }
 }
 
 export async function handleResponse(
