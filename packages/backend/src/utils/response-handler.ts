@@ -6,6 +6,7 @@ import { UsageRecord } from '../types/usage';
 import { UsageStorageService } from '../services/usage-storage';
 import { logger } from './logger';
 import { DebugManager } from '../services/debug-manager';
+import { PricingManager } from '../services/pricing-manager';
 
 function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any) {
     if (!pricing) return;
@@ -34,6 +35,19 @@ function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any) {
         if (match) {
             inputCost = (inputTokens / 1_000_000) * match.input_per_m;
             outputCost = (outputTokens / 1_000_000) * match.output_per_m;
+            calculated = true;
+        }
+    } else if (pricing.source === 'openrouter' && pricing.slug) {
+        const openRouterPricing = PricingManager.getInstance().getPricing(pricing.slug);
+        if (openRouterPricing) {
+            // OpenRouter pricing is per token (strings)
+            const promptRate = parseFloat(openRouterPricing.prompt) || 0;
+            const completionRate = parseFloat(openRouterPricing.completion) || 0;
+            const cacheReadRate = parseFloat(openRouterPricing.input_cache_read || '0') || 0;
+
+            inputCost = inputTokens * promptRate;
+            outputCost = outputTokens * completionRate;
+            cachedCost = cachedTokens * cacheReadRate;
             calculated = true;
         }
     }

@@ -1,0 +1,192 @@
+import { describe, expect, test, mock, beforeAll } from "bun:test";
+import { handleResponse } from "../response-handler";
+import { Context } from "hono";
+import { UsageStorageService } from "../../services/usage-storage";
+import { Transformer } from "../../types/transformer";
+import { UnifiedChatResponse } from "../../types/unified";
+import { UsageRecord } from "../../types/usage";
+import { PricingManager } from "../../services/pricing-manager";
+import path from "path";
+
+// Mock Logger
+mock.module("../logger", () => ({
+    logger: {
+        debug: mock(),
+        info: mock(),
+        warn: mock(),
+        error: mock(),
+    }
+}));
+
+describe("handleResponse - OpenRouter Pricing", () => {
+    const mockStorage = {
+        saveRequest: mock()
+    } as unknown as UsageStorageService;
+
+    const mockTransformer: Transformer = {
+        defaultEndpoint: "/test",
+        parseRequest: mock(),
+        transformRequest: mock(),
+        transformResponse: mock(),
+        formatResponse: mock((r) => Promise.resolve({ formatted: true, ...r })),
+    };
+
+    const mockContext = {
+        json: mock((data) => data),
+        header: mock(),
+        newResponse: mock((body) => ({ body })),
+    } as unknown as Context;
+
+    beforeAll(async () => {
+        // Load pricing from the test models.json file
+        const modelsPath = path.resolve(process.cwd(), "packages/backend/src/__tests__/models.json");
+        await PricingManager.getInstance().loadPricing(modelsPath);
+    });
+
+    test("should calculate costs for 'openrouter' pricing strategy (GPT-3.5 Turbo)", async () => {
+        // ID: openai/gpt-3.5-turbo (from first item in models.json, but wait, the provided file content in prompt had gpt-3.5-turbo, 
+        // let's check the actual file content I read earlier... 
+        // The file read showed "bytedance-seed/seed-1.6-flash" as first item.
+        // Let's use "minimax/minimax-m2.1" which has input_cache_read.
+        // pricing: prompt: "0.0000003", completion: "0.0000012", input_cache_read: "0.00000003"
+        
+        const slug = "minimax/minimax-m2.1";
+
+        const unifiedResponse: UnifiedChatResponse = {
+            id: "resp-or-1",
+            model: "minimax-m2.1",
+            content: "Hello",
+            plexus: {
+                provider: "openrouter",
+                model: "minimax/minimax-m2.1",
+                apiType: "openai",
+                pricing: {
+                    source: 'openrouter',
+                    slug: slug
+                }
+            },
+            usage: {
+                input_tokens: 1000,
+                output_tokens: 500,
+                total_tokens: 1500,
+                cached_tokens: 1000
+            }
+        };
+
+        const usageRecord: Partial<UsageRecord> = {
+            requestId: "req-or-1"
+        };
+
+        await handleResponse(
+            mockContext,
+            unifiedResponse,
+            mockTransformer,
+            usageRecord,
+            mockStorage,
+            Date.now(),
+            "chat"
+        );
+
+        // Expected Cost:
+        // Input: 1000 * 0.0000003 = 0.0003
+        // Output: 500 * 0.0000012 = 0.0006
+        // Cached: 1000 * 0.00000003 = 0.00003
+        // Total: 0.00093
+        
+        expect(usageRecord.costInput).toBeCloseTo(0.0003, 8);
+        expect(usageRecord.costOutput).toBeCloseTo(0.0006, 8);
+        expect(usageRecord.costCached).toBeCloseTo(0.00003, 8);
+        expect(usageRecord.costTotal).toBeCloseTo(0.00093, 8);
+    });
+
+    test("should calculate costs for 'openrouter' pricing strategy (Missing Cache Rate)", async () => {
+        // Use a model that might not have cache rate or defaults to 0.
+        // "z-ai/glm-4.7" has prompt: "0.0000004", completion: "0.0000015", and no input_cache_read in the snippet provided?
+        // Let's verify with the file content read.
+        // z-ai/glm-4.7 pricing: prompt: "0.0000004", completion: "0.0000015". input_cache_read is MISSING in the snippet I saw.
+        
+        const slug = "z-ai/glm-4.7";
+
+        const unifiedResponse: UnifiedChatResponse = {
+            id: "resp-or-2",
+            model: "glm-4.7",
+            content: "Hello",
+            plexus: {
+                provider: "openrouter",
+                model: "z-ai/glm-4.7",
+                apiType: "openai",
+                pricing: {
+                    source: 'openrouter',
+                    slug: slug
+                }
+            },
+            usage: {
+                input_tokens: 1000,
+                output_tokens: 500,
+                total_tokens: 1500,
+                cached_tokens: 1000
+            }
+        };
+
+        const usageRecord: Partial<UsageRecord> = {
+            requestId: "req-or-2"
+        };
+
+        await handleResponse(
+            mockContext,
+            unifiedResponse,
+            mockTransformer,
+            usageRecord,
+            mockStorage,
+            Date.now(),
+            "chat"
+        );
+
+        // Expected Cost:
+        // Input: 1000 * 0.0000004 = 0.0004
+        // Output: 500 * 0.0000015 = 0.00075
+        // Cached: 1000 * 0 = 0 (Default)
+        // Total: 0.00115
+        
+        expect(usageRecord.costInput).toBeCloseTo(0.0004, 8);
+        expect(usageRecord.costOutput).toBeCloseTo(0.00075, 8);
+        expect(usageRecord.costCached).toBe(0);
+        expect(usageRecord.costTotal).toBeCloseTo(0.00115, 8);
+    });
+
+    test("should handle missing pricing slug gracefully", async () => {
+         const unifiedResponse: UnifiedChatResponse = {
+            id: "resp-or-3",
+            model: "unknown",
+            content: "Hello",
+            plexus: {
+                provider: "openrouter",
+                model: "unknown",
+                apiType: "openai",
+                pricing: {
+                    source: 'openrouter',
+                    slug: "non-existent-slug"
+                }
+            },
+            usage: {
+                input_tokens: 1000,
+                output_tokens: 500
+            }
+        };
+
+        const usageRecord: Partial<UsageRecord> = { requestId: "req-or-3" };
+
+        await handleResponse(
+            mockContext,
+            unifiedResponse,
+            mockTransformer,
+            usageRecord,
+            mockStorage,
+            Date.now(),
+            "chat"
+        );
+
+        // Should not have calculated costs
+        expect(usageRecord.costTotal).toBeUndefined();
+    });
+});

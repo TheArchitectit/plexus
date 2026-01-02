@@ -11,6 +11,7 @@ import { getClientIp } from './utils/ip';
 import { z } from 'zod';
 import { CooldownManager } from './services/cooldown-manager';
 import { DebugManager } from './services/debug-manager';
+import { PricingManager } from './services/pricing-manager';
 
 const app = new Hono();
 const dispatcher = new Dispatcher();
@@ -21,11 +22,15 @@ CooldownManager.getInstance().setStorage(usageStorage);
 // Initialize DebugManager with storage
 DebugManager.getInstance().setStorage(usageStorage);
 
-// Load config on startup
+// Load config and pricing on startup
 try {
     await loadConfig();
+    // Start loading pricing in background or await it if critical. 
+    // Usually fetching external resources on startup might be better awaited to ensure readiness,
+    // or fired and forgot if we accept eventual consistency. Given requirement "download exactly once on startup", awaiting is safer.
+    await PricingManager.getInstance().loadPricing();
 } catch (e) {
-    logger.error('Failed to load config', e);
+    logger.error('Failed to load config or pricing', e);
     process.exit(1);
 }
 
