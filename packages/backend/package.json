@@ -9,7 +9,6 @@
     "test:watch": "bun test --watch"
   },
   "dependencies": {
-    "@anthropic-ai/tokenizer": "^0.0.4",
     "@google/genai": "^1.34.0",
     "dotenv": "^17.2.3",
     "hono": "^4.11.3",

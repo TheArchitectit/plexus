@@ -14,6 +14,7 @@ const ProviderConfigSchema = z.object({
   api_key: z.string().optional(),
   models: z.array(z.string()).optional(),
   headers: z.record(z.string()).optional(),
+  extraBody: z.record(z.any()).optional(),
 });
 
 const ModelTargetSchema = z.object({

@@ -135,4 +135,27 @@ describe("Dispatcher", () => {
 
         expect(dispatcher.dispatch(mockRequest)).rejects.toThrow("Provider failed: 500 Error");
     });
+
+    test("injects extraBody from config into request body", async () => {
+        const extraBodyRoute = {
+            ...mockRoute,
+            config: { 
+                ...mockRouteConfig, 
+                extraBody: { "stream_options": { "include_usage": true }, "custom_param": "value" }
+            }
+        };
+
+        spyOn(Router, "resolve").mockReturnValue(extraBodyRoute as any);
+        spyOn(TransformerFactory, "getTransformer").mockReturnValue(mockTransformer as any);
+        global.fetch = mock(() => Promise.resolve(new Response(JSON.stringify({}))));
+
+        await dispatcher.dispatch(mockRequest);
+
+        const fetchCall = (global.fetch as any).mock.calls[0];
+        const body = JSON.parse(fetchCall[1].body);
+
+        expect(body.transformed).toBe("request");
+        expect(body.stream_options).toEqual({ "include_usage": true });
+        expect(body.custom_param).toBe("value");
+    });
 });

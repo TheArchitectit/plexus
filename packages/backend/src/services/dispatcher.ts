@@ -17,7 +17,11 @@ export class Dispatcher {
         // Override model in request to the target model
         const requestWithTargetModel = { ...request, model: route.model };
         
-        const providerPayload = await transformer.transformRequest(requestWithTargetModel);
+        let providerPayload = await transformer.transformRequest(requestWithTargetModel);
+
+        if (route.config.extraBody) {
+            providerPayload = { ...providerPayload, ...route.config.extraBody };
+        }
 
         if (request.requestId) {
             DebugManager.getInstance().addTransformedRequest(request.requestId, providerPayload);

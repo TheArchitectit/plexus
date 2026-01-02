@@ -1,7 +1,7 @@
 import { Transformer } from '../types/transformer';
 import { UnifiedChatRequest, UnifiedChatResponse, UnifiedMessage, UnifiedTool, MessageContent } from '../types/unified';
 import { logger } from '../utils/logger';
-import { countTokens } from '@anthropic-ai/tokenizer';
+import { countTokens } from './utils'
 
 export class AnthropicTransformer implements Transformer {
   name = 'Anthropic';
