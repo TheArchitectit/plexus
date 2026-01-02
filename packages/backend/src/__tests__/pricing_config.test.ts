@@ -14,12 +14,9 @@ providers:
         pricing:
           source: openrouter
           slug: minimax/minimax-m2.1
-models:
-  test-model:
-    targets:
-      - provider: synthetic
-        model: hf:MiniMaxAI/MiniMax-M2.1
+models: {}
 keys: {}
+adminKey: "secret"
 `;
     const config = validateConfig(yamlContent);
     expect(config.providers.synthetic.models).toBeDefined();
@@ -53,6 +50,7 @@ models:
       - provider: synthetic
         model: hf:othermodel/model
 keys: {}
+adminKey: "secret"
 `;
     const config = validateConfig(yamlContent);
     const models = config.providers.synthetic.models as any;
@@ -75,6 +73,7 @@ models:
       - provider: openai
         model: gpt-4
 keys: {}
+adminKey: "secret"
 `;
     const config = validateConfig(yamlContent);
     expect(Array.isArray(config.providers.openai.models)).toBe(true);
@@ -92,6 +91,7 @@ providers:
           source: openrouter
 models: {}
 keys: {}
+adminKey: "secret"
 `;
     expect(() => validateConfig(yamlContent)).toThrow();
   });
@@ -108,6 +108,7 @@ providers:
           source: defined
 models: {}
 keys: {}
+adminKey: "secret"
 `;
     expect(() => validateConfig(yamlContent)).toThrow();
   });

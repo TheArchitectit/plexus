@@ -37,6 +37,9 @@
 #
 ###############################################################################
 
+# [REQUIRED] Admin Key for Dashboard and Management API Access
+adminKey: "change-me-to-a-secure-admin-password"
+
 providers:
   # Standard OpenAI Configuration
   openai:

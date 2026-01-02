@@ -140,6 +140,20 @@ body {
   backdrop-filter: blur(var(--glass-blur));
 }
 
+.nav-item-danger {
+  color: var(--color-danger);
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent; /* Maintain border box sizing matching nav-item */
+  justify-content: flex-start; /* Ensure left alignment */
+}
+
+.nav-item-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
 .nav-section {
   margin-top: 24px;
   padding: 0 16px;

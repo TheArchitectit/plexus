@@ -15,3 +15,4 @@ keys:
   test-key:
     secret: "sk-test-key"
     comment: "Test Key"
+adminKey: "test-admin-key"

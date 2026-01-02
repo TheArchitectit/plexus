@@ -144,8 +144,6 @@ This section defines the API keys required to access the Plexus gateway inferenc
 - **`secret`**: The actual bearer token string clients must provide in the `Authorization` header.
 - **`comment`**: (Optional) A friendly description or owner name for the key.
 
-**Example:**
-```yaml
 keys:
   production-app:
     secret: "sk-plexus-abc-123"
@@ -154,7 +152,22 @@ keys:
   testing-key:
     secret: "sk-plexus-test-456"
     comment: "Key for CI/CD tests"
-```
 
 Once keys are defined, clients must include the `Authorization: Bearer <secret>` header in their requests. Note that `/v1/models` remains accessible without authentication to support model discovery.
+
+#### `adminKey` (Required)
+This global setting secures the Admin Dashboard and Management APIs (`/v0/*`).
+
+**Example:**
+```yaml
+adminKey: "my-super-secret-admin-password"
+
+providers:
+  ...
+```
+
+The `adminKey` acts as a shared secret for administrative access:
+1.  **Dashboard Access**: Users will be prompted to enter this key to access the web interface.
+2.  **API Access**: Requests to Management APIs (`/v0/*`) must include the header `x-admin-key: <your-key>`.
+3.  **Startup Requirement**: The Plexus server will fail to start if this key is missing from the configuration.
 

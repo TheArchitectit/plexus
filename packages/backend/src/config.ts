@@ -82,6 +82,7 @@ const PlexusConfigSchema = z.object({
   providers: z.record(z.string(), ProviderConfigSchema),
   models: z.record(z.string(), ModelConfigSchema),
   keys: z.record(z.string(), KeyConfigSchema),
+  adminKey: z.string(),
 });
 
 export type PlexusConfig = z.infer<typeof PlexusConfigSchema>;

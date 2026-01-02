@@ -2,6 +2,27 @@ import { parse, stringify } from 'yaml';
 
 const API_BASE = ''; // Proxied via server.ts
 
+const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  const headers = new Headers(options.headers || {});
+  const adminKey = localStorage.getItem('plexus_admin_key');
+  if (adminKey) {
+    headers.set('x-admin-key', adminKey);
+  }
+  
+  const res = await fetch(url, { ...options, headers });
+  
+  if (res.status === 401) {
+    // If unauthorized, clear key to trigger re-login
+    localStorage.removeItem('plexus_admin_key');
+    // Optional: Dispatch event or reload. 
+    // Usually the React Context will catch this on next refresh, or we can reload here.
+    if (window.location.pathname !== '/login') {
+       window.location.href = '/login';
+    }
+  }
+  return res;
+};
+
 export interface Stat {
   label: string;
   value: string | number;
@@ -93,7 +114,7 @@ interface PlexusConfig {
 export const api = {
   getCooldowns: async (): Promise<Cooldown[]> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/cooldowns`);
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/cooldowns`);
           if (!res.ok) throw new Error('Failed to fetch cooldowns');
           return await res.json();
       } catch (e) {
@@ -107,7 +128,7 @@ export const api = {
         ? `${API_BASE}/v0/management/cooldowns/${provider}`
         : `${API_BASE}/v0/management/cooldowns`;
       
-      const res = await fetch(url, { method: 'DELETE' });
+      const res = await fetchWithAuth(url, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to clear cooldown');
   },
 
@@ -122,7 +143,7 @@ export const api = {
             startDate: startDate.toISOString()
         });
         
-        const res = await fetch(`${API_BASE}/v0/management/usage?${params}`);
+        const res = await fetchWithAuth(`${API_BASE}/v0/management/usage?${params}`);
         if (!res.ok) throw new Error('Failed to fetch usage');
         const json = await res.json() as BackendResponse<UsageRecord[]>;
         
@@ -194,7 +215,7 @@ export const api = {
             startDate: startDate.toISOString()
         });
         
-        const res = await fetch(`${API_BASE}/v0/management/usage?${params}`);
+        const res = await fetchWithAuth(`${API_BASE}/v0/management/usage?${params}`);
         if (!res.ok) throw new Error('Failed to fetch usage');
         const json = await res.json() as BackendResponse<UsageRecord[]>;
         const records = json.data || [];
@@ -269,19 +290,19 @@ export const api = {
           ...filters
       });
 
-      const res = await fetch(`${API_BASE}/v0/management/usage?${params}`);
+      const res = await fetchWithAuth(`${API_BASE}/v0/management/usage?${params}`);
       if (!res.ok) throw new Error('Failed to fetch logs');
       return await res.json() as BackendResponse<UsageRecord[]>;
   },
 
   getConfig: async (): Promise<string> => {
-    const res = await fetch(`${API_BASE}/v0/management/config`);
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/config`);
     if (!res.ok) throw new Error('Failed to fetch config');
     return await res.text();
   },
 
   saveConfig: async (config: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/v0/management/config`, {
+    const res = await fetchWithAuth(`${API_BASE}/v0/management/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'text/yaml' }, // or application/x-yaml
         body: config
@@ -411,7 +432,7 @@ export const api = {
 
   getDebugLogs: async (limit: number = 50, offset: number = 0): Promise<{ requestId: string, createdAt: number }[]> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/debug/logs?limit=${limit}&offset=${offset}`);
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/debug/logs?limit=${limit}&offset=${offset}`);
           if (!res.ok) throw new Error('Failed to fetch debug logs');
           return await res.json();
       } catch (e) {
@@ -422,7 +443,7 @@ export const api = {
 
   getDebugLogDetail: async (requestId: string): Promise<any> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/debug/logs/${requestId}`);
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/debug/logs/${requestId}`);
           if (!res.ok) throw new Error('Failed to fetch debug log detail');
           return await res.json();
       } catch (e) {
@@ -433,7 +454,7 @@ export const api = {
 
   deleteDebugLog: async (requestId: string): Promise<boolean> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/debug/logs/${requestId}`, {
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/debug/logs/${requestId}`, {
               method: 'DELETE'
           });
           return res.ok;
@@ -445,7 +466,7 @@ export const api = {
 
   deleteAllDebugLogs: async (): Promise<boolean> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/debug/logs`, {
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/debug/logs`, {
               method: 'DELETE'
           });
           return res.ok;
@@ -457,7 +478,7 @@ export const api = {
 
   deleteUsageLog: async (requestId: string): Promise<boolean> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/usage/${requestId}`, {
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/usage/${requestId}`, {
               method: 'DELETE'
           });
           return res.ok;
@@ -473,7 +494,7 @@ export const api = {
           if (olderThanDays !== undefined) {
               url += `?olderThanDays=${olderThanDays}`;
           }
-          const res = await fetch(url, {
+          const res = await fetchWithAuth(url, {
               method: 'DELETE'
           });
           return res.ok;
@@ -485,7 +506,7 @@ export const api = {
 
   getDebugMode: async (): Promise<boolean> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/debug`);
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/debug`);
           if (!res.ok) throw new Error('Failed to fetch debug status');
           const json = await res.json();
           return !!json.enabled;
@@ -497,7 +518,7 @@ export const api = {
 
   setDebugMode: async (enabled: boolean): Promise<boolean> => {
       try {
-          const res = await fetch(`${API_BASE}/v0/management/debug`, {
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/debug`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ enabled })

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Activity, Settings, Server, Box, FileText, Bug, Database } from 'lucide-react';
+import { LayoutDashboard, Activity, Settings, Server, Box, FileText, Bug, Database, LogOut } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import logo from '../../assets/plexus_logo_transparent.png';
@@ -10,6 +11,7 @@ import logo from '../../assets/plexus_logo_transparent.png';
 export const Sidebar: React.FC = () => {
   const [debugMode, setDebugMode] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const { logout } = useAuth();
 
   useEffect(() => {
     api.getDebugMode().then(setDebugMode);
@@ -28,6 +30,11 @@ export const Sidebar: React.FC = () => {
       } finally {
           setShowConfirm(false);
       }
+  };
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/login';
   };
 
   return (
@@ -90,6 +97,15 @@ export const Sidebar: React.FC = () => {
                 <span className="debug-status">
                     {debugMode ? 'Enabled' : 'Disabled'}
                 </span>
+             </button>
+             <button 
+                onClick={handleLogout}
+                className="nav-item nav-item-danger mt-4"
+             >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <LogOut size={20} />
+                    <span>Logout</span>
+                </div>
              </button>
         </div>
       </nav>

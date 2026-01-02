@@ -244,6 +244,25 @@ app.post('/v1/responses', async (c) => {
      return c.json({ error: "Not implemented" }, 501);
 });
 
+// Admin Auth Middleware
+app.use('/v0/*', async (c, next) => {
+    // Bypass for testing
+    if (process.env.BYPASS_AUTH_FOR_TESTING === 'true') {
+        await next();
+        return;
+    }
+
+    const config = getConfig();
+    // If adminKey is configured, enforce it
+    if (config.adminKey) {
+        const authHeader = c.req.header('x-admin-key');
+        if (!authHeader || authHeader !== config.adminKey) {
+            return c.json({ error: { message: "Unauthorized", type: "auth_error" } }, 401);
+        }
+    }
+    await next();
+});
+
 // Management API
 app.get('/v0/management/config', async (c) => {
     const configPath = getConfigPath();
