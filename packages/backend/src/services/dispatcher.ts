@@ -148,7 +148,8 @@ export class Dispatcher {
                     provider: route.provider,
                     model: route.model,
                     apiType: route.config.type,
-                    pricing: route.modelConfig?.pricing
+                    pricing: route.modelConfig?.pricing,
+                    providerDiscount: route.config.discount
                 }
             };
         }
@@ -173,7 +174,8 @@ export class Dispatcher {
                     provider: route.provider,
                     model: route.model,
                     apiType: route.config.type,
-                    pricing: route.modelConfig?.pricing
+                    pricing: route.modelConfig?.pricing,
+                    providerDiscount: route.config.discount
                  }
              };
         }
@@ -200,7 +202,8 @@ export class Dispatcher {
             provider: route.provider,
             model: route.model,
             apiType: route.config.type,
-            pricing: route.modelConfig?.pricing
+            pricing: route.modelConfig?.pricing,
+            providerDiscount: route.config.discount
         };
         
         return unifiedResponse;

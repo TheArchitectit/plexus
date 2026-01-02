@@ -8,7 +8,7 @@ import { logger } from './logger';
 import { DebugManager } from '../services/debug-manager';
 import { PricingManager } from '../services/pricing-manager';
 
-function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any) {
+function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any, providerDiscount?: number) {
     const inputTokens = usageRecord.tokensInput || 0;
     const outputTokens = usageRecord.tokensOutput || 0;
     const cachedTokens = usageRecord.tokensCached || 0;
@@ -63,6 +63,16 @@ function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any) {
             inputCost = inputTokens * promptRate;
             outputCost = outputTokens * completionRate;
             cachedCost = cachedTokens * cacheReadRate;
+
+            const effectiveDiscount = pricing.discount ?? providerDiscount;
+
+            if (effectiveDiscount) {
+                const multiplier = 1 - effectiveDiscount;
+                inputCost *= multiplier;
+                outputCost *= multiplier;
+                cachedCost *= multiplier;
+            }
+
             calculated = true;
             
             usageRecord.costSource = 'openrouter';
@@ -70,7 +80,8 @@ function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any) {
                 slug: pricing.slug,
                 prompt: promptRate,
                 completion: completionRate,
-                input_cache_read: cacheReadRate
+                input_cache_read: cacheReadRate,
+                discount: effectiveDiscount
             });
         }
     }
@@ -104,6 +115,7 @@ export async function handleResponse(
     usageRecord.isPassthrough = unifiedResponse.bypassTransformation;
 
     const pricing = unifiedResponse.plexus?.pricing;
+    const providerDiscount = unifiedResponse.plexus?.providerDiscount;
 
     if (unifiedResponse.stream) {
         // Tee the stream to track usage
@@ -126,7 +138,7 @@ export async function handleResponse(
                     }
                 }
                 
-                calculateCosts(usageRecord, pricing);
+                calculateCosts(usageRecord, pricing, providerDiscount);
                 usageRecord.responseStatus = 'success';
             } catch (e) {
                 usageRecord.responseStatus = 'error_stream';
@@ -196,7 +208,7 @@ export async function handleResponse(
         usageRecord.tokensReasoning = unifiedResponse.usage.reasoning_tokens;
     }
 
-    calculateCosts(usageRecord, pricing);
+    calculateCosts(usageRecord, pricing, providerDiscount);
     usageRecord.responseStatus = 'success';
     usageRecord.durationMs = Date.now() - startTime;
     usageStorage.saveRequest(usageRecord as UsageRecord);

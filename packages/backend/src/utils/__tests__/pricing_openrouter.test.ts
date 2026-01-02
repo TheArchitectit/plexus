@@ -189,4 +189,122 @@ describe("handleResponse - OpenRouter Pricing", () => {
         // Should not have calculated costs
         expect(usageRecord.costTotal).toBeUndefined();
     });
+
+    test("should calculate costs for 'openrouter' pricing strategy with DISCOUNT", async () => {
+        const slug = "minimax/minimax-m2.1"; // prompt: 0.0000003, completion: 0.0000012, cached: 0.00000003
+
+        const unifiedResponse: UnifiedChatResponse = {
+            id: "resp-or-discount",
+            model: "minimax-m2.1",
+            content: "Hello",
+            plexus: {
+                provider: "openrouter",
+                model: "minimax/minimax-m2.1",
+                apiType: "openai",
+                pricing: {
+                    source: 'openrouter',
+                    slug: slug,
+                    discount: 0.1 // 10% discount
+                }
+            },
+            usage: {
+                input_tokens: 1000,
+                output_tokens: 500,
+                total_tokens: 1500,
+                cached_tokens: 1000
+            }
+        };
+
+        const usageRecord: Partial<UsageRecord> = {
+            requestId: "req-or-discount"
+        };
+
+        await handleResponse(
+            mockContext,
+            unifiedResponse,
+            mockTransformer,
+            usageRecord,
+            mockStorage,
+            Date.now(),
+            "chat"
+        );
+
+        // Base Costs:
+        // Input: 0.0003
+        // Output: 0.0006
+        // Cached: 0.00003
+        
+        // Discounted (0.9 multiplier):
+        // Input: 0.00027
+        // Output: 0.00054
+        // Cached: 0.000027
+        // Total: 0.000837
+        
+        expect(usageRecord.costInput).toBeCloseTo(0.00027, 8);
+        expect(usageRecord.costOutput).toBeCloseTo(0.00054, 8);
+        expect(usageRecord.costCached).toBeCloseTo(0.000027, 8);
+        expect(usageRecord.costTotal).toBeCloseTo(0.000837, 8);
+        
+        const metadata = JSON.parse(usageRecord.costMetadata || "{}");
+        expect(metadata.discount).toBe(0.1);
+    });
+
+    test("should calculate costs for 'openrouter' pricing strategy with PROVIDER-LEVEL DISCOUNT", async () => {
+        const slug = "minimax/minimax-m2.1"; // prompt: 0.0000003, completion: 0.0000012, cached: 0.00000003
+
+        const unifiedResponse: UnifiedChatResponse = {
+            id: "resp-or-provider-discount",
+            model: "minimax-m2.1",
+            content: "Hello",
+            plexus: {
+                provider: "openrouter",
+                model: "minimax/minimax-m2.1",
+                apiType: "openai",
+                pricing: {
+                    source: 'openrouter',
+                    slug: slug
+                },
+                providerDiscount: 0.2 // 20% global discount
+            },
+            usage: {
+                input_tokens: 1000,
+                output_tokens: 500,
+                total_tokens: 1500,
+                cached_tokens: 1000
+            }
+        };
+
+        const usageRecord: Partial<UsageRecord> = {
+            requestId: "req-or-provider-discount"
+        };
+
+        await handleResponse(
+            mockContext,
+            unifiedResponse,
+            mockTransformer,
+            usageRecord,
+            mockStorage,
+            Date.now(),
+            "chat"
+        );
+
+        // Base Costs:
+        // Input: 0.0003
+        // Output: 0.0006
+        // Cached: 0.00003
+        
+        // Discounted (0.8 multiplier):
+        // Input: 0.00024
+        // Output: 0.00048
+        // Cached: 0.000024
+        // Total: 0.000744
+        
+        expect(usageRecord.costInput).toBeCloseTo(0.00024, 8);
+        expect(usageRecord.costOutput).toBeCloseTo(0.00048, 8);
+        expect(usageRecord.costCached).toBeCloseTo(0.000024, 8);
+        expect(usageRecord.costTotal).toBeCloseTo(0.000744, 8);
+        
+        const metadata = JSON.parse(usageRecord.costMetadata || "{}");
+        expect(metadata.discount).toBe(0.2);
+    });
 });

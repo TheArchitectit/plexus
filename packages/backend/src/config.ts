@@ -27,6 +27,7 @@ const PricingSchema = z.discriminatedUnion('source', [
   z.object({
     source: z.literal('openrouter'),
     slug: z.string(),
+    discount: z.number().min(0).max(1).optional(),
   }),
   z.object({
     source: z.literal('defined'),
@@ -53,6 +54,7 @@ const ProviderConfigSchema = z.object({
   display_name: z.string().optional(),
   api_base_url: z.string().url(),
   api_key: z.string().optional(),
+  discount: z.number().min(0).max(1).optional(),
   models: z.union([
     z.array(z.string()),
     z.record(z.string(), ModelProviderConfigSchema)

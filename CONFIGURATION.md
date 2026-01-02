@@ -58,7 +58,8 @@ This section defines the upstream AI services you want to connect to.
     - *Note: If the incoming request format (e.g., OpenAI) matches the provider type, Plexus automatically uses **Pass-through Optimization** to minimize latency.*
 - **`api_base_url`**: The root URL for the provider's API.
 - **`api_key`**: Your authentication token.
-- **`models`**: A list of raw model names available from this specific provider.
+- **`discount`**: (Optional) A number between 0 and 1 representing the discount to apply to all models under this provider (e.g., `0.1` for 10% off). This can be overridden by model-specific discounts.
+- **`models`**: A list of raw model identifiers available from this specific provider.
     - Can be a simple list of strings: `["model-a", "model-b"]`
     - Or a map for detailed configuration (e.g., pricing):
       ```yaml
@@ -93,12 +94,14 @@ Pricing is defined under the `pricing` key for a specific model.
 
 2.  **OpenRouter Pricing** (`source: openrouter`)
     -   `slug`: The specific OpenRouter model identifier (e.g., `openai/gpt-4o`, `anthropic/claude-3-opus`).
+    -   `discount`: (Optional) A number between 0 and 1 representing the discount to apply (e.g., `0.1` for a 10% discount).
     -   *Note: Plexus automatically fetches the latest pricing data from the OpenRouter API on startup and uses it for cost calculations. This ensures your tracked costs stay up-to-date with public rates without manual configuration.*
 
     ```yaml
     pricing:
       source: openrouter
       slug: openai/gpt-4o
+      discount: 0.1
     ```
 
 3.  **Defined (Tiered/Range) Pricing** (`source: defined`)

@@ -120,6 +120,7 @@ export interface UnifiedChatResponse {
       model?: string;
       apiType?: string;
       pricing?: any;
+      providerDiscount?: number;
   };
   reasoning_content?: string | null;
   thinking?: {

@@ -113,6 +113,15 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({ source, costMetadata, 
                         
                         <span style={labelStyle}>Cached:</span>
                         <span style={valueStyle}>{formatRate(data.input_cache_read)}</span>
+
+                        {data.discount && (
+                            <>
+                                <span style={{...labelStyle, color: '#4ade80'}}>Discount:</span>
+                                <span style={{...valueStyle, color: '#4ade80'}}>
+                                    {(data.discount * 100).toFixed(0)}%
+                                </span>
+                            </>
+                        )}
                     </div>
                 </div>
             );
