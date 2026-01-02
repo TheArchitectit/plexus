@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.5 - 2026-01-02
+
+### Smarter Response Flow
+
+## What's New
+
+This release focuses on refining the internal communication layer to improve data reliability.
+
+### Minor Changes
+- **Adjust response handling** (`dae0008`): Refined the logic for processing system responses to ensure more consistent data delivery.
+
 ## v0.1.4 - 2026-01-02
 
 ### 
