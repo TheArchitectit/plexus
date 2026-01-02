@@ -146,6 +146,9 @@ export class UsageStorageService extends EventEmitter {
             try {
                 this.db.run("ALTER TABLE request_usage ADD COLUMN cost_total REAL;");
             } catch (e) { /* ignore if exists */ }
+            try {
+                this.db.run("ALTER TABLE request_usage ADD COLUMN is_passthrough INTEGER;");
+            } catch (e) { /* ignore if exists */ }
             
             logger.info("Storage initialized");
         } catch (error) {
@@ -161,13 +164,13 @@ export class UsageStorageService extends EventEmitter {
                     provider, incoming_model_alias, selected_model_name, outgoing_api_type,
                     tokens_input, tokens_output, tokens_reasoning, tokens_cached,
                     cost_input, cost_output, cost_cached, cost_total,
-                    start_time, duration_ms, is_streamed, response_status
+                    start_time, duration_ms, is_streamed, response_status, is_passthrough
                 ) VALUES (
                     $requestId, $date, $sourceIp, $apiKey, $incomingApiType,
                     $provider, $incomingModelAlias, $selectedModelName, $outgoingApiType,
                     $tokensInput, $tokensOutput, $tokensReasoning, $tokensCached,
                     $costInput, $costOutput, $costCached, $costTotal,
-                    $startTime, $durationMs, $isStreamed, $responseStatus
+                    $startTime, $durationMs, $isStreamed, $responseStatus, $isPassthrough
                 )
             `);
 
@@ -192,7 +195,8 @@ export class UsageStorageService extends EventEmitter {
                 $startTime: record.startTime,
                 $durationMs: record.durationMs,
                 $isStreamed: record.isStreamed ? 1 : 0,
-                $responseStatus: record.responseStatus
+                $responseStatus: record.responseStatus,
+                $isPassthrough: record.isPassthrough ? 1 : 0
             });
             
             logger.debug(`Usage record saved for request ${record.requestId}`);
@@ -394,7 +398,8 @@ export class UsageStorageService extends EventEmitter {
                 durationMs: row.duration_ms,
                 isStreamed: !!row.is_streamed,
                 responseStatus: row.response_status,
-                hasDebug: !!row.has_debug
+                hasDebug: !!row.has_debug,
+                isPassthrough: !!row.is_passthrough
             }));
 
             return {

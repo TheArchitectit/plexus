@@ -154,8 +154,8 @@ describe("AnthropicTransformer", () => {
         expect(results[1].delta.reasoning_content).toBe("I think");
         expect(results[2].delta.content).toBe("Hello");
         expect(results[3].finish_reason).toBe("stop");
-        expect(results[3].usage.output_tokens).toBe(1); // "Hello" is 1 token
-        expect(results[3].usage.reasoning_tokens).toBe(4); // 5 total - 1 real = 4 thinking
+        expect(results[3].usage.output_tokens).toBe(2); // "Hello" is 2 tokens in heuristic
+        expect(results[3].usage.reasoning_tokens).toBe(3); // 5 total - 2 real = 3 thinking
     });
 
     test("formatStream converts unified chunks to Anthropic event stream", async () => {

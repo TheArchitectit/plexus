@@ -64,6 +64,7 @@ app.post('/v1/chat/completions', async (c) => {
         const transformer = new OpenAITransformer();
         const unifiedRequest = await transformer.parseRequest(body);
         unifiedRequest.incomingApiType = 'openai';
+        unifiedRequest.originalBody = body;
         unifiedRequest.requestId = requestId;
         
         DebugManager.getInstance().startLog(requestId, body);
@@ -114,6 +115,7 @@ app.post('/v1/messages', async (c) => {
         const transformer = new AnthropicTransformer();
         const unifiedRequest = await transformer.parseRequest(body);
         unifiedRequest.incomingApiType = 'anthropic';
+        unifiedRequest.originalBody = body;
         unifiedRequest.requestId = requestId;
 
         DebugManager.getInstance().startLog(requestId, body);
@@ -169,6 +171,7 @@ app.post('/v1beta/models/:modelWithAction', async (c) => {
         const transformer = new GeminiTransformer();
         const unifiedRequest = await transformer.parseRequest({ ...body, model: modelName });
         unifiedRequest.incomingApiType = 'gemini';
+        unifiedRequest.originalBody = body;
         unifiedRequest.requestId = requestId;
 
         DebugManager.getInstance().startLog(requestId, body);

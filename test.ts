@@ -1,22 +1,22 @@
 import { inspect } from "util";
 
 const model = process.argv[2];
-const apiType = process.argv[3] as "chat" | "messages" | "gemini";
+const apiType = process.argv[3] as "openai" | "anthropic" | "google";
 const prompt = process.argv[4];
 const includeTool = process.argv[5] === "true";
 const stream = process.argv[6] === "true";
 
 if (!model || !apiType || !prompt) {
   console.error("Usage: bun test.ts <model> <api_type> <prompt> [include_tool] [stream]");
-  console.error("  api_type: chat | messages | gemini");
+  console.error("  api_type: openai | messages | google");
   console.error("  include_tool: true | false (default: false)");
   console.error("  stream: true | false (default: false)");
-  console.error("\nExample: bun test.ts gpt-4o chat 'What is the weather in SF?' true true");
+  console.error("\nExample: bun test.ts gpt-4o openai 'What is the weather in SF?' true true");
   process.exit(1);
 }
 
 const templates = {
-  chat: (model: string, prompt: string, tool: boolean, stream: boolean) => ({
+  openai: (model: string, prompt: string, tool: boolean, stream: boolean) => ({
     model,
     messages: [{ role: "user", content: prompt }],
     stream,
@@ -38,7 +38,7 @@ const templates = {
       }]
     })
   }),
-  messages: (model: string, prompt: string, tool: boolean, stream: boolean) => ({
+  anthropic: (model: string, prompt: string, tool: boolean, stream: boolean) => ({
     model,
     max_tokens: 1024,
     messages: [{ role: "user", content: prompt }],
@@ -58,7 +58,7 @@ const templates = {
       }]
     })
   }),
-  gemini: (_model: string, prompt: string, tool: boolean, stream: boolean) => ({
+  google: (_model: string, prompt: string, tool: boolean, _stream: boolean) => ({
     contents: [{ parts: [{ text: prompt }] }],
     ...(tool && {
       tools: [{
@@ -80,17 +80,17 @@ const templates = {
 };
 
 if (!templates[apiType]) {
-  console.error(`Invalid api_type: ${apiType}. Must be one of: chat, messages, gemini`);
+  console.error(`Invalid api_type: ${apiType}. Must be one of: openai, anthropic, google`);
   process.exit(1);
 }
 
 const requestBody = templates[apiType](model, prompt, includeTool, stream);
 
 let endpoint = "";
-if (apiType === "gemini") {
+if (apiType === "google") {
   const action = stream ? "streamGenerateContent?alt=sse" : "generateContent";
   endpoint = `/v1beta/models/${model}:${action}`;
-} else if (apiType === "messages") {
+} else if (apiType === "anthropic") {
   endpoint = "/v1/messages";
 } else {
   endpoint = "/v1/chat/completions";

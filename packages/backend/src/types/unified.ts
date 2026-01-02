@@ -85,7 +85,7 @@ export interface UnifiedChatRequest {
     json_schema?: any;
   };
   incomingApiType?: string;
-  // Store original input provider type if needed for some logic, though ideally we are fully unified
+  originalBody?: any;
 }
 
 // Unified Response
@@ -137,6 +137,9 @@ export interface UnifiedChatResponse {
   }>;
   annotations?: Annotation[];
   stream?: ReadableStream | any;
+  bypassTransformation?: boolean;
+  rawResponse?: any;
+  rawStream?: ReadableStream;
 }
 
 export interface UnifiedChatStreamChunk {

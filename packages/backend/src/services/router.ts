@@ -38,12 +38,14 @@ export class Router {
                     throw new Error(`Provider '${target.provider}' configured for alias '${modelName}' not found`);
                 }
                 
-                logger.debug(`Routed '${modelName}' to '${target.provider}/${target.model}' using ${alias.selector || 'default'} selector`);
+                // logger.debug(`Routed '${modelName}' to '${target.provider}/${target.model}' using ${alias.selector || 'default'} selector`);
                 
                 let modelConfig = undefined;
                 if (!Array.isArray(providerConfig.models) && providerConfig.models) {
                     modelConfig = providerConfig.models[target.model];
                 }
+
+                console.log(`Router resolving ${modelName}. Target provider: ${target.provider}, Target model: ${target.model}`);
 
                 return {
                     provider: target.provider,

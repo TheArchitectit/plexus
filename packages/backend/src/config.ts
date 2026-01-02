@@ -178,9 +178,15 @@ export function getConfig(): PlexusConfig {
     if (!currentConfig) {
         throw new Error("Configuration not loaded. Call loadConfig() first.");
     }
+    console.log("getConfig called, currentConfig provider keys:", Object.keys(currentConfig.providers));
     return currentConfig;
 }
 
 export function getConfigPath(): string | null {
     return currentConfigPath;
+}
+
+export function setConfigForTesting(config: PlexusConfig) {
+    console.log("setConfigForTesting called with keys:", Object.keys(config.providers));
+    currentConfig = config;
 }

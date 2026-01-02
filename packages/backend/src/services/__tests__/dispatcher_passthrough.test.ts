@@ -5,23 +5,9 @@ import { TransformerFactory } from "../transformer-factory";
 import { UnifiedChatRequest } from "../../types/unified";
 import { DebugManager } from "../debug-manager";
 
-// Mock dependencies
-mock.module("../router", () => ({
-    Router: {
-        resolve: mock()
-    }
-}));
-
-mock.module("../debug-manager", () => ({
-    DebugManager: {
-        getInstance: () => ({
-            addTransformedRequest: mock(),
-            addRawResponse: mock(),
-            captureStream: mock(),
-            isEnabled: () => false
-        })
-    }
-}));
+// Remove mock.module calls
+// mock.module("../router", ...);
+// mock.module("../debug-manager", ...);
 
 describe("Dispatcher Pass-through Optimization", () => {
     let dispatcher: Dispatcher;
@@ -37,6 +23,13 @@ describe("Dispatcher Pass-through Optimization", () => {
             transformStream: mock((s: any) => s)
         };
         spyOn(TransformerFactory, "getTransformer").mockReturnValue(mockTransformer);
+        spyOn(Router, "resolve").mockReturnValue({} as any); // Default mock, overridden in tests
+        spyOn(DebugManager, "getInstance").mockReturnValue({
+            addTransformedRequest: mock(),
+            addRawResponse: mock(),
+            captureStream: mock(),
+            isEnabled: () => false
+        } as any);
         
         // Mock global fetch
         global.fetch = mock(() => Promise.resolve(new Response(JSON.stringify({ original: "response" }))));

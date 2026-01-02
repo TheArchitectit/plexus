@@ -68,6 +68,7 @@ export interface UsageRecord {
     isStreamed: boolean;
     responseStatus: string;
     hasDebug?: boolean;
+    isPassthrough?: boolean;
 }
 
 interface BackendResponse<T> {

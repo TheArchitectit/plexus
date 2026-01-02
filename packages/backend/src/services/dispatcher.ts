@@ -17,7 +17,35 @@ export class Dispatcher {
         // Override model in request to the target model
         const requestWithTargetModel = { ...request, model: route.model };
         
-        let providerPayload = await transformer.transformRequest(requestWithTargetModel);
+        let providerPayload;
+
+        // Pass-through Optimization
+        const isCompatible = (
+            request.incomingApiType && 
+            route.config.type && 
+            (request.incomingApiType.toLowerCase() === route.config.type.toLowerCase() || 
+             (request.incomingApiType === 'gemini' && route.config.type === 'google'))
+        );
+
+        let bypassTransformation = false;
+
+        if (isCompatible && request.originalBody) {
+             logger.info(`Pass-through optimization active: ${request.incomingApiType} -> ${route.config.type}`);
+             try {
+                providerPayload = JSON.parse(JSON.stringify(request.originalBody));
+                // Swap model if present in body
+                if (providerPayload.model) {
+                    providerPayload.model = route.model;
+                }
+                bypassTransformation = true;
+             } catch (e) {
+                 logger.warn('Failed to clone originalBody, falling back to full transformation', e);
+                 providerPayload = await transformer.transformRequest(requestWithTargetModel);
+                 bypassTransformation = false;
+             }
+        } else {
+             providerPayload = await transformer.transformRequest(requestWithTargetModel);
+        }
 
         if (route.config.extraBody) {
             providerPayload = { ...providerPayload, ...route.config.extraBody };
@@ -92,15 +120,26 @@ export class Dispatcher {
                 DebugManager.getInstance().captureStream(request.requestId, s2, 'rawResponse');
             }
 
+            let clientStream = rawStream;
+            let usageStream = rawStream;
+            
+            if (bypassTransformation) {
+                 const [s1, s2] = rawStream.tee();
+                 clientStream = s1;
+                 usageStream = s2;
+            }
+
             const unifiedStream = transformer.transformStream ? 
-                                transformer.transformStream(rawStream) : 
-                                rawStream;
+                                transformer.transformStream(usageStream) : 
+                                usageStream;
 
             return {
                 id: 'stream-' + Date.now(),
                 model: request.model,
                 content: null,
                 stream: unifiedStream,
+                rawStream: bypassTransformation ? clientStream : undefined,
+                bypassTransformation: bypassTransformation,
                 plexus: {
                     provider: route.provider,
                     model: route.model,
@@ -137,7 +176,22 @@ export class Dispatcher {
 
         const responseBody = JSON.parse(responseText);
         logger.silly('Upstream Response Payload', responseBody);
-        const unifiedResponse = await transformer.transformResponse(responseBody);
+        
+        let unifiedResponse: UnifiedChatResponse;
+
+        if (bypassTransformation) {
+             // We still need unified response for usage stats, so we transform purely for that
+             // But we set the bypass flag and attach raw response
+             const syntheticResponse = await transformer.transformResponse(responseBody);
+             unifiedResponse = {
+                 ...syntheticResponse,
+                 bypassTransformation: true,
+                 rawResponse: responseBody
+             };
+        } else {
+             unifiedResponse = await transformer.transformResponse(responseBody);
+        }
+
         unifiedResponse.plexus = {
             provider: route.provider,
             model: route.model,

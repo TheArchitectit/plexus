@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { api, UsageRecord } from '../lib/api';
-import { ChevronLeft, ChevronRight, Search, Filter, Trash2, Bug } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Filter, Trash2, Bug, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNavigate } from 'react-router-dom';
 
@@ -226,6 +226,7 @@ export const Logs = () => {
                                 <th style={{ padding: '6px', textAlign: 'right' }}>Cost</th>
                                 <th style={{ padding: '6px' }}>Duration</th>
                                 <th style={{ padding: '6px' }}>Streamed</th>
+                                <th style={{ padding: '6px' }}>Direct</th>
                                 <th style={{ padding: '6px' }}>Status</th>
                                 <th style={{ padding: '6px', width: '40px' }}></th>
                                 <th style={{ padding: '6px', width: '40px' }}></th>
@@ -234,11 +235,11 @@ export const Logs = () => {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={14} style={{ padding: '20px', textAlign: 'center' }}>Loading...</td>
+                                    <td colSpan={15} style={{ padding: '20px', textAlign: 'center' }}>Loading...</td>
                                 </tr>
                             ) : logs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={14} style={{ padding: '20px', textAlign: 'center' }}>No logs found</td>
+                                    <td colSpan={15} style={{ padding: '20px', textAlign: 'center' }}>No logs found</td>
                                 </tr>
                             ) : (
                                 logs.map((log) => (
@@ -288,6 +289,9 @@ export const Logs = () => {
                                         </td>
                                         <td style={{ padding: '6px', fontSize: '1.2em' }}>{log.durationMs > 10 ? `${(log.durationMs / 1000).toFixed(1)}s` : '∅'}</td>
                                         <td style={{ padding: '2px', alignContent: 'center', textAlign: 'center' }}>{log.isStreamed ? '✓' : ''}
+                                        </td>
+                                        <td style={{ padding: '2px', alignContent: 'center', textAlign: 'center' }}>
+                                            {log.isPassthrough ? <Zap size={14} className="text-yellow-500" title="Pass-through Optimization Active" /> : ''}
                                         </td>
                                         <td style={{ padding: '6px' }}>
                                             <Badge status={log.responseStatus === 'success' ? 'connected' : 'error'}>

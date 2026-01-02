@@ -42,6 +42,7 @@ export async function handleResponse(
     usageRecord.provider = unifiedResponse.plexus?.provider;
     usageRecord.outgoingApiType = unifiedResponse.plexus?.apiType;
     usageRecord.isStreamed = !!unifiedResponse.stream;
+    usageRecord.isPassthrough = unifiedResponse.bypassTransformation;
 
     const pricing = unifiedResponse.plexus?.pricing;
 
@@ -82,9 +83,15 @@ export async function handleResponse(
             c.header('Cache-Control', 'no-cache');
             c.header('Connection', 'keep-alive');
             
-            let clientStream = transformer.formatStream ? 
+            let clientStream: ReadableStream;
+            
+            if (unifiedResponse.bypassTransformation && unifiedResponse.rawStream) {
+                 clientStream = unifiedResponse.rawStream;
+            } else {
+                 clientStream = transformer.formatStream ? 
                                transformer.formatStream(clientStreamSource) : 
                                clientStreamSource;
+            }
 
             if (usageRecord.requestId && DebugManager.getInstance().isEnabled()) {
                 const [s1, s2] = clientStream.tee();
@@ -110,7 +117,12 @@ export async function handleResponse(
         delete (unifiedResponse as any).plexus;
     }
 
-    const responseBody = await transformer.formatResponse(unifiedResponse);
+    let responseBody;
+    if (unifiedResponse.bypassTransformation && unifiedResponse.rawResponse) {
+         responseBody = unifiedResponse.rawResponse;
+    } else {
+         responseBody = await transformer.formatResponse(unifiedResponse);
+    }
     
     if (usageRecord.requestId) {
         DebugManager.getInstance().addTransformedResponse(usageRecord.requestId, responseBody);
