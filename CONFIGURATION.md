@@ -93,7 +93,8 @@ Pricing is defined under the `pricing` key for a specific model.
     ```
 
 2.  **OpenRouter Pricing** (`source: openrouter`)
-    -   `slug`: The specific OpenRouter model slug to fetch pricing for (e.g., `anthropic/claude-3-opus`).
+    -   `slug`: The specific OpenRouter model identifier (e.g., `openai/gpt-4o`, `anthropic/claude-3-opus`).
+    -   *Note: Plexus automatically fetches the latest pricing data from the OpenRouter API on startup and uses it for cost calculations. This ensures your tracked costs stay up-to-date with public rates without manual configuration.*
 
     ```yaml
     pricing:

@@ -116,14 +116,21 @@ providers:
       - deepseek-chat
       - deepseek-reasoner
 
-  # Example with custom headers (Required by some aggregators like OpenRouter/Kilo)
+  # Example with custom headers and OpenRouter pricing lookup
   openrouter:
     type: OpenAI
     display_name: OpenRouter
     api_base_url: https://openrouter.ai/api/v1
     api_key: "your-openrouter-key-here"
     models:
-      - google/gemini-pro-1.5
+      google/gemini-pro-1.5:
+        pricing:
+          source: openrouter
+          slug: google/gemini-pro-1.5
+      anthropic/claude-3.5-sonnet:
+        pricing:
+          source: openrouter
+          slug: anthropic/claude-3.5-sonnet
     headers:
       "HTTP-Referer": "https://your-app.com"
       "X-Title": "My Plexus App"
