@@ -20,6 +20,7 @@ Plexus unifies interactions with multiple AI providers—OpenAI, Anthropic, Gemi
 - **Load Balancing**: Distribute requests across multiple backends for the same model alias, with configurable selection & routing options.
   - Automatic Cooldown for providers experiencing issues.
 - **Reasoning Support**: Unified handling of reasoning/thinking content from modern models, including Gemini `thoughtSignatures`.
+- **Pass-through Optimization**: Automatically detects when the incoming request format matches the target provider's native format, bypassing expensive transformations to minimize latency and overhead while maintaining full observability. Active passthrough requests are highlighted with a ⚡ icon in the dashboard logs.
 - **Deep Debugging**: Easy-to-use raw request and response capture, with detailed information of raw and transformed responses, as well as stream reconstruction.
 
 ## The Plexus Dashboard

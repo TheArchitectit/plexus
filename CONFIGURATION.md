@@ -56,6 +56,7 @@ This section defines the upstream AI services you want to connect to.
     - `OpenAI`
     - `Anthropic`
     - `Gemini`
+    - *Note: If the incoming request format (e.g., OpenAI) matches the provider type, Plexus automatically uses **Pass-through Optimization** to minimize latency.*
 - **`api_base_url`**: The root URL for the provider's API.
 - **`api_key`**: Your authentication token.
 - **`models`**: A list of raw model names available from this specific provider.
