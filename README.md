@@ -4,7 +4,7 @@
 
 ![Dashboard Overview](docs/images/splash.png)
 
-### [🚀 API Reference](docs/API.md) | [⚙️ Configuration Guide](CONFIGURATION.md)
+### [🚀 API Reference](docs/API.md) | [⚙️ Configuration Guide](docs/CONFIGURATION.md) | [📦 Installation Guide](docs/INSTALLATION.md)
 
 Plexus unifies interactions with multiple AI providers—OpenAI, Anthropic, Gemini, and more—under a single, standard API. It handles protocol translation, load balancing, and observability, allowing you to switch models and providers without rewriting your client code.
 
@@ -20,6 +20,10 @@ Plexus unifies interactions with multiple AI providers—OpenAI, Anthropic, Gemi
 - **Load Balancing**: Distribute requests across multiple backends for the same model alias, with configurable selection & routing options.
   - Automatic Cooldown for providers experiencing issues.
 - **Reasoning Support**: Unified handling of reasoning/thinking content from modern models, including Gemini `thoughtSignatures`.
+- **Cost Tracking & Management**: Comprehensive cost tracking with support for multiple pricing strategies:
+  - **Simple**: Fixed per-token rates.
+  - **OpenRouter**: Automatic fetching of real-time pricing.
+  - **Tiered**: Advanced volume-based pricing tiers.
 - **Pass-through Optimization**: Automatically detects when the incoming request format matches the target provider's native format, bypassing expensive transformations to minimize latency and overhead while maintaining full observability. Active passthrough requests are highlighted with a ⚡ icon in the dashboard logs.
 - **Deep Debugging**: Easy-to-use raw request and response capture, with detailed information of raw and transformed responses, as well as stream reconstruction.
 
@@ -55,86 +59,13 @@ Track your API usage and trends over time.
 
 ## Documentation
 
-- **[Configuration Guide](CONFIGURATION.md)**: Learn how to set up `plexus.yaml` to define providers, models, and routing rules.
+- **[Installation Guide](docs/INSTALLATION.md)**: Instructions for Docker, binary, and source installations.
+- **[Configuration Guide](docs/CONFIGURATION.md)**: Learn how to set up `plexus.yaml` to define providers, models, and routing rules.
 - **[API Documentation](docs/API.md)**: Detailed reference for the Standard Inference APIs and Management APIs.
 
 ## Installation
 
-Plexus is built with [Bun](https://bun.sh/).
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/mcowger/plexus.git
-   cd plexus
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   bun run install:all
-   ```
-
-### Docker
-
-You can also run Plexus using Docker. This is the recommended way for production deployments.
-
-**Build the image:**
-```bash
-docker build -t plexus .
-```
-
-**Run the container:**
-```bash
-docker run -p 4000:4000 \
-  -v $(pwd)/config/plexus.example.yaml:/app/config/plexus.yaml \
-  -v plexus-data:/app/data \
-  -e LOG_LEVEL=info \
-  plexus
-```
-
--   Mount your configuration file to `/app/config/plexus.yaml`.
--   Mount a volume to `/app/data` to persist usage logs and other data.
--   Set `LOG_LEVEL` to control verbosity.
-
-## Development
-
-Plexus includes a unified development environment that manages both the backend API and the frontend dashboard.
-
-### Starting the Dev Stack
-
-To start the full stack in development mode:
-```bash
-bun run dev
-```
-
-This single command orchestrates the following:
-1.  **Backend (Port 4000):** Starts the API server in **watch mode**.
-    -   Serves the API endpoints (`/v1/*`, `/health`).
-    -   Serves the compiled Frontend assets.
-2.  **Frontend Builder:** Starts the React builder in **watch mode**.
-    -   Automatically rebuilds the UI on changes.
-
-### Accessing the Dashboard
-Open your browser to: `http://localhost:4000`
-
-## Compiling to Standalone Executables
-
-Plexus can be compiled into a single, self-contained binary that includes the Bun runtime, all backend logic, and the pre-built frontend dashboard.
-
-### Build Commands
-
-- **macOS (ARM64/Apple Silicon):** `bun run compile:macos`
-- **Linux (x64):** `bun run compile:linux`
-- **Windows (x64):** `bun run compile:windows`
-
-The resulting executable will be named `plexus-macos` (or `plexus-linux` / `plexus.exe`) in the project root.
-
-### VS Code Integration
-
-Pre-configured tasks and launch settings are available in the `.vscode` directory:
-
--   **Run Dev Stack:** Press `Cmd+Shift+B` (or `Ctrl+Shift+B`) and select `Bun: Dev Stack`.
--   **Debugging:** Select `Debug Backend` from the Run & Debug sidebar.
--   **Note:** Requires the [Bun for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=Oven.bun-vscode) extension.
+Please refer to the [Installation Guide](docs/INSTALLATION.md) for detailed instructions on how to run Plexus via Docker, as a standalone binary, or from source.
 
 ## Contributing
 
