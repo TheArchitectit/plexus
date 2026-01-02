@@ -3,6 +3,7 @@ import { createInterface } from "node:readline";
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { GoogleGenAI } from "@google/genai";
+import pc from "picocolors";
 
 const rl = createInterface({
   input: process.stdin,
@@ -10,7 +11,10 @@ const rl = createInterface({
 });
 
 const ask = (query: string, defaultVal?: string): Promise<string> => {
-  const promptText = defaultVal ? `${query} (${defaultVal}): ` : `${query}: `;
+  const promptText = defaultVal 
+    ? `${pc.bold(pc.cyan(query))} ${pc.dim(`(${defaultVal})`)}: ` 
+    : `${pc.bold(pc.cyan(query))}: `;
+  
   return new Promise((resolve) => {
     rl.question(promptText, (answer) => {
       resolve(answer.trim() || defaultVal || "");
@@ -30,7 +34,8 @@ async function run(cmd: string[]) {
 }
 
 async function main() {
-  console.log("🚀 Starting Release Process...");
+  console.log(`\n${pc.bold(pc.magenta("🚀 Plexus Release Process"))}`);
+  console.log(pc.dim("--------------------------\n"));
 
   // 1. Get current version
   let currentVersion = "v0.0.0";
@@ -50,8 +55,8 @@ async function main() {
   const gitLog = await run(["git", "log", logRange, "--pretty=format:%h %s"]);
   
   if (!gitLog.trim()) {
-    console.log(`\n⚠️  No changes found since ${currentVersion}.`);
-    console.log("Aborting release process.");
+    console.log(`\n${pc.yellow("⚠️  No changes found since")} ${pc.bold(currentVersion)}.`);
+    console.log(pc.dim("Aborting release process.\n"));
     process.exit(0);
   }
 
@@ -65,17 +70,17 @@ async function main() {
   }
 
   // 2. Ask questions
-  const version = await ask("Version", nextVersion);
+  const version = await ask("New Version", nextVersion);
   let headline = "";
 
   // AI Release Notes Generation
   let aiNotes = "";
   const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey) {
-    const useAi = await ask("Generate Release Notes with AI? (y/N)", "y");
+    const useAi = await ask("Generate Release Notes with AI?", "y");
     if (useAi.toLowerCase() === "y") {
       try {
-        console.log("🤖 Generating release notes...");
+        console.log(`\n${pc.yellow("🤖 Generating release notes...")}`);
         
         const client = new GoogleGenAI({ 
             apiKey, 
@@ -84,35 +89,39 @@ async function main() {
         
         const response = await client.models.generateContent({
           model: "gemini-3-flash-preview",
-          contents: `Summarize the following git commit log into release notes. Call out main new features, as well as smaller changes and their commit hashes. Also propose a short, catchy headline for the release. Format the output as JSON with keys "headline" and "notes".\n\n${gitLog}`,
+          contents: `Summarize the following git commit log into release notes. Call out main new features, as well as smaller changes and their commit hashes. Also propose a short, catchy headline for the release. Format the output as JSON with keys "headline" (string) and "notes" (markdown string). \n\n${gitLog}`,
           config: { responseMimeType: "application/json" }
         });
         
         if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
              const json = JSON.parse(response.candidates[0].content.parts[0].text);
-             aiNotes = json.notes;
+             aiNotes = typeof json.notes === 'string' ? json.notes : JSON.stringify(json.notes, null, 2);
              const aiHeadline = json.headline;
-             console.log(`\n🤖 AI Proposed Headline: ${aiHeadline}`);
-             console.log("\n🤖 AI Generated Notes:\n" + aiNotes + "\n");
+
+             console.log(`\n${pc.bold(pc.blue("--- AI PROPOSALS ---"))}`);
+             console.log(`${pc.bold("Headline:")} ${pc.green(aiHeadline)}`);
+             console.log(`\n${pc.bold("Notes:")}`);
+             console.log(aiNotes.split('\n').map(line => `  ${line}`).join('\n'));
+             console.log(pc.bold(pc.blue("--------------------\n")));
              
-             const useHeadline = await ask("Use AI headline? (Y/n)", "Y");
+             const useHeadline = await ask("Use AI headline?", "y");
              if (useHeadline.toLowerCase() === "y") {
                  headline = aiHeadline;
              }
         }
       } catch (error) {
-        console.error("❌ Failed to generate AI notes:", error);
+        console.error(`\n${pc.red("❌ Failed to generate AI notes:")}`, error);
       }
     }
   }
 
   if (!headline) {
-      headline = await ask("Headline");
+      headline = await ask("Release Headline");
   }
   
   let notes = "";
   if (aiNotes) {
-      const choice = await ask("Use generated notes? (Y/n)", "Y");
+      const choice = await ask("Use AI generated notes?", "y");
       if (choice.toLowerCase() === "y") {
           notes = aiNotes;
       }
@@ -152,22 +161,23 @@ async function main() {
   newContent = newContent.replace(/\n{3,}/g, "\n\n");
 
   await writeFile(changelogPath, newContent);
-  console.log(`\n✅ Updated ${changelogPath}`);
+  console.log(`\n${pc.green("✅ Updated")} ${pc.bold(changelogPath)}`);
 
   // 4. Git Operations
-  console.log("\n📦 Performing Git operations...");
+  console.log(`\n${pc.bold(pc.magenta("📦 Performing Git operations..."))}`);
   try {
     await run(["git", "add", changelogPath]);
     await run(["git", "commit", "-m", `chore: release ${version}`]);
     await run(["git", "tag", version]);
-    console.log(`✅ Tagged ${version}`);
+    console.log(`${pc.green("✅ Tagged")} ${pc.bold(version)}`);
     
-    console.log("⬆️  Pushing changes...");
+    console.log(pc.dim("⬆️  Pushing changes..."));
     await run(["git", "push"]);
     await run(["git", "push", "--tags"]);
-    console.log(`✅ Pushed ${version}`);
+    console.log(`${pc.green("✅ Pushed")} ${pc.bold(version)}\n`);
+    console.log(`${pc.bold(pc.magenta("🎊 Release Complete!"))}\n`);
   } catch (e) {
-    console.error("❌ Git operation failed:", e);
+    console.error(`\n${pc.red("❌ Git operation failed:")}`, e);
     process.exit(1);
   }
 }
