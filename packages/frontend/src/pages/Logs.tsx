@@ -221,7 +221,7 @@ export const Logs = () => {
                                 <th style={{ padding: '6px' }}>Source IP</th>
                                 <th style={{ padding: '6px' }}>API (In/Out)</th>
                                 <th style={{ padding: '6px' }}>Model (In/Sel)</th>
-                                <th style={{ padding: '6px' }}>Provider</th>
+                                {/* <th style={{ padding: '6px' }}>Provider</th> */}
                                 <th style={{ padding: '6px' }}>Tokens (I/O/R/C)</th>
                                 <th style={{ padding: '6px', textAlign: 'right' }}>Cost</th>
                                 <th style={{ padding: '6px' }}>Duration</th>
@@ -259,10 +259,9 @@ export const Logs = () => {
                                         <td style={{ padding: '6px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <span>{log.incomingModelAlias || '-'}</span>
-                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9em' }}>{log.selectedModelName || '-'}</span>
+                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9em' }}>{log.provider || '-'}:{log.selectedModelName || '-'}</span>
+                                            
                                             </div>
-                                        </td>
-                                        <td style={{ padding: '6px' }}>{log.provider || '-'}
                                         </td>
                                         <td style={{ padding: '6px', alignContent: 'center', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
