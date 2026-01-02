@@ -15,6 +15,7 @@
 #   api_base_url: The root endpoint for the provider's API.
 #   api_key:      Your authentication token for the provider.
 #   models:       A list of raw model identifiers supported by this provider.
+#                 OR a map of model names to configuration (e.g. pricing).
 #   headers:      (Optional) Custom HTTP headers to include in every request.
 #
 # 2. MODELS SECTION (ALIASES)
@@ -63,6 +64,24 @@ providers:
       - gemini-1.5-flash
       - gemini-2.0-flash-exp
 
+  # Example with Pricing Configuration
+  # Pricing is per 1M tokens.
+  openai_cost_tracked:
+    type: OpenAI
+    display_name: OpenAI (Tracked)
+    api_base_url: https://api.openai.com/v1
+    api_key: "your-openai-api-key-here"
+    models:
+      gpt-4o:
+        pricing:
+          source: simple
+          input: 2.50
+          output: 10.00
+      gpt-4o-mini:
+        pricing:
+          source: simple
+          input: 0.15
+          output: 0.60
 
   # Example of an OpenAI-compatible provider (e.g. Together, DeepSeek, Groq)
   deepseek:

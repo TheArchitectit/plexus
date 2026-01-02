@@ -60,7 +60,57 @@ This section defines the upstream AI services you want to connect to.
 - **`api_base_url`**: The root URL for the provider's API.
 - **`api_key`**: Your authentication token.
 - **`models`**: A list of raw model names available from this specific provider.
+    - Can be a simple list of strings: `["model-a", "model-b"]`
+    - Or a map for detailed configuration (e.g., pricing):
+      ```yaml
+      models:
+        gpt-4o:
+          pricing:
+            source: simple
+            input: 2.50
+            output: 10.00
+      ```
 - **`headers`**: (Optional) Extra headers to send with every request to this provider (useful for custom gateways or organization IDs).
+
+### Pricing Configuration
+
+You can define pricing for each model within the `providers` configuration. This allows Plexus to track and calculate estimated costs for your usage.
+
+**Schema:**
+
+Pricing is defined under the `pricing` key for a specific model.
+
+1.  **Simple Pricing** (`source: simple`)
+    -   `input`: Cost per 1 million input tokens.
+    -   `output`: Cost per 1 million output tokens.
+    -   `cached`: (Optional) Cost per 1 million cached input tokens.
+
+    ```yaml
+    pricing:
+      source: simple
+      input: 5.00
+      output: 15.00
+    ```
+
+2.  **OpenRouter Pricing** (`source: openrouter`)
+    -   `slug`: The specific OpenRouter model slug to fetch pricing for (e.g., `anthropic/claude-3-opus`).
+
+    ```yaml
+    pricing:
+      source: openrouter
+      slug: openai/gpt-4o
+    ```
+
+3.  **Defined (Tiered/Range) Pricing** (`source: defined`)
+    -   `range`: An array of pricing tiers based on token count (currently treated as a single tier for most simple cases, schema is extensible).
+
+    ```yaml
+    pricing:
+      source: defined
+      range:
+        - input_per_m: 1.0
+          output_per_m: 2.0
+    ```
 
 #### `models`
 This section defines the "virtual" models or aliases that clients will use when making requests to Plexus.
