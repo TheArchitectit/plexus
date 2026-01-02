@@ -97,6 +97,28 @@ export const Logs = () => {
         }
     };
 
+    /**
+ * Formats a token count into a human-readable string.
+ * Displays as 'K' if the count is 800 or more.
+ * * @param count - The number of tokens to format
+ * @returns A formatted string (e.g., "750", "800", "1.2K")
+ */
+    function formatTokenCount(count: number): string {
+        const THRESHOLD = 800;
+
+        if (count < THRESHOLD) {
+            return count.toString();
+        }
+
+        // Convert to thousands
+        const thousands = count / 1000;
+
+        // Fix to 1 decimal place, then remove trailing '.0' if it exists
+        const formatted = thousands.toFixed(1).replace(/\.0$/, "");
+
+        return `${formatted}K`;
+    }
+
     useEffect(() => {
         loadLogs();
     }, [offset, limit]); // Refresh when page changes
@@ -105,19 +127,19 @@ export const Logs = () => {
         if (offset !== 0) return;
 
         const es = new EventSource('/v0/management/events');
-        
+
         es.addEventListener('log', (event: MessageEvent) => {
             try {
                 const newLog = JSON.parse(event.data);
                 const currentFilters = filtersRef.current;
-                
+
                 // Client-side filtering to match server-side LIKE behavior
                 let matches = true;
-                if (currentFilters.incomingModelAlias && 
+                if (currentFilters.incomingModelAlias &&
                     !newLog.incomingModelAlias?.toLowerCase().includes(currentFilters.incomingModelAlias.toLowerCase())) {
                     matches = false;
                 }
-                if (currentFilters.provider && 
+                if (currentFilters.provider &&
                     !newLog.provider?.toLowerCase().includes(currentFilters.provider.toLowerCase())) {
                     matches = false;
                 }
@@ -126,7 +148,7 @@ export const Logs = () => {
                     setLogs(prev => {
                         // Prevent duplicates if multiple events fire (though unlikely with unique IDs, simple check helps)
                         if (prev.some(l => l.requestId === newLog.requestId)) return prev;
-                        
+
                         const updated = [newLog, ...prev];
                         if (updated.length > limit) return updated.slice(0, limit);
                         return updated;
@@ -155,7 +177,7 @@ export const Logs = () => {
 
     return (
         <div className="page-container">
-            <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div className="header-left">
                     <h1 className="page-title">Logs</h1>
                     <Badge status="neutral">{total} Records</Badge>
@@ -168,22 +190,22 @@ export const Logs = () => {
 
             <Card className="logs-card">
                 <div className="table-controls">
-                    <form onSubmit={handleSearch} className="search-form" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <form onSubmit={handleSearch} className="search-form" style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
                         <div className="input-icon-wrapper" style={{ position: 'relative', width: '250px' }}>
                             <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
-                            <Input 
-                                placeholder="Filter by Model..." 
+                            <Input
+                                placeholder="Filter by Model..."
                                 value={filters.incomingModelAlias}
-                                onChange={e => setFilters({...filters, incomingModelAlias: e.target.value})}
+                                onChange={e => setFilters({ ...filters, incomingModelAlias: e.target.value })}
                                 style={{ paddingLeft: '32px' }}
                             />
                         </div>
                         <div className="input-icon-wrapper" style={{ position: 'relative', width: '200px' }}>
-                             <Filter size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
-                             <Input 
-                                placeholder="Filter by Provider..." 
+                            <Filter size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
+                            <Input
+                                placeholder="Filter by Provider..."
                                 value={filters.provider}
-                                onChange={e => setFilters({...filters, provider: e.target.value})}
+                                onChange={e => setFilters({ ...filters, provider: e.target.value })}
                                 style={{ paddingLeft: '32px' }}
                             />
                         </div>
@@ -195,20 +217,18 @@ export const Logs = () => {
                     <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left' }}>
-                                <th style={{ padding: '12px' }}>Request ID</th>
-                                <th style={{ padding: '12px' }}>Date</th>
-                                <th style={{ padding: '12px' }}>Source IP</th>
-                                <th style={{ padding: '12px' }}>API Key</th>
-                                <th style={{ padding: '12px' }}>API (In/Out)</th>
-                                <th style={{ padding: '12px' }}>Model (In/Sel)</th>
-                                <th style={{ padding: '12px' }}>Provider</th>
-                                <th style={{ padding: '12px' }}>Tokens (I/O/R/C)</th>
-                                <th style={{ padding: '12px', textAlign: 'right' }}>Cost</th>
-                                <th style={{ padding: '12px' }}>Duration</th>
-                                <th style={{ padding: '12px' }}>Streamed</th>
-                                <th style={{ padding: '12px' }}>Status</th>
-                                <th style={{ padding: '12px', width: '40px' }}></th>
-                                <th style={{ padding: '12px', width: '40px' }}></th>
+                                <th style={{ padding: '6px' }}>Date</th>
+                                <th style={{ padding: '6px' }}>Source IP</th>
+                                <th style={{ padding: '6px' }}>API (In/Out)</th>
+                                <th style={{ padding: '6px' }}>Model (In/Sel)</th>
+                                <th style={{ padding: '6px' }}>Provider</th>
+                                <th style={{ padding: '6px' }}>Tokens (I/O/R/C)</th>
+                                <th style={{ padding: '6px', textAlign: 'right' }}>Cost</th>
+                                <th style={{ padding: '6px' }}>Duration</th>
+                                <th style={{ padding: '6px' }}>Streamed</th>
+                                <th style={{ padding: '6px' }}>Status</th>
+                                <th style={{ padding: '6px', width: '40px' }}></th>
+                                <th style={{ padding: '6px', width: '40px' }}></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -222,33 +242,37 @@ export const Logs = () => {
                                 </tr>
                             ) : (
                                 logs.map((log) => (
-                                    <tr 
-                                        key={log.requestId} 
+                                    <tr
+                                        key={log.requestId}
                                         style={{ borderBottom: '1px solid var(--color-border-light)' }}
                                         className={clsx("group", log.requestId === newestLogId && 'animate-pulse-fade')}
                                     >
-                                        <td style={{ padding: '12px' }} title={log.requestId}>
-                                            {log.requestId.substring(0, 8)}...
-                                        </td>
-                                        <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>
+                                        <td style={{ padding: '6px', whiteSpace: 'nowrap' }}>
                                             {new Date(log.date).toLocaleString()}
                                         </td>
-                                        <td style={{ padding: '12px' }}>{log.sourceIp || '-'}</td>
-                                        <td style={{ padding: '12px' }}>{log.apiKey || '-'}</td>
-                                        <td style={{ padding: '12px' }}>
-                                            {log.incomingApiType || '?'} / {log.outgoingApiType || '?'}
+                                        <td style={{ padding: '6px' }}>{log.sourceIp || '-'}
                                         </td>
-                                        <td style={{ padding: '12px' }}>
-                                            <div style={{display:'flex', flexDirection:'column'}}>
-                                                <span>REQ: {log.incomingModelAlias || '-'}</span>
-                                                <span style={{color:'var(--color-text-secondary)', fontSize:'0.9em'}}>SEL: {log.selectedModelName || '-'}</span>
+                                        <td style={{ padding: '6px' }}>
+                                            {log.incomingApiType || '?'}→{log.outgoingApiType || '?'}
+                                        </td>
+                                        <td style={{ padding: '6px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span>{log.incomingModelAlias || '-'}</span>
+                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9em' }}>{log.selectedModelName || '-'}</span>
                                             </div>
                                         </td>
-                                        <td style={{ padding: '12px' }}>{log.provider || '-'}</td>
-                                        <td style={{ padding: '12px' }}>
-                                            {log.tokensInput || 0} / {log.tokensOutput || 0} / {log.tokensReasoning || 0} / {log.tokensCached || 0}
+                                        <td style={{ padding: '6px' }}>{log.provider || '-'}
                                         </td>
-                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                        <td style={{ padding: '6px', alignContent: 'center', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                <span style={{ fontWeight: '500' }}>⏶ {formatTokenCount(log.tokensInput || 0)} ⏷ {formatTokenCount(log.tokensOutput || 0)}</span>
+                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85em' }}>
+                                                    R:{formatTokenCount(log.tokensReasoning || 0)} C:{formatTokenCount(log.tokensCached || 0)}
+                                                </span>
+                                            </div>
+                                            {/* {log.tokensInput || 0} / {log.tokensOutput || 0} / {log.tokensReasoning || 0} / {log.tokensCached || 0} */}
+                                        </td>
+                                        <td style={{ padding: '6px', textAlign: 'right' }}>
                                             {log.costTotal && log.costTotal > 0 ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                                                     <span style={{ fontWeight: '500' }}>
@@ -262,16 +286,17 @@ export const Logs = () => {
                                                 <span style={{ color: 'var(--color-text-secondary)', fontSize: '1.2em' }}>∅</span>
                                             )}
                                         </td>
-                                        <td style={{ padding: '12px' }}>{log.durationMs}ms</td>
-                                        <td style={{ padding: '12px' }}>{log.isStreamed ? 'Yes' : 'No'}</td>
-                                        <td style={{ padding: '12px' }}>
+                                        <td style={{ padding: '6px', fontSize: '1.2em' }}>{log.durationMs > 10 ? `${(log.durationMs / 1000).toFixed(1)}s` : '∅'}</td>
+                                        <td style={{ padding: '2px', alignContent: 'center', textAlign: 'center' }}>{log.isStreamed ? '✓' : ''}
+                                        </td>
+                                        <td style={{ padding: '6px' }}>
                                             <Badge status={log.responseStatus === 'success' ? 'connected' : 'error'}>
-                                                {log.responseStatus}
+                                                {log.responseStatus === 'success' ? '✓' : '✗'}
                                             </Badge>
                                         </td>
-                                        <td style={{ padding: '12px' }}>
+                                        <td style={{ padding: '6px' }}>
                                             {log.hasDebug && (
-                                                <button 
+                                                <button
                                                     onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
                                                     className="debug-delete-btn"
                                                     title="View Debug Trace"
@@ -280,8 +305,8 @@ export const Logs = () => {
                                                 </button>
                                             )}
                                         </td>
-                                        <td style={{ padding: '12px' }}>
-                                            <button 
+                                        <td style={{ padding: '6px' }}>
+                                            <button
                                                 onClick={() => handleDelete(log.requestId)}
                                                 className="debug-delete-btn group-hover-visible"
                                                 title="Delete log"
@@ -301,15 +326,15 @@ export const Logs = () => {
                         Page {currentPage} of {Math.max(1, totalPages)}
                     </span>
                     <div className="pagination-controls" style={{ display: 'flex', gap: '5px' }}>
-                        <Button 
-                            variant="secondary" 
+                        <Button
+                            variant="secondary"
                             disabled={offset === 0}
                             onClick={() => setOffset(Math.max(0, offset - limit))}
                         >
                             <ChevronLeft size={16} />
                         </Button>
-                        <Button 
-                            variant="secondary" 
+                        <Button
+                            variant="secondary"
                             disabled={offset + limit >= total}
                             onClick={() => setOffset(offset + limit)}
                         >
@@ -319,8 +344,8 @@ export const Logs = () => {
                 </div>
             </Card>
 
-            <Modal 
-                isOpen={isDeleteModalOpen} 
+            <Modal
+                isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 title="Confirm Deletion"
                 footer={
@@ -334,20 +359,20 @@ export const Logs = () => {
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <p>Select which logs you would like to delete:</p>
-                    
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input 
-                            type="radio" 
-                            id="delete-older" 
-                            name="deleteMode" 
+                        <input
+                            type="radio"
+                            id="delete-older"
+                            name="deleteMode"
                             checked={deleteMode === 'older'}
                             onChange={() => setDeleteMode('older')}
                         />
                         <label htmlFor="delete-older">Delete logs older than</label>
-                        <Input 
-                            type="number" 
-                            min="1" 
-                            value={olderThanDays} 
+                        <Input
+                            type="number"
+                            min="1"
+                            value={olderThanDays}
                             onChange={(e) => setOlderThanDays(parseInt(e.target.value) || 1)}
                             style={{ width: '60px', padding: '4px 8px' }}
                             disabled={deleteMode !== 'older'}
@@ -356,10 +381,10 @@ export const Logs = () => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input 
-                            type="radio" 
-                            id="delete-all" 
-                            name="deleteMode" 
+                        <input
+                            type="radio"
+                            id="delete-all"
+                            name="deleteMode"
                             checked={deleteMode === 'all'}
                             onChange={() => setDeleteMode('all')}
                         />
@@ -370,8 +395,8 @@ export const Logs = () => {
                 </div>
             </Modal>
 
-            <Modal 
-                isOpen={isSingleDeleteModalOpen} 
+            <Modal
+                isOpen={isSingleDeleteModalOpen}
                 onClose={() => setIsSingleDeleteModalOpen(false)}
                 title="Confirm Deletion"
                 footer={
