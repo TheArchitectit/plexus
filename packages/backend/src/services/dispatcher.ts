@@ -104,7 +104,8 @@ export class Dispatcher {
                 plexus: {
                     provider: route.provider,
                     model: route.model,
-                    apiType: route.config.type
+                    apiType: route.config.type,
+                    pricing: route.modelConfig?.pricing
                 }
             };
         }
@@ -128,7 +129,8 @@ export class Dispatcher {
                  plexus: {
                     provider: route.provider,
                     model: route.model,
-                    apiType: route.config.type
+                    apiType: route.config.type,
+                    pricing: route.modelConfig?.pricing
                  }
              };
         }
@@ -139,7 +141,8 @@ export class Dispatcher {
         unifiedResponse.plexus = {
             provider: route.provider,
             model: route.model,
-            apiType: route.config.type
+            apiType: route.config.type,
+            pricing: route.modelConfig?.pricing
         };
         
         return unifiedResponse;

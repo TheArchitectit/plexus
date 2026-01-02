@@ -59,6 +59,10 @@ export interface UsageRecord {
     tokensOutput?: number;
     tokensReasoning?: number;
     tokensCached?: number;
+    costInput?: number;
+    costOutput?: number;
+    costCached?: number;
+    costTotal?: number;
     startTime: number;
     durationMs: number;
     isStreamed: boolean;

@@ -119,6 +119,7 @@ export interface UnifiedChatResponse {
       provider?: string;
       model?: string;
       apiType?: string;
+      pricing?: any;
   };
   reasoning_content?: string | null;
   thinking?: {

@@ -1,4 +1,4 @@
-import { getConfig } from '../config';
+import { getConfig, ProviderConfig } from '../config';
 import { logger } from '../utils/logger';
 import { CooldownManager } from './cooldown-manager';
 import { SelectorFactory } from './selectors/factory';
@@ -6,7 +6,8 @@ import { SelectorFactory } from './selectors/factory';
 export interface RouteResult {
     provider: string; // provider key in config
     model: string;    // model slug for that provider
-    config: any;      // ProviderConfig
+    config: ProviderConfig;      // ProviderConfig
+    modelConfig?: any; // The specific model config within that provider
 }
 
 export class Router {
@@ -38,10 +39,17 @@ export class Router {
                 }
                 
                 logger.debug(`Routed '${modelName}' to '${target.provider}/${target.model}' using ${alias.selector || 'default'} selector`);
+                
+                let modelConfig = undefined;
+                if (!Array.isArray(providerConfig.models) && providerConfig.models) {
+                    modelConfig = providerConfig.models[target.model];
+                }
+
                 return {
                     provider: target.provider,
                     model: target.model,
-                    config: providerConfig
+                    config: providerConfig,
+                    modelConfig
                 };
             }
         }

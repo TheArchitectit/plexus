@@ -12,6 +12,10 @@ export interface UsageRecord {
     tokensOutput: number | null;
     tokensReasoning: number | null;
     tokensCached: number | null;
+    costInput: number | null;
+    costOutput: number | null;
+    costCached: number | null;
+    costTotal: number | null;
     startTime: number; // timestamp
     durationMs: number;
     isStreamed: boolean;

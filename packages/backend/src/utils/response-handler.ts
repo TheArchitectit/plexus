@@ -7,6 +7,27 @@ import { UsageStorageService } from '../services/usage-storage';
 import { logger } from './logger';
 import { DebugManager } from '../services/debug-manager';
 
+function calculateCosts(usageRecord: Partial<UsageRecord>, pricing: any) {
+    if (!pricing || pricing.source !== 'simple') return;
+
+    const inputTokens = usageRecord.tokensInput || 0;
+    const outputTokens = usageRecord.tokensOutput || 0;
+    const cachedTokens = usageRecord.tokensCached || 0;
+
+    // Prices are usually per 1M tokens in simple config, let's assume that based on your example (0.15 for input)
+    // Actually, your prompt said "input: 0.15", "output: 0.20", "cached: 0.1". 
+    // Usually these are per Million tokens in LLM pricing.
+    
+    const inputCost = (inputTokens / 1_000_000) * pricing.input;
+    const outputCost = (outputTokens / 1_000_000) * pricing.output;
+    const cachedCost = (cachedTokens / 1_000_000) * (pricing.cached || 0);
+
+    usageRecord.costInput = Number(inputCost.toFixed(8));
+    usageRecord.costOutput = Number(outputCost.toFixed(8));
+    usageRecord.costCached = Number(cachedCost.toFixed(8));
+    usageRecord.costTotal = Number((inputCost + outputCost + cachedCost).toFixed(8));
+}
+
 export async function handleResponse(
     c: Context,
     unifiedResponse: UnifiedChatResponse,
@@ -21,6 +42,8 @@ export async function handleResponse(
     usageRecord.provider = unifiedResponse.plexus?.provider;
     usageRecord.outgoingApiType = unifiedResponse.plexus?.apiType;
     usageRecord.isStreamed = !!unifiedResponse.stream;
+
+    const pricing = unifiedResponse.plexus?.pricing;
 
     if (unifiedResponse.stream) {
         // Tee the stream to track usage
@@ -42,6 +65,8 @@ export async function handleResponse(
                         usageRecord.tokensReasoning = value.usage.reasoning_tokens;
                     }
                 }
+                
+                calculateCosts(usageRecord, pricing);
                 usageRecord.responseStatus = 'success';
             } catch (e) {
                 usageRecord.responseStatus = 'error_stream';
@@ -100,6 +125,7 @@ export async function handleResponse(
         usageRecord.tokensReasoning = unifiedResponse.usage.reasoning_tokens;
     }
 
+    calculateCosts(usageRecord, pricing);
     usageRecord.responseStatus = 'success';
     usageRecord.durationMs = Date.now() - startTime;
     usageStorage.saveRequest(usageRecord as UsageRecord);

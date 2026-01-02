@@ -203,6 +203,7 @@ export const Logs = () => {
                                 <th style={{ padding: '12px' }}>Model (In/Sel)</th>
                                 <th style={{ padding: '12px' }}>Provider</th>
                                 <th style={{ padding: '12px' }}>Tokens (I/O/R/C)</th>
+                                <th style={{ padding: '12px', textAlign: 'right' }}>Cost</th>
                                 <th style={{ padding: '12px' }}>Duration</th>
                                 <th style={{ padding: '12px' }}>Streamed</th>
                                 <th style={{ padding: '12px' }}>Status</th>
@@ -213,11 +214,11 @@ export const Logs = () => {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={13} style={{ padding: '20px', textAlign: 'center' }}>Loading...</td>
+                                    <td colSpan={14} style={{ padding: '20px', textAlign: 'center' }}>Loading...</td>
                                 </tr>
                             ) : logs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={13} style={{ padding: '20px', textAlign: 'center' }}>No logs found</td>
+                                    <td colSpan={14} style={{ padding: '20px', textAlign: 'center' }}>No logs found</td>
                                 </tr>
                             ) : (
                                 logs.map((log) => (
@@ -246,6 +247,20 @@ export const Logs = () => {
                                         <td style={{ padding: '12px' }}>{log.provider || '-'}</td>
                                         <td style={{ padding: '12px' }}>
                                             {log.tokensInput || 0} / {log.tokensOutput || 0} / {log.tokensReasoning || 0} / {log.tokensCached || 0}
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            {log.costTotal && log.costTotal > 0 ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                    <span style={{ fontWeight: '500' }}>
+                                                        ${log.costTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                                                    </span>
+                                                    <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85em' }}>
+                                                        I:${(log.costInput || 0).toFixed(6)} O:${(log.costOutput || 0).toFixed(6)} C:${(log.costCached || 0).toFixed(6)}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '1.2em' }}>∅</span>
+                                            )}
                                         </td>
                                         <td style={{ padding: '12px' }}>{log.durationMs}ms</td>
                                         <td style={{ padding: '12px' }}>{log.isStreamed ? 'Yes' : 'No'}</td>

@@ -94,6 +94,10 @@ export class UsageStorageService extends EventEmitter {
                     tokens_output INTEGER,
                     tokens_reasoning INTEGER,
                     tokens_cached INTEGER,
+                    cost_input REAL,
+                    cost_output REAL,
+                    cost_cached REAL,
+                    cost_total REAL,
                     start_time INTEGER,
                     duration_ms INTEGER,
                     is_streamed INTEGER,
@@ -130,6 +134,18 @@ export class UsageStorageService extends EventEmitter {
             try {
                 this.db.run("ALTER TABLE debug_logs ADD COLUMN transformed_response_snapshot TEXT;");
             } catch (e) { /* ignore if exists */ }
+            try {
+                this.db.run("ALTER TABLE request_usage ADD COLUMN cost_input REAL;");
+            } catch (e) { /* ignore if exists */ }
+            try {
+                this.db.run("ALTER TABLE request_usage ADD COLUMN cost_output REAL;");
+            } catch (e) { /* ignore if exists */ }
+            try {
+                this.db.run("ALTER TABLE request_usage ADD COLUMN cost_cached REAL;");
+            } catch (e) { /* ignore if exists */ }
+            try {
+                this.db.run("ALTER TABLE request_usage ADD COLUMN cost_total REAL;");
+            } catch (e) { /* ignore if exists */ }
             
             logger.info("Storage initialized");
         } catch (error) {
@@ -144,11 +160,13 @@ export class UsageStorageService extends EventEmitter {
                     request_id, date, source_ip, api_key, incoming_api_type,
                     provider, incoming_model_alias, selected_model_name, outgoing_api_type,
                     tokens_input, tokens_output, tokens_reasoning, tokens_cached,
+                    cost_input, cost_output, cost_cached, cost_total,
                     start_time, duration_ms, is_streamed, response_status
                 ) VALUES (
                     $requestId, $date, $sourceIp, $apiKey, $incomingApiType,
                     $provider, $incomingModelAlias, $selectedModelName, $outgoingApiType,
                     $tokensInput, $tokensOutput, $tokensReasoning, $tokensCached,
+                    $costInput, $costOutput, $costCached, $costTotal,
                     $startTime, $durationMs, $isStreamed, $responseStatus
                 )
             `);
@@ -167,6 +185,10 @@ export class UsageStorageService extends EventEmitter {
                 $tokensOutput: record.tokensOutput,
                 $tokensReasoning: record.tokensReasoning,
                 $tokensCached: record.tokensCached,
+                $costInput: record.costInput,
+                $costOutput: record.costOutput,
+                $costCached: record.costCached,
+                $costTotal: record.costTotal,
                 $startTime: record.startTime,
                 $durationMs: record.durationMs,
                 $isStreamed: record.isStreamed ? 1 : 0,
@@ -364,6 +386,10 @@ export class UsageStorageService extends EventEmitter {
                 tokensOutput: row.tokens_output,
                 tokensReasoning: row.tokens_reasoning,
                 tokensCached: row.tokens_cached,
+                costInput: row.cost_input,
+                costOutput: row.cost_output,
+                costCached: row.cost_cached,
+                costTotal: row.cost_total,
                 startTime: row.start_time,
                 durationMs: row.duration_ms,
                 isStreamed: !!row.is_streamed,
