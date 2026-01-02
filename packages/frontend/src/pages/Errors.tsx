@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api, InferenceError } from '../lib/api';
 import Editor from '@monaco-editor/react';
-import { RefreshCw, Clock, AlertTriangle, ChevronDown, ChevronRight, Copy, Check, Trash2, XCircle } from 'lucide-react';
+import { RefreshCw, Clock, AlertTriangle, ChevronDown, ChevronRight, Copy, Check, Trash2, Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -17,7 +17,7 @@ export const Errors: React.FC = () => {
     // Delete Modal State
     const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
     const [isSingleDeleteModalOpen, setIsSingleDeleteModalOpen] = useState(false);
-    const [selectedLogIdForDelete, setSelectedLogIdForDelete] = useState<string | null>(null);
+    const [selectedRequestIdForDelete, setSelectedRequestIdForDelete] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
@@ -55,22 +55,22 @@ export const Errors: React.FC = () => {
 
     const handleDelete = (e: React.MouseEvent, requestId: string) => {
         e.stopPropagation();
-        setSelectedLogIdForDelete(requestId);
+        setSelectedRequestIdForDelete(requestId);
         setIsSingleDeleteModalOpen(true);
     };
 
     const confirmDeleteSingle = async () => {
-        if (!selectedLogIdForDelete) return;
+        if (!selectedRequestIdForDelete) return;
         setIsDeleting(true);
         try {
-            await api.deleteError(selectedLogIdForDelete);
-            setErrors(errors.filter(e => e.request_id !== selectedLogIdForDelete));
-            if (selectedId === selectedLogIdForDelete) {
+            await api.deleteError(selectedRequestIdForDelete);
+            setErrors(errors.filter(e => e.request_id !== selectedRequestIdForDelete));
+            if (selectedId === selectedRequestIdForDelete) {
                 setSelectedId(null);
                 setSelectedError(null);
             }
             setIsSingleDeleteModalOpen(false);
-            setSelectedLogIdForDelete(null);
+            setSelectedRequestIdForDelete(null);
         } catch (e) {
             console.error("Failed to delete error log", e);
         } finally {
@@ -80,14 +80,19 @@ export const Errors: React.FC = () => {
 
     useEffect(() => {
         fetchErrors();
-        const interval = setInterval(fetchErrors, 10000); // Auto-refresh list
+        const interval = setInterval(fetchErrors, 10000); 
         return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
         if (selectedId) {
-            const error = errors.find(e => e.request_id === selectedId);
-            setSelectedError(error || null);
+            const found = errors.find(e => e.request_id === selectedId);
+            if (found) {
+                setSelectedError(found);
+            } else {
+                // If not in current list, maybe fetch specific? 
+                // For now, assuming it's in the list or will appear on refresh
+            }
         } else {
             setSelectedError(null);
         }
@@ -97,7 +102,11 @@ export const Errors: React.FC = () => {
         if (!content) return '';
         if (typeof content === 'string') {
             try {
-                return JSON.stringify(JSON.parse(content), null, 2);
+                // Check if it looks like JSON
+                if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+                     return JSON.stringify(JSON.parse(content), null, 2);
+                }
+                return content;
             } catch {
                 return content;
             }
@@ -109,8 +118,11 @@ export const Errors: React.FC = () => {
         <div className="debug-page">
             <header className="debug-header">
                 <div>
-                    <h1 className="page-title text-red-500">Inference Errors</h1>
-                    <p className="page-description">Inspect detailed error logs and backtraces</p>
+                    <h1 className="page-title text-red-500 flex items-center gap-2">
+                        <AlertTriangle size={24} />
+                        Inference Errors
+                    </h1>
+                    <p className="page-description">Investigate failed requests and exceptions</p>
                 </div>
                 <div className="flex gap-2">
                     <Button onClick={handleDeleteAll} variant="danger" className="flex items-center gap-2" disabled={errors.length === 0}>
@@ -133,13 +145,13 @@ export const Errors: React.FC = () => {
                         </span>
                     </div>
                     <div className="debug-list">
-                        {errors.map(error => (
+                        {errors.map(err => (
                             <div 
-                                key={error.request_id}
-                                onClick={() => setSelectedId(error.request_id)}
+                                key={err.id}
+                                onClick={() => setSelectedId(err.request_id)}
                                 className={clsx(
                                     "debug-list-item group",
-                                    selectedId === error.request_id && "selected"
+                                    selectedId === err.request_id && "selected"
                                 )}
                             >
                                 <div className="debug-item-content w-full">
@@ -147,25 +159,22 @@ export const Errors: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                             <Clock size={14} className="text-[var(--color-text-muted)]" />
                                             <span className="debug-time">
-                                                {new Date(error.created_at).toLocaleTimeString()}
+                                                {new Date(err.date).toLocaleTimeString()}
                                             </span>
                                         </div>
                                         <button 
-                                            onClick={(e) => handleDelete(e, error.request_id)}
+                                            onClick={(e) => handleDelete(e, err.request_id)}
                                             className="debug-delete-btn group-hover-visible"
-                                            title="Delete log"
+                                            title="Delete error log"
                                         >
                                             <Trash2 size={12} />
                                         </button>
                                     </div>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <XCircle size={14} className="text-red-500 flex-shrink-0" />
-                                        <div className="debug-id text-red-400 overflow-hidden text-ellipsis whitespace-nowrap">
-                                            {error.error_message}
-                                        </div>
+                                    <div className="debug-id mt-1 font-mono text-xs text-[var(--color-text-muted)]">
+                                        {err.request_id.substring(0, 8)}...
                                     </div>
-                                    <div className="text-xs text-[var(--color-text-muted)] mt-1 font-mono">
-                                        {error.request_id.substring(0, 8)}...
+                                    <div className="mt-1 text-sm text-red-400 truncate" title={err.error_message}>
+                                        {err.error_message}
                                     </div>
                                 </div>
                             </div>
@@ -182,29 +191,46 @@ export const Errors: React.FC = () => {
                 <div className="debug-main">
                     {selectedId && selectedError ? (
                         <div className="debug-accordion-container">
+                             <div className="p-4 border-b border-[var(--color-border)] mb-4">
+                                <h3 className="text-lg font-semibold text-red-500 mb-2">Error Details</h3>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-[var(--color-text-muted)]">Request ID:</span>
+                                        <span className="ml-2 font-mono">{selectedError.request_id}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[var(--color-text-muted)]">Time:</span>
+                                        <span className="ml-2">{new Date(selectedError.date).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                             </div>
+
                              <AccordionPanel 
-                                title="Error Message" 
+                                title="Message" 
                                 content={selectedError.error_message} 
-                                color="text-red-500"
+                                color="text-red-400"
                                 defaultOpen={true}
                                 language="plaintext"
                             />
                              <AccordionPanel 
                                 title="Stack Trace" 
-                                content={selectedError.error_stack || 'No stack trace available'} 
+                                content={selectedError.error_stack || '(No stack trace available)'} 
                                 color="text-orange-400"
                                 defaultOpen={true}
                                 language="plaintext"
                             />
-                             <AccordionPanel 
-                                title="Additional Details" 
-                                content={formatContent(selectedError.details)} 
-                                color="text-blue-400"
-                            />
+                             {selectedError.details && (
+                                <AccordionPanel 
+                                    title="Additional Details" 
+                                    content={formatContent(selectedError.details)} 
+                                    color="text-blue-400"
+                                    defaultOpen={true}
+                                />
+                             )}
                         </div>
                     ) : (
                         <div className="debug-empty">
-                            <AlertTriangle size={48} opacity={0.2} className="text-red-500" />
+                            <AlertTriangle size={48} opacity={0.2} />
                             <p>Select an error to inspect details</p>
                         </div>
                     )}
@@ -235,7 +261,7 @@ export const Errors: React.FC = () => {
                     <>
                         <Button variant="secondary" onClick={() => setIsSingleDeleteModalOpen(false)}>Cancel</Button>
                         <Button variant="danger" onClick={confirmDeleteSingle} disabled={isDeleting}>
-                            {isDeleting ? 'Deleting...' : 'Delete Log'}
+                            {isDeleting ? 'Deleting...' : 'Delete Error Log'}
                         </Button>
                     </>
                 }
@@ -299,7 +325,7 @@ const AccordionPanel: React.FC<{
                             scrollBeyondLastLine: false,
                             fontSize: 12,
                             fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                            lineNumbers: 'on',
+                            lineNumbers: 'off',
                             folding: true,
                             wordWrap: 'on',
                             padding: { top: 10, bottom: 10 }

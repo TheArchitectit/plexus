@@ -293,23 +293,57 @@ describe("UsageStorageService", () => {
         expect(deleted).toBe(false);
     });
 
-    test("should delete all debug logs", () => {
-        service.saveDebugLog({
-            requestId: "req-1",
-            createdAt: Date.now(),
-            rawRequest: "{}", transformedRequest: "{}", rawResponse: "{}", transformedResponse: "{}"
-        });
-        service.saveDebugLog({
-            requestId: "req-2",
-            createdAt: Date.now(),
-            rawRequest: "{}", transformedRequest: "{}", rawResponse: "{}", transformedResponse: "{}"
-        });
-
-        expect(service.getDebugLogs().length).toBe(2);
-
+    test('should delete all debug logs', () => {
+        const record = {
+            requestId: 'req-delete-all',
+            rawRequest: { prompt: 'test' },
+            createdAt: Date.now()
+        };
+        
+        service.saveDebugLog(record);
+        service.saveDebugLog({ ...record, requestId: 'req-delete-all-2' });
+        
         const success = service.deleteAllDebugLogs();
         expect(success).toBe(true);
+        
+        const logs = service.getDebugLogs();
+        expect(logs.length).toBe(0);
+    });
 
-        expect(service.getDebugLogs().length).toBe(0);
+    test('should save and retrieve an inference error', () => {
+        const error = new Error("Test Error Message");
+        error.stack = "Error: Test Error Message\n    at Test.function";
+        
+        service.saveError('req-error-1', error, { extra: 'detail' });
+        
+        const errors = service.getErrors();
+        expect(errors.length).toBe(1);
+        expect(errors[0].request_id).toBe('req-error-1');
+        expect(errors[0].error_message).toBe("Test Error Message");
+        expect(errors[0].error_stack).toContain("Test.function");
+        expect(errors[0].details).toContain('{"extra":"detail"}');
+    });
+
+    test('should delete a specific inference error', () => {
+        service.saveError('req-error-1', new Error("Error 1"));
+        service.saveError('req-error-2', new Error("Error 2"));
+        
+        const result = service.deleteError('req-error-1');
+        expect(result).toBe(true);
+        
+        const errors = service.getErrors();
+        expect(errors.length).toBe(1);
+        expect(errors[0].request_id).toBe('req-error-2');
+    });
+
+    test('should delete all inference errors', () => {
+        service.saveError('req-error-1', new Error("Error 1"));
+        service.saveError('req-error-2', new Error("Error 2"));
+        
+        const result = service.deleteAllErrors();
+        expect(result).toBe(true);
+        
+        const errors = service.getErrors();
+        expect(errors.length).toBe(0);
     });
 });
