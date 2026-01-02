@@ -49,7 +49,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({ source, costMetadata, 
         const num = typeof val === 'string' ? parseFloat(val) : val;
         if (isNaN(num)) return String(val);
         if (num === 0) return '0';
-        
+
         // Use toFixed with high precision to avoid scientific notation, then trim trailing zeros
         return num.toFixed(10).replace(/\.?0+$/, "");
     };
@@ -57,7 +57,7 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({ source, costMetadata, 
     try {
         const parsed = costMetadata ? JSON.parse(costMetadata) : {};
         const data = parsed || {};
-        
+
         // Normalize source comparison
         const s = (source || '').toLowerCase();
 
@@ -68,27 +68,27 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({ source, costMetadata, 
                     <div style={gridStyle}>
                         <span style={labelStyle}>Input:</span>
                         <span style={valueStyle}>{formatRate(data.input)}</span>
-                        
+
                         <span style={labelStyle}>Output:</span>
                         <span style={valueStyle}>{formatRate(data.output)}</span>
-                        
+
                         <span style={labelStyle}>Cached:</span>
                         <span style={valueStyle}>{formatRate(data.cached)}</span>
                     </div>
                 </div>
             );
         } else if (s === 'defined') {
-             // Handle both new (flat rates) and old (full config) formats
-             const isNewFormat = data.input !== undefined;
-             
-             content = (
+            // Handle both new (flat rates) and old (full config) formats
+            const isNewFormat = data.input !== undefined;
+
+            content = (
                 <div style={containerStyle}>
                     <div style={headerStyle}>Source: Defined</div>
                     {isNewFormat ? (
                         <div style={gridStyle}>
                             <span style={labelStyle}>Input:</span>
                             <span style={valueStyle}>{formatRate(data.input)}</span>
-                            
+
                             <span style={labelStyle}>Output:</span>
                             <span style={valueStyle}>{formatRate(data.output)}</span>
                         </div>
@@ -100,39 +100,41 @@ export const CostToolTip: React.FC<CostToolTipProps> = ({ source, costMetadata, 
                 </div>
             );
         } else if (s === 'openrouter') {
-             content = (
+            content = (
                 <div style={containerStyle}>
-                    <div style={headerStyle}>Source: OpenRouter</div>
-                    <div style={{...headerStyle, borderBottom: 'none', fontSize: '11px', color: '#9ca3af' }}>{data.slug || "Unknown"}</div>
+                    <div style={headerStyle}>Pricing Source: OpenRouter</div>
+                    <div style={{ ...headerStyle, borderBottom: 'none', fontSize: '11px', color: '#9ca3af' }}>{data.slug || "Unknown"}</div>
                     <div style={gridStyle}>
                         <span style={labelStyle}>Input:</span>
                         <span style={valueStyle}>{formatRate(data.prompt)}</span>
-                        
+
                         <span style={labelStyle}>Output:</span>
                         <span style={valueStyle}>{formatRate(data.completion)}</span>
-                        
+
                         <span style={labelStyle}>Cached:</span>
                         <span style={valueStyle}>{formatRate(data.input_cache_read)}</span>
 
-                        {data.discount && (
-                            <>
-                                <span style={{...labelStyle, color: '#4ade80'}}>Discount:</span>
-                                <span style={{...valueStyle, color: '#4ade80'}}>
-                                    {(data.discount * 100).toFixed(0)}%
-                                </span>
-                            </>
-                        )}
+
+                        <span style={{ ...labelStyle, color: '#4ade80' }}>Discounted:</span>
+                        <span style={{ ...valueStyle, color: '#4ade80' }}>
+                            {Number(data?.discount) > 0
+                                ? `${(data.discount * 100).toFixed(0)}%`
+                                : "None"
+                            }
+                        </span>
+
+
                     </div>
                 </div>
             );
         } else {
-             // Fallback for unknown sources
-             content = (
+            // Fallback for unknown sources
+            content = (
                 <div style={containerStyle}>
                     <div style={headerStyle}>Source: {source}</div>
                     <pre style={{ fontSize: '11px', overflow: 'auto' }}>{JSON.stringify(data, null, 2)}</pre>
                 </div>
-             );
+            );
         }
 
     } catch (e) {
