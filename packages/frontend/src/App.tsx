@@ -9,6 +9,7 @@ import { Models } from './pages/Models';
 import { Config } from './pages/Config';
 import { SystemLogs } from './pages/SystemLogs';
 import { Debug } from './pages/Debug';
+import { Errors } from './pages/Errors';
 import { Login } from './pages/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -60,6 +61,7 @@ const AppRoutes = () => {
                             <Route path="/config" element={<Config />} />
                             <Route path="/system-logs" element={<SystemLogs />} />
                             <Route path="/debug" element={<Debug />} />
+                            <Route path="/errors" element={<Errors />} />
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                     </MainLayout>

@@ -140,12 +140,24 @@ export async function handleResponse(
                 
                 calculateCosts(usageRecord, pricing, providerDiscount);
                 usageRecord.responseStatus = 'success';
-            } catch (e) {
+            } catch (e: any) {
+                logger.error(`Usage tracking stream error for request ${usageRecord.requestId}: ${e.message}`);
+                logger.debug(`Usage tracking error stack: ${e.stack}`);
                 usageRecord.responseStatus = 'error_stream';
+                
+                // Log detailed error to storage
+                usageStorage.saveError(usageRecord.requestId!, e, { phase: 'usage_tracking' });
+
+                // Even on error, try to calculate costs for what we have
+                calculateCosts(usageRecord, pricing, providerDiscount);
             } finally {
                 usageRecord.durationMs = Date.now() - startTime;
-                // Save record
-                usageStorage.saveRequest(usageRecord as UsageRecord);
+                try {
+                    // Save record
+                    usageStorage.saveRequest(usageRecord as UsageRecord);
+                } catch (saveError: any) {
+                    logger.error(`Failed to save partial usage record for ${usageRecord.requestId}: ${saveError.message}`);
+                }
             }
         })();
 
@@ -175,8 +187,17 @@ export async function handleResponse(
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    await stream.write(value);
+                    try {
+                        await stream.write(value);
+                    } catch (writeError: any) {
+                        logger.warn(`Client disconnected prematurely during stream for request ${usageRecord.requestId}: ${writeError.message}`);
+                        break; // Stop streaming to this client
+                    }
                 }
+            } catch (e: any) {
+                logger.error(`Stream transmission error for request ${usageRecord.requestId}: ${e.message}`);
+                logger.error(`Trace: ${e.stack}`);
+                usageStorage.saveError(usageRecord.requestId!, e, { phase: 'stream_transmission' });
             } finally {
                 reader.releaseLock();
             }

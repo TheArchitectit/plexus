@@ -6,7 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { CostToolTip } from '../components/ui/CostToolTip';
 import { api, UsageRecord } from '../lib/api';
-import { ChevronLeft, ChevronRight, Search, Filter, Trash2, Bug, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Filter, Trash2, Bug, Zap, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNavigate } from 'react-router-dom';
 
@@ -323,15 +323,26 @@ export const Logs = () => {
                                             </Badge>
                                         </td>
                                         <td style={{ padding: '6px' }}>
-                                            {log.hasDebug && (
-                                                <button
-                                                    onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
-                                                    className="debug-delete-btn"
-                                                    title="View Debug Trace"
-                                                >
-                                                    <Bug size={14} className="text-blue-400" />
-                                                </button>
-                                            )}
+                                            <div className="flex gap-2">
+                                                {log.hasDebug && (
+                                                    <button
+                                                        onClick={() => navigate('/debug', { state: { requestId: log.requestId } })}
+                                                        className="debug-delete-btn"
+                                                        title="View Debug Trace"
+                                                    >
+                                                        <Bug size={14} className="text-blue-400" />
+                                                    </button>
+                                                )}
+                                                {log.hasError && (
+                                                    <button
+                                                        onClick={() => navigate('/errors', { state: { requestId: log.requestId } })}
+                                                        className="debug-delete-btn"
+                                                        title="View Error Details"
+                                                    >
+                                                        <AlertTriangle size={14} className="text-red-500" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                         <td style={{ padding: '6px' }}>
                                             <button

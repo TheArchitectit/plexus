@@ -130,6 +130,18 @@ export class UsageStorageService extends EventEmitter {
                     created_at INTEGER
                 );
             `);
+
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS inference_errors (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    request_id TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    error_message TEXT,
+                    error_stack TEXT,
+                    details TEXT,
+                    created_at INTEGER
+                );
+            `);
             
             // Migration: Add columns if they don't exist (primitive check)
             try {
@@ -251,6 +263,69 @@ export class UsageStorageService extends EventEmitter {
         }
     }
 
+    saveError(requestId: string, error: any, details?: any) {
+        try {
+            const query = this.db.prepare(`
+                INSERT INTO inference_errors (
+                    request_id, date, error_message, error_stack, details, created_at
+                ) VALUES (
+                    $requestId, $date, $errorMessage, $errorStack, $details, $createdAt
+                )
+            `);
+
+            query.run({
+                $requestId: requestId,
+                $date: new Date().toISOString(),
+                $errorMessage: error.message || String(error),
+                $errorStack: error.stack || null,
+                $details: details ? (typeof details === 'string' ? details : JSON.stringify(details)) : null,
+                $createdAt: Date.now()
+            });
+            
+            logger.debug(`Inference error saved for request ${requestId}`);
+        } catch (e) {
+            logger.error("Failed to save inference error", e);
+        }
+    }
+
+    getErrors(limit: number = 50, offset: number = 0): any[] {
+        try {
+            const query = this.db.prepare(`
+                SELECT * FROM inference_errors 
+                ORDER BY created_at DESC 
+                LIMIT $limit OFFSET $offset
+            `);
+            return query.all({ $limit: limit, $offset: offset });
+        } catch (error) {
+            logger.error("Failed to get inference errors", error);
+            return [];
+        }
+    }
+
+    deleteError(requestId: string): boolean {
+        try {
+            const query = this.db.prepare(`
+                DELETE FROM inference_errors WHERE request_id = $requestId
+            `);
+            const result = query.run({ $requestId: requestId });
+            return result.changes > 0;
+        } catch (error) {
+            logger.error(`Failed to delete error log for ${requestId}`, error);
+            return false;
+        }
+    }
+
+    deleteAllErrors(): boolean {
+        try {
+            this.db.run("DELETE FROM inference_errors");
+            logger.info("Deleted all error logs");
+            return true;
+        } catch (error) {
+            logger.error("Failed to delete all error logs", error);
+            return false;
+        }
+    }
+
     getDebugLogs(limit: number = 50, offset: number = 0): { requestId: string, createdAt: number }[] {
         try {
             const query = this.db.prepare(`
@@ -321,7 +396,8 @@ export class UsageStorageService extends EventEmitter {
     getUsage(filters: UsageFilters, pagination: PaginationOptions): { data: UsageRecord[], total: number } {
         let queryStr = `
             SELECT request_usage.*, 
-            EXISTS(SELECT 1 FROM debug_logs WHERE debug_logs.request_id = request_usage.request_id) as has_debug
+            EXISTS(SELECT 1 FROM debug_logs WHERE debug_logs.request_id = request_usage.request_id) as has_debug,
+            EXISTS(SELECT 1 FROM inference_errors WHERE inference_errors.request_id = request_usage.request_id) as has_error
             FROM request_usage 
             WHERE 1=1
         `;
@@ -413,6 +489,7 @@ export class UsageStorageService extends EventEmitter {
                 isStreamed: !!row.is_streamed,
                 responseStatus: row.response_status,
                 hasDebug: !!row.has_debug,
+                hasError: !!row.has_error,
                 isPassthrough: !!row.is_passthrough
             }));
 

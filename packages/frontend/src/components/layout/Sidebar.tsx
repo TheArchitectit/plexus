@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Activity, Settings, Server, Box, FileText, Bug, Database, LogOut } from 'lucide-react';
+import { LayoutDashboard, Activity, Settings, Server, Box, FileText, Bug, Database, LogOut, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -86,6 +86,10 @@ export const Sidebar: React.FC = () => {
             <NavLink to="/debug" className={({ isActive }) => clsx('nav-item', isActive && 'active')} style={{ marginBottom: '8px' }}>
                 <Database size={20} />
                 <span>Debug Traces</span>
+            </NavLink>
+            <NavLink to="/errors" className={({ isActive }) => clsx('nav-item', isActive && 'active')} style={{ marginBottom: '8px' }}>
+                <AlertTriangle size={20} />
+                <span>Errors</span>
             </NavLink>
             <button 
                 onClick={handleToggleClick}

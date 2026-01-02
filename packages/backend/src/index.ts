@@ -118,6 +118,7 @@ app.post('/v1/chat/completions', async (c) => {
         usageRecord.responseStatus = 'error';
         usageRecord.durationMs = Date.now() - startTime;
         usageStorage.saveRequest(usageRecord as UsageRecord);
+        usageStorage.saveError(requestId, e, { apiType: 'chat' });
 
         logger.error('Error processing OpenAI request', e);
         return c.json({ error: { message: e.message, type: 'api_error' } }, 500);
@@ -169,6 +170,7 @@ app.post('/v1/messages', async (c) => {
         usageRecord.responseStatus = 'error';
         usageRecord.durationMs = Date.now() - startTime;
         usageStorage.saveRequest(usageRecord as UsageRecord);
+        usageStorage.saveError(requestId, e, { apiType: 'messages' });
 
         logger.error('Error processing Anthropic request', e);
         // Anthropic error format
@@ -230,6 +232,7 @@ app.post('/v1beta/models/:modelWithAction', async (c) => {
         usageRecord.responseStatus = 'error';
         usageRecord.durationMs = Date.now() - startTime;
         usageStorage.saveRequest(usageRecord as UsageRecord);
+        usageStorage.saveError(requestId, e, { apiType: 'gemini' });
 
         logger.error('Error processing Gemini request', e);
         // Gemini error format (simplified)
@@ -437,6 +440,26 @@ app.delete('/v0/management/debug/logs/:requestId', (c) => {
     const requestId = c.req.param('requestId');
     const success = usageStorage.deleteDebugLog(requestId);
     if (!success) return c.json({ error: "Log not found or could not be deleted" }, 404);
+    return c.json({ success: true });
+});
+
+// Error Logs API
+app.get('/v0/management/errors', (c) => {
+    const limit = parseInt(c.req.query('limit') || '50');
+    const offset = parseInt(c.req.query('offset') || '0');
+    return c.json(usageStorage.getErrors(limit, offset));
+});
+
+app.delete('/v0/management/errors', (c) => {
+    const success = usageStorage.deleteAllErrors();
+    if (!success) return c.json({ error: "Failed to delete error logs" }, 500);
+    return c.json({ success: true });
+});
+
+app.delete('/v0/management/errors/:requestId', (c) => {
+    const requestId = c.req.param('requestId');
+    const success = usageStorage.deleteError(requestId);
+    if (!success) return c.json({ error: "Error log not found or could not be deleted" }, 404);
     return c.json({ success: true });
 });
 

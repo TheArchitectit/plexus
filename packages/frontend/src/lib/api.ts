@@ -59,6 +59,16 @@ export interface Alias {
     targets: Array<{ provider: string; model: string }>;
 }
 
+export interface InferenceError {
+    id: number;
+    request_id: string;
+    date: string;
+    error_message: string;
+    error_stack?: string;
+    details?: string;
+    created_at: number;
+}
+
 export interface Cooldown {
     provider: string;
     expiry: number;
@@ -91,6 +101,7 @@ export interface UsageRecord {
     isStreamed: boolean;
     responseStatus: string;
     hasDebug?: boolean;
+    hasError?: boolean;
     isPassthrough?: boolean;
 }
 
@@ -472,6 +483,41 @@ export const api = {
           return res.ok;
       } catch (e) {
           console.error("API Error deleteAllDebugLogs", e);
+          return false;
+      }
+  },
+
+  getErrors: async (limit: number = 50, offset: number = 0): Promise<InferenceError[]> => {
+      try {
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/errors?limit=${limit}&offset=${offset}`);
+          if (!res.ok) throw new Error('Failed to fetch error logs');
+          return await res.json();
+      } catch (e) {
+          console.error("API Error getErrors", e);
+          return [];
+      }
+  },
+
+  deleteError: async (requestId: string): Promise<boolean> => {
+      try {
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/errors/${requestId}`, {
+              method: 'DELETE'
+          });
+          return res.ok;
+      } catch (e) {
+          console.error("API Error deleteError", e);
+          return false;
+      }
+  },
+
+  deleteAllErrors: async (): Promise<boolean> => {
+      try {
+          const res = await fetchWithAuth(`${API_BASE}/v0/management/errors`, {
+              method: 'DELETE'
+          });
+          return res.ok;
+      } catch (e) {
+          console.error("API Error deleteAllErrors", e);
           return false;
       }
   },

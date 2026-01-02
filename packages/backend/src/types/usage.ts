@@ -23,5 +23,6 @@ export interface UsageRecord {
     isStreamed: boolean;
     responseStatus: string; // "success", "error", or "HTTP <code"
     hasDebug?: boolean;
+    hasError?: boolean;
     isPassthrough?: boolean;
 }

@@ -37,3 +37,4 @@ config/usage.sqlite
 
 llms/
 CAP-UI/
+gemini-client-error*
