@@ -6,13 +6,47 @@ import { logger } from './utils/logger';
 
 // --- Zod Schemas ---
 
+const PricingRangeSchema = z.object({
+  lower_bound: z.number().min(0).default(0),
+  upper_bound: z.number().default(Infinity),
+  input_per_m: z.number().min(0),
+  output_per_m: z.number().min(0),
+});
+
+const PricingSchema = z.discriminatedUnion('source', [
+  z.object({
+    source: z.literal('openrouter'),
+    slug: z.string(),
+  }),
+  z.object({
+    source: z.literal('defined'),
+    range: z.array(PricingRangeSchema).min(1),
+  }),
+  z.object({
+    source: z.literal('simple'),
+    input: z.number().min(0),
+    output: z.number().min(0),
+    cached: z.number().min(0).optional(),
+  }),
+]);
+
+const ModelProviderConfigSchema = z.object({
+  pricing: PricingSchema.default({
+    source: 'simple',
+    input: 0,
+    output: 0,
+  }),
+});
 
 const ProviderConfigSchema = z.object({
   type: z.string(),
   display_name: z.string().optional(),
   api_base_url: z.string().url(),
   api_key: z.string().optional(),
-  models: z.array(z.string()).optional(),
+  models: z.union([
+    z.array(z.string()),
+    z.record(z.string(), ModelProviderConfigSchema)
+  ]).optional(),
   headers: z.record(z.string()).optional(),
   extraBody: z.record(z.any()).optional(),
 });
@@ -47,7 +81,12 @@ function logConfigStats(config: PlexusConfig) {
     const providerCount = Object.keys(config.providers).length;
     logger.info(`Loaded ${providerCount} Providers:`);
     Object.entries(config.providers).forEach(([name, provider]) => {
-      const modelCount = provider.models ? provider.models.length : 0;
+      let modelCount = 0;
+      if (Array.isArray(provider.models)) {
+        modelCount = provider.models.length;
+      } else if (provider.models) {
+        modelCount = Object.keys(provider.models).length;
+      }
       logger.info(`  - ${name}: ${modelCount} models`);
     });
 

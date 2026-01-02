@@ -45,22 +45,6 @@ export class Router {
                 };
             }
         }
-        
-        // 2. Fallback: Search providers for direct match
-        for (const [providerKey, providerConfig] of Object.entries(config.providers)) {
-            if (providerConfig.models && providerConfig.models.includes(modelName)) {
-                if (!CooldownManager.getInstance().isProviderHealthy(providerKey)) {
-                    continue;
-                }
-
-                logger.debug(`Direct match '${modelName}' in '${providerKey}'`);
-                return {
-                    provider: providerKey,
-                    model: modelName,
-                    config: providerConfig
-                };
-            }
-        }
 
         throw new Error(`Model '${modelName}' not found in configuration`);
     }

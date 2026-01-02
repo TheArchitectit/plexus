@@ -77,7 +77,7 @@ describe("Router", () => {
         expect(() => Router.resolve("unknown-model")).toThrow(/not found/);
     });
 
-    test("fallback to direct provider model match if alias not found", () => {
+    test("throws error if model exists in provider but not as alias", () => {
         // We need to add a model to a provider in the mock config that isn't in 'models' alias list
         const configWithDirectModel = {
             ...mockConfig,
@@ -94,8 +94,6 @@ describe("Router", () => {
             getConfig: () => configWithDirectModel
         }));
 
-        const route = Router.resolve("gpt-3.5-turbo-direct");
-        expect(route.provider).toBe("openai");
-        expect(route.model).toBe("gpt-3.5-turbo-direct");
+        expect(() => Router.resolve("gpt-3.5-turbo-direct")).toThrow(/not found/);
     });
 });
