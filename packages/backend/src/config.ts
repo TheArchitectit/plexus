@@ -69,7 +69,7 @@ const ModelTargetSchema = z.object({
 });
 
 const ModelConfigSchema = z.object({
-  selector: z.enum(['random', 'cost', 'latency', 'usage']).optional(),
+  selector: z.enum(['random', 'cost', 'latency', 'usage', 'performance']).optional(),
   targets: z.array(ModelTargetSchema),
 });
 

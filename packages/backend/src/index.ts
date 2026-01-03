@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { CooldownManager } from './services/cooldown-manager';
 import { DebugManager } from './services/debug-manager';
 import { PricingManager } from './services/pricing-manager';
+import { SelectorFactory } from './services/selectors/factory';
 
 const app = new Hono();
 const dispatcher = new Dispatcher();
@@ -22,6 +23,8 @@ const usageStorage = new UsageStorageService();
 CooldownManager.getInstance().setStorage(usageStorage);
 // Initialize DebugManager with storage
 DebugManager.getInstance().setStorage(usageStorage);
+// Initialize SelectorFactory with storage
+SelectorFactory.setUsageStorage(usageStorage);
 
 // Load config and pricing on startup
 try {

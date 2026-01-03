@@ -1,9 +1,19 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, mock, beforeEach } from 'bun:test';
 import { SelectorFactory } from '../factory';
 import { RandomSelector } from '../random';
 import { CostSelector } from '../cost';
+import { PerformanceSelector } from '../performance';
+import { LatencySelector } from '../latency';
+import { UsageStorageService } from '../../usage-storage';
 
 describe('SelectorFactory', () => {
+    
+  const mockStorage = {} as unknown as UsageStorageService;
+  
+  beforeEach(() => {
+      SelectorFactory.setUsageStorage(mockStorage);
+  });
+
   it('should return RandomSelector for "random"', () => {
     const selector = SelectorFactory.getSelector('random');
     expect(selector).toBeInstanceOf(RandomSelector);
@@ -25,12 +35,21 @@ describe('SelectorFactory', () => {
     expect(selector).toBeInstanceOf(CostSelector);
   });
 
+  it('should return PerformanceSelector for "performance"', () => {
+    const selector = SelectorFactory.getSelector('performance');
+    expect(selector).toBeInstanceOf(PerformanceSelector);
+  });
+
+  it('should return LatencySelector for "latency"', () => {
+    const selector = SelectorFactory.getSelector('latency');
+    expect(selector).toBeInstanceOf(LatencySelector);
+  });
+
   it('should throw for unknown selector', () => {
     expect(() => SelectorFactory.getSelector('unknown')).toThrow("Unknown selector type: unknown");
   });
 
   it('should throw for unimplemented selectors', () => {
-     expect(() => SelectorFactory.getSelector('latency')).toThrow("Selector 'latency' not implemented yet");
      expect(() => SelectorFactory.getSelector('usage')).toThrow("Selector 'usage' not implemented yet");
   });
 });

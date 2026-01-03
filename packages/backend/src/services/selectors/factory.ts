@@ -1,8 +1,17 @@
 import { Selector } from './base';
 import { RandomSelector } from './random';
 import { CostSelector } from './cost';
+import { PerformanceSelector } from './performance';
+import { LatencySelector } from './latency';
+import { UsageStorageService } from '../usage-storage';
 
 export class SelectorFactory {
+  private static usageStorage: UsageStorageService | null = null;
+
+  static setUsageStorage(storage: UsageStorageService) {
+    this.usageStorage = storage;
+  }
+
   static getSelector(type?: string): Selector {
     switch (type) {
       case 'random':
@@ -11,9 +20,16 @@ export class SelectorFactory {
         return new RandomSelector();
       case 'cost':
         return new CostSelector();
+      case 'performance':
+        if (!this.usageStorage) {
+            throw new Error("UsageStorageService not initialized in SelectorFactory. Call setUsageStorage first.");
+        }
+        return new PerformanceSelector(this.usageStorage);
       case 'latency':
-        // Placeholder for future implementation
-        throw new Error("Selector 'latency' not implemented yet");
+        if (!this.usageStorage) {
+            throw new Error("UsageStorageService not initialized in SelectorFactory. Call setUsageStorage first.");
+        }
+        return new LatencySelector(this.usageStorage);
       case 'usage':
         // Placeholder for future implementation
         throw new Error("Selector 'usage' not implemented yet");
