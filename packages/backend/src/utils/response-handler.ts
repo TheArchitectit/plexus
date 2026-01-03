@@ -271,10 +271,10 @@ export async function handleResponse(
                 }
 
                 // Calculate performance metrics for the record
-                const totalTokens = (usageRecord.tokensInput || 0) + (usageRecord.tokensOutput || 0);
+                const outputTokens = usageRecord.tokensOutput || 0;
                 usageRecord.ttftMs = timeToFirstToken;
-                if (totalTokens > 0 && usageRecord.durationMs > 0) {
-                    usageRecord.tokensPerSec = (totalTokens / usageRecord.durationMs) * 1000;
+                if (outputTokens > 0 && usageRecord.durationMs > 0) {
+                    usageRecord.tokensPerSec = (outputTokens / usageRecord.durationMs) * 1000;
                 }
 
                 calculateCosts(usageRecord, pricing, providerDiscount);
@@ -287,12 +287,12 @@ export async function handleResponse(
 
                 // Update performance metrics
                 if (usageRecord.provider && usageRecord.selectedModelName) {
-                    const totalTokens = (usageRecord.tokensInput || 0) + (usageRecord.tokensOutput || 0);
+                    const outputTokens = usageRecord.tokensOutput || 0;
                     usageStorage.updatePerformanceMetrics(
                         usageRecord.provider,
                         usageRecord.selectedModelName,
                         timeToFirstToken,
-                        totalTokens > 0 ? totalTokens : null,
+                        outputTokens > 0 ? outputTokens : null,
                         usageRecord.durationMs,
                         usageRecord.requestId!
                     );
@@ -331,10 +331,10 @@ export async function handleResponse(
     usageRecord.durationMs = Date.now() - startTime;
     
     // Performance metrics for non-streaming
-    const totalTokens = (usageRecord.tokensInput || 0) + (usageRecord.tokensOutput || 0);
+    const outputTokens = usageRecord.tokensOutput || 0;
     usageRecord.ttftMs = usageRecord.durationMs; // TTFT = full duration for non-streaming
-    if (totalTokens > 0 && usageRecord.durationMs > 0) {
-        usageRecord.tokensPerSec = (totalTokens / usageRecord.durationMs) * 1000;
+    if (outputTokens > 0 && usageRecord.durationMs > 0) {
+        usageRecord.tokensPerSec = (outputTokens / usageRecord.durationMs) * 1000;
     }
 
     usageStorage.saveRequest(usageRecord as UsageRecord);
@@ -342,12 +342,12 @@ export async function handleResponse(
     // Update performance metrics for non-streaming requests
     if (usageRecord.provider && usageRecord.selectedModelName) {
         // For non-streaming, TTFT is approximately the full duration
-        const totalTokens = (usageRecord.tokensInput || 0) + (usageRecord.tokensOutput || 0);
+        const outputTokens = usageRecord.tokensOutput || 0;
         usageStorage.updatePerformanceMetrics(
             usageRecord.provider,
             usageRecord.selectedModelName,
             usageRecord.durationMs, // TTFT = full duration for non-streaming
-            totalTokens > 0 ? totalTokens : null,
+            outputTokens > 0 ? outputTokens : null,
             usageRecord.durationMs,
             usageRecord.requestId!
         );

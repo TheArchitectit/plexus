@@ -570,15 +570,15 @@ export class UsageStorageService extends EventEmitter {
         provider: string,
         model: string,
         timeToFirstTokenMs: number | null,
-        totalTokens: number | null,
+        outputTokens: number | null,
         durationMs: number,
         requestId: string
     ) {
         try {
             // Calculate tokens per second if we have both values
             let tokensPerSec: number | null = null;
-            if (totalTokens && durationMs > 0) {
-                tokensPerSec = (totalTokens / durationMs) * 1000;
+            if (outputTokens && durationMs > 0) {
+                tokensPerSec = (outputTokens / durationMs) * 1000;
             }
 
             // Insert new performance record
@@ -597,7 +597,7 @@ export class UsageStorageService extends EventEmitter {
                 $model: model,
                 $createdAt: Date.now(),
                 $ttft: timeToFirstTokenMs,
-                $totalTokens: totalTokens,
+                $totalTokens: outputTokens,
                 $durationMs: durationMs,
                 $tokensPerSec: tokensPerSec,
                 $requestId: requestId
