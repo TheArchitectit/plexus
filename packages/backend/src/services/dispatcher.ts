@@ -128,9 +128,37 @@ export class Dispatcher {
             let usageStream = rawStream;
             
             if (bypassTransformation) {
-                 const [s1, s2] = rawStream.tee();
-                 clientStream = s1;
-                 usageStream = s2;
+                 // Manual tee via TransformStream to avoid native tee() locking issues and adhere to "no tee"
+                 let usageController: ReadableStreamDefaultController<any>;
+                 const usageInputStream = new ReadableStream({
+                     start(c) { usageController = c; }
+                 });
+
+                 const tapStream = new TransformStream({
+                     transform(chunk, controller) {
+                         try {
+                             // 1. Forward to client
+                             controller.enqueue(chunk);
+                             
+                             // 2. Clone to usage stream
+                             // We clone the chunk to ensure safety across streams
+                             if (chunk instanceof Uint8Array) {
+                                 usageController.enqueue(new Uint8Array(chunk));
+                             } else {
+                                 usageController.enqueue(chunk);
+                             }
+                         } catch (e) {
+                             usageController.error(e);
+                             controller.error(e);
+                         }
+                     },
+                     flush() {
+                         usageController.close();
+                     }
+                 });
+
+                 clientStream = rawStream.pipeThrough(tapStream);
+                 usageStream = usageInputStream;
             }
 
             const unifiedStream = transformer.transformStream ? 
