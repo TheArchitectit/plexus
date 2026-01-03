@@ -6,12 +6,26 @@ const prompt = process.argv[4];
 const includeTool = process.argv[5] === "true";
 const stream = process.argv[6] === "true";
 
+const usage = () => {
+  console.log("Usage: bun test.ts <model> <api_type> <prompt> [include_tool] [stream]");
+  console.log("  api_type: chat | messages | gemini");
+  console.log("  include_tool: true | false (default: false)");
+  console.log("  stream: true | false (default: false)");
+  console.log("\nOptions:");
+  console.log("  --help, -h: Show this help message");
+  console.log("\nEnvironment Variables:");
+  console.log("  PLEXUS_URL: The base URL of the Plexus API (default: http://localhost:4000)");
+  console.log("  PLEXUS_API_KEY: The API key for authentication");
+  console.log("\nExample: bun test.ts gpt-4o chat 'What is the weather in SF?' true true");
+};
+
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  usage();
+  process.exit(0);
+}
+
 if (!model || !apiType || !prompt) {
-  console.error("Usage: bun test.ts <model> <api_type> <prompt> [include_tool] [stream]");
-  console.error("  api_type: chat | messages | gemini");
-  console.error("  include_tool: true | false (default: false)");
-  console.error("  stream: true | false (default: false)");
-  console.error("\nExample: bun test.ts gpt-4o chat 'What is the weather in SF?' true true");
+  usage();
   process.exit(1);
 }
 
