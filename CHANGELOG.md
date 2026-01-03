@@ -2,6 +2,23 @@
 
 ## 0.2.0 - 2026-01-03
 
+### Performance Unleashed: Smart Streams & Cost-Aware Routing
+
+### 🚀 Main Features
+
+- **Cost-Based Selection**: Introduced the `CostSelector` and target selection logic to optimize routing based on cost efficiency (`2ef1987`).
+- **Advanced Stream Handling**: Implemented manual stream teeing to resolve locking issues and enable safe chunk cloning (`76fe496`).
+- **Precision Performance Metrics**: Added comprehensive tracking for Time to First Byte (TTFB) and Tokens per Second (T/S) to monitor system health (`4146ccf`, `acbc281`).
+
+### 🛠️ Smaller Changes & Improvements
+
+- **Multi-Stage Token Counting**: Refined token counting logic with a new multi-stage approach (`429782b`).
+- **Enhanced Stability**: Improved disconnect handling (`f599009`) and added stream auto-cleanup with abort detection (`fdf2457`).
+- **CI/CD Optimization**: Switched to using `CHANGELOG.md` for release notes generation to ensure better documentation accuracy (`258e9c4`).
+- **Debug Logging**: Enhanced logging capabilities for better stream observability (`fdf2457`).
+
+## 0.2.0 - 2026-01-03
+
 ### Performance & Precision: Smart Routing and Stream Stability
 
 ### Main New Features
