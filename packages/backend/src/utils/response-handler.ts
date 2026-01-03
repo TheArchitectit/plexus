@@ -199,29 +199,54 @@ export async function handleResponse(
             c.header('Cache-Control', 'no-cache');
             c.header('Connection', 'keep-alive');
             
+            logger.debug(`Stream started for request ${usageRecord.requestId}`);
+            let chunkCount = 0;
+
             // Handle Debug Capture if enabled
             if (usageRecord.requestId && DebugManager.getInstance().isEnabled()) {
-                const [s1, s2] = finalClientStream.tee();
-                finalClientStream = s1;
-                DebugManager.getInstance().captureStream(usageRecord.requestId, s2, 'transformedResponse');
+                finalClientStream = finalClientStream.pipeThrough(
+                    DebugManager.getInstance().createDebugObserver(usageRecord.requestId, 'transformedResponse')
+                );
             }
 
             const reader = finalClientStream.getReader();
+
+            stream.onAbort(() => {
+                logger.warn(`Client disconnected (abort) for request ${usageRecord.requestId} after ${chunkCount} chunks`);
+                usageRecord.responseStatus = 'client_disconnect';
+                usageStorage.saveError(usageRecord.requestId!, new Error("Client disconnected (abort)"), { 
+                    phase: 'stream_transmission_client_abort',
+                    chunksSent: chunkCount
+                });
+                reader.cancel().catch(() => {});
+            });
             
             try {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) {
-                        usageRecord.responseStatus = 'success';
+                        if (usageRecord.responseStatus !== 'client_disconnect') {
+                            usageRecord.responseStatus = 'success';
+                        }
+                        logger.debug(`Stream finished successfully for request ${usageRecord.requestId}: ${chunkCount} chunks`);
                         break;
                     }
+
+                    chunkCount++;
+                    if (chunkCount % 50 === 0) {
+                        logger.debug(`Streaming request ${usageRecord.requestId}: ${chunkCount} chunks sent...`);
+                    }
+
                     try {
                         await stream.write(value);
                     } catch (writeError: any) {
-                        logger.warn(`Client disconnected prematurely during stream for request ${usageRecord.requestId}: ${writeError.message}`);
-                        // We consider this a partial success/disconnect
+                        logger.warn(`Client disconnected prematurely during stream for request ${usageRecord.requestId}: ${writeError.message} (sent ${chunkCount} chunks)`);
                         usageRecord.responseStatus = 'client_disconnect';
-                        usageStorage.saveError(usageRecord.requestId!, writeError, { phase: 'stream_transmission_client_disconnect' });
+                        usageStorage.saveError(usageRecord.requestId!, writeError, { 
+                            phase: 'stream_transmission_client_disconnect',
+                            chunksSent: chunkCount
+                        });
+                        await reader.cancel().catch(() => {});
                         break; 
                     }
                 }
@@ -229,7 +254,11 @@ export async function handleResponse(
                 logger.error(`Stream transmission error for request ${usageRecord.requestId}: ${e.message}`);
                 logger.debug(`Trace: ${e.stack}`);
                 usageRecord.responseStatus = 'error_stream';
-                usageStorage.saveError(usageRecord.requestId!, e, { phase: 'stream_transmission' });
+                usageStorage.saveError(usageRecord.requestId!, e, { 
+                    phase: 'stream_transmission',
+                    chunksSent: chunkCount
+                });
+                await reader.cancel().catch(() => {});
             } finally {
                 reader.releaseLock();
                 
@@ -244,6 +273,7 @@ export async function handleResponse(
                 calculateCosts(usageRecord, pricing, providerDiscount);
                 try {
                     usageStorage.saveRequest(usageRecord as UsageRecord);
+                    logger.debug(`Usage record saved for ${usageRecord.requestId} with status ${usageRecord.responseStatus}`);
                 } catch (saveError: any) {
                     logger.error(`Failed to save usage record for ${usageRecord.requestId}: ${saveError.message}`);
                 }

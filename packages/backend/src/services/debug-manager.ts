@@ -48,6 +48,14 @@ export class DebugManager {
             rawRequest,
             createdAt: Date.now()
         });
+
+        // Auto-cleanup after 5 minutes to prevent memory leaks if streams hang or fail to flush
+        setTimeout(() => {
+            if (this.pendingLogs.has(requestId)) {
+                logger.debug(`Auto-flushing stale debug log for ${requestId}`);
+                this.flush(requestId);
+            }
+        }, 5 * 60 * 1000);
     }
 
     addTransformedRequest(requestId: string, payload: any) {
@@ -75,54 +83,60 @@ export class DebugManager {
         }
     }
     
-    // For streaming, we accumulate chunks
-    captureStream(requestId: string, stream: ReadableStream, type: 'rawResponse' | 'transformedResponse') {
-        if (!this.enabled) return;
-        const log = this.pendingLogs.get(requestId);
-        if (!log) return;
-
-        const reader = stream.getReader();
+    // Create a TransformStream to observe and log data passing through
+    createDebugObserver(requestId: string, type: 'rawResponse' | 'transformedResponse'): TransformStream {
         const decoder = new TextDecoder();
         let accumulated = '';
 
-        (async () => {
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    
-                    if (typeof value === 'string') {
-                        accumulated += value;
-                    } else if (value instanceof Uint8Array) {
-                        accumulated += decoder.decode(value, { stream: true });
+        return new TransformStream({
+            transform: (chunk, controller) => {
+                // Pass chunk through immediately
+                controller.enqueue(chunk);
+
+                if (!this.enabled) return;
+                
+                // Accumulate for logging
+                try {
+                    if (typeof chunk === 'string') {
+                        accumulated += chunk;
+                    } else if (chunk instanceof Uint8Array) {
+                        accumulated += decoder.decode(chunk, { stream: true });
                     } else {
-                        // Try to stringify if it's an object (like UnifiedChatStreamChunk)
+                        // Try to stringify if it's an object
                         try {
-                            accumulated += JSON.stringify(value) + '\n';
+                            accumulated += JSON.stringify(chunk) + '\n';
                         } catch (e) {
-                            accumulated += String(value);
+                            accumulated += String(chunk);
                         }
                     }
-                }
-                // Flush remaining
-                accumulated += decoder.decode();
 
-                // Update log
-                const currentLog = this.pendingLogs.get(requestId);
-                if (currentLog) {
-                    currentLog[type] = accumulated;
-                    // If both responses are done (or if we are finishing up), we might want to flush.
-                    // But identifying when *both* streams are done is tricky without a counter.
-                    // For now, let's rely on explicit finish or just update memory.
-                    // Actually, 'transformedResponse' stream end usually marks the end of request processing.
-                    if (type === 'transformedResponse') {
-                        this.flush(requestId);
+                    // Update pending log in memory
+                    const log = this.pendingLogs.get(requestId);
+                    if (log) {
+                        log[type] = accumulated;
                     }
+                } catch (e) {
+                    // Ignore logging errors to prevent impacting the stream
                 }
-            } catch (e) {
-                logger.error(`Error capturing debug stream for ${requestId}`, e);
+            },
+            flush: () => {
+                if (!this.enabled) return;
+                
+                // Final decode if there are trailing bytes
+                try {
+                    accumulated += decoder.decode();
+                    const log = this.pendingLogs.get(requestId);
+                    if (log) {
+                        log[type] = accumulated;
+                        if (type === 'transformedResponse') {
+                            this.flush(requestId);
+                        }
+                    }
+                } catch (e) {
+                    logger.error(`Error finalizing debug stream for ${requestId}`, e);
+                }
             }
-        })();
+        });
     }
 
     flush(requestId: string) {

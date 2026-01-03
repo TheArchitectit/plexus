@@ -119,9 +119,9 @@ export class Dispatcher {
             
             let rawStream = response.body!;
             if (request.requestId && DebugManager.getInstance().isEnabled()) {
-                const [s1, s2] = rawStream.tee();
-                rawStream = s1;
-                DebugManager.getInstance().captureStream(request.requestId, s2, 'rawResponse');
+                rawStream = rawStream.pipeThrough(
+                    DebugManager.getInstance().createDebugObserver(request.requestId, 'rawResponse')
+                );
             }
 
             let clientStream = rawStream;
