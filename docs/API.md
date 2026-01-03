@@ -86,10 +86,38 @@ The Management APIs provide endpoints for inspecting the system configuration an
         "costSource": "simple",
         "startTime": 1735689599000,
         "durationMs": 1200,
+        "ttftMs": 350.5,
+        "tokensPerSec": 45.2,
         "isStreamed": false,
+        "isPassthrough": false,
         "responseStatus": "success"
       }
     ],
     "total": 1250
   }
+  ```
+
+### Performance Metrics
+- **Endpoint:** `GET /v0/management/performance`
+- **Description:** Returns aggregated performance metrics (TTFT, TPS) for providers and models.
+- **Query Parameters:**
+  - `provider` (optional): Filter by provider name.
+  - `model` (optional): Filter by model name.
+
+- **Response Format:**
+  ```json
+  [
+    {
+      "provider": "openai_direct",
+      "model": "gpt-4o",
+      "avg_ttft_ms": 320.5,
+      "min_ttft_ms": 210.0,
+      "max_ttft_ms": 550.2,
+      "avg_tokens_per_sec": 65.4,
+      "min_tokens_per_sec": 45.1,
+      "max_tokens_per_sec": 88.9,
+      "sample_count": 10,
+      "last_updated": 1735689599000
+    }
+  ]
   ```
