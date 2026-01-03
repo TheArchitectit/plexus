@@ -15,6 +15,11 @@ mock.module("../logger", () => ({
     }
 }));
 
+// Mock Hono Streaming
+mock.module("hono/streaming", () => ({
+    stream: (_c: any, cb: any) => ({ handler: cb })
+}));
+
 describe("handleResponse", () => {
     const mockStorage = {
         saveRequest: mock(),
@@ -172,9 +177,7 @@ describe("handleResponse", () => {
 
             const usageRecord: Partial<UsageRecord> = {};
             
-            // For streaming, handleResponse returns a Hono stream response.
-            // We need to consume it to trigger the background usage recording.
-            await handleResponse(
+            const res = await handleResponse(
                 mockContext,
                 unifiedResponse,
                 mockTransformer,
@@ -182,11 +185,17 @@ describe("handleResponse", () => {
                 mockStorage,
                 Date.now(),
                 "chat"
-            );
+            ) as any;
 
-            // Mock the transformer's formatStream to just return the same stream for simplicity
-            // or assume handleResponse handles it.
-            
+            if (res && typeof res.handler === 'function') {
+                const mockHonoStream = {
+                    write: mock(() => Promise.resolve()),
+                    close: mock(),
+                    onAbort: mock()
+                };
+                await res.handler(mockHonoStream);
+            }
+
             // In the real implementation, handleResponse tees the stream and processes one half.
             // We need to wait for that background process.
             await new Promise(resolve => setTimeout(resolve, 50));
@@ -273,6 +282,66 @@ describe("handleResponse", () => {
                 expect(savedRecord.tokensOutput).toBe(20);
                 expect(savedRecord.responseStatus).toBe("error_stream");
             }
+        });
+
+        test("should save error entry on client disconnect", async () => {
+            const streamData = new ReadableStream({
+                start(controller) {
+                    controller.enqueue({ data: "chunk1" });
+                    controller.close();
+                }
+            });
+
+            const unifiedResponse: UnifiedChatResponse = {
+                id: "resp-disconnect",
+                model: "model-disconnect",
+                content: null,
+                stream: streamData
+            };
+
+            const usageRecord: Partial<UsageRecord> = {
+                requestId: "req-disconnect"
+            };
+
+            let savedError: any = null;
+            let savedRecord: UsageRecord | null = null;
+            
+            const saveRecordPromise = new Promise<void>((resolve) => {
+                (mockStorage.saveRequest as any).mockImplementation((record: UsageRecord) => {
+                    savedRecord = record;
+                    resolve();
+                });
+            });
+
+            (mockStorage.saveError as any).mockImplementation((reqId: string, err: any) => {
+                savedError = err;
+            });
+
+            const res = await handleResponse(
+                mockContext,
+                unifiedResponse,
+                mockTransformer,
+                usageRecord,
+                mockStorage,
+                Date.now(),
+                "chat"
+            ) as any;
+
+            if (res && typeof res.handler === 'function') {
+                const mockHonoStream = {
+                    write: mock(async () => { throw new Error("Client Closed Connection"); }),
+                    close: mock(),
+                    onAbort: mock()
+                };
+                await res.handler(mockHonoStream);
+            }
+
+            await saveRecordPromise;
+
+            expect(savedRecord?.responseStatus).toBe("client_disconnect");
+            expect(mockStorage.saveError).toHaveBeenCalled();
+            expect(savedError).not.toBeNull();
+            expect(savedError.message).toBe("Client Closed Connection");
         });
     });
 });

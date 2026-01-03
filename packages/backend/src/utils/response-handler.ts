@@ -206,6 +206,7 @@ export async function handleResponse(
                         logger.warn(`Client disconnected prematurely during stream for request ${usageRecord.requestId}: ${writeError.message}`);
                         // We consider this a partial success/disconnect
                         usageRecord.responseStatus = 'client_disconnect';
+                        usageStorage.saveError(usageRecord.requestId!, writeError, { phase: 'stream_transmission_client_disconnect' });
                         break; 
                     }
                 }
