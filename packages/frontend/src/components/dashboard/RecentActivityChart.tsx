@@ -10,7 +10,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts';
-import { UsageData } from '../../lib/api';
+import { UsageData, formatLargeNumber } from '../../lib/api';
 
 interface RecentActivityChartProps {
   data: UsageData[];
@@ -51,6 +51,7 @@ export const RecentActivityChart: React.FC<RecentActivityChartProps> = ({ data }
             tick={{ fill: '#888', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
+            tickFormatter={formatLargeNumber}
           />
           <YAxis 
             yAxisId="right" 
@@ -58,6 +59,7 @@ export const RecentActivityChart: React.FC<RecentActivityChartProps> = ({ data }
             tick={{ fill: '#888', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
+            tickFormatter={formatLargeNumber}
           />
           <Tooltip 
             contentStyle={{ 

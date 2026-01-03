@@ -122,6 +122,13 @@ interface PlexusConfig {
     models?: Record<string, any>;
 }
 
+export const formatLargeNumber = (num: number): string => {
+    if (num >= 1000000000) return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return num.toLocaleString();
+};
+
 export const api = {
   getCooldowns: async (): Promise<Cooldown[]> => {
       try {
@@ -172,7 +179,7 @@ export const api = {
         return [
             { label: 'Total Requests', value: totalRequests.toLocaleString() }, // Change calculation requires historical comparison
             { label: 'Active Providers', value: activeProviders },
-            { label: 'Total Tokens', value: (totalTokens / 1000).toFixed(1) + 'k' },
+            { label: 'Total Tokens', value: formatLargeNumber(totalTokens) },
             { label: 'Avg Latency', value: avgLatency + 'ms' },
         ];
     } catch (e) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, UsageData } from '../lib/api';
+import { api, UsageData, formatLargeNumber } from '../lib/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -48,7 +48,7 @@ export const Usage = () => {
               <AreaChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
                 <XAxis dataKey="timestamp" stroke="var(--color-text-secondary)" />
-                <YAxis stroke="var(--color-text-secondary)" />
+                <YAxis stroke="var(--color-text-secondary)" tickFormatter={formatLargeNumber} />
                 <Tooltip
                   contentStyle={{
                       backgroundColor: 'var(--color-bg-card)',
@@ -72,7 +72,7 @@ export const Usage = () => {
               <AreaChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-glass)" />
                 <XAxis dataKey="timestamp" stroke="var(--color-text-secondary)" />
-                <YAxis stroke="var(--color-text-secondary)" />
+                <YAxis stroke="var(--color-text-secondary)" tickFormatter={formatLargeNumber} />
                 <Tooltip
                   contentStyle={{
                       backgroundColor: 'var(--color-bg-card)',

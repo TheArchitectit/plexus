@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { CostToolTip } from '../components/ui/CostToolTip';
-import { api, UsageRecord } from '../lib/api';
+import { api, UsageRecord, formatLargeNumber } from '../lib/api';
 import { ChevronLeft, ChevronRight, Search, Filter, Trash2, Bug, Zap, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNavigate } from 'react-router-dom';
@@ -97,28 +97,6 @@ export const Logs = () => {
             setIsDeleting(false);
         }
     };
-
-    /**
- * Formats a token count into a human-readable string.
- * Displays as 'K' if the count is 800 or more.
- * * @param count - The number of tokens to format
- * @returns A formatted string (e.g., "750", "800", "1.2K")
- */
-    function formatTokenCount(count: number): string {
-        const THRESHOLD = 800;
-
-        if (count < THRESHOLD) {
-            return count.toString();
-        }
-
-        // Convert to thousands
-        const thousands = count / 1000;
-
-        // Fix to 1 decimal place, then remove trailing '.0' if it exists
-        const formatted = thousands.toFixed(1).replace(/\.0$/, "");
-
-        return `${formatted}K`;
-    }
 
     useEffect(() => {
         loadLogs();
@@ -270,10 +248,10 @@ export const Logs = () => {
                                         </td>
                                         <td style={{ padding: '6px', alignContent: 'center', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                                <span style={{ fontWeight: '500' }}>{uploadEmoji} {formatTokenCount(log.tokensInput || 0)} {downloadEmoji} {formatTokenCount(log.tokensOutput || 0)} </span>
+                                                <span style={{ fontWeight: '500' }}>{uploadEmoji} {formatLargeNumber(log.tokensInput || 0)} {downloadEmoji} {formatLargeNumber(log.tokensOutput || 0)} </span>
                                                 <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85em' }}>
-                                                    {cachedEmoji} {formatTokenCount(log.tokensCached || 0)}
-                                                    {reasoningEmoji} {formatTokenCount(log.tokensReasoning || 0)}
+                                                    {cachedEmoji} {formatLargeNumber(log.tokensCached || 0)}
+                                                    {reasoningEmoji} {formatLargeNumber(log.tokensReasoning || 0)}
                                                 </span>
                                             </div>
                                             {/* {log.tokensInput || 0} / {log.tokensOutput || 0} / {log.tokensReasoning || 0} / {log.tokensCached || 0} */}
