@@ -6,7 +6,6 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import logo from '../../assets/plexus_logo_transparent.png';
 
 export const Sidebar: React.FC = () => {
   const [debugMode, setDebugMode] = useState(false);
@@ -41,7 +40,7 @@ export const Sidebar: React.FC = () => {
     <aside className="w-[260px] h-screen fixed left-0 top-0 bg-bg-surface flex flex-col overflow-y-auto z-50 transition-transform duration-300 border-r border-border">
       <div className="px-5 py-6 border-b border-border">
         <div className="flex items-center gap-3 mb-1">
-          <img src={logo} alt="Plexus" className="w-8 h-8" />
+          <img src="/ui/plexus_logo_transparent.png" alt="Plexus" className="w-8 h-8" />
           <h1 className="font-heading text-xl font-bold m-0 bg-clip-text text-transparent bg-gradient-to-br from-primary to-secondary">Plexus</h1>
         </div>
         <p className="text-xs text-text-muted mt-1">AI Infrastructure Management</p>
