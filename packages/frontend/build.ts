@@ -47,9 +47,14 @@ const runBuild = async () => {
 
     try {
       await buildCSS();
-      await copyAssets();
     } catch (e) {
       console.error(e);
+    }
+    
+    try {
+      await copyAssets();
+    } catch (e) {
+      console.error("Failed to copy assets:", e);
     }
 
     const result = await build({
