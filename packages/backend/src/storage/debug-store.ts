@@ -79,6 +79,55 @@ export class DebugStore {
   }
 
   /**
+   * Query debug traces
+   * @param query - Filter options
+   */
+  async query(query: {
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<DebugTraceEntry[]> {
+    try {
+      const glob = new Bun.Glob("*.json");
+      const files = Array.from(glob.scanSync(this.storagePath));
+      
+      // Filter by date using file modification time first (optimization)
+      const startMs = query.startDate ? new Date(query.startDate).getTime() : 0;
+      const endMs = query.endDate ? new Date(query.endDate).getTime() : Date.now();
+
+      const validFiles = files.map(name => {
+          const file = Bun.file(join(this.storagePath, name));
+          return { name, time: file.lastModified };
+      })
+      .filter(f => f.time >= startMs && f.time <= endMs)
+      .sort((a, b) => b.time - a.time); // Newest first
+
+      const entries: DebugTraceEntry[] = [];
+      
+      // Pagination
+      const offset = query.offset || 0;
+      const limit = query.limit || 100;
+      const pagedFiles = validFiles.slice(offset, offset + limit);
+
+      for (const { name } of pagedFiles) {
+        try {
+            const content = await Bun.file(join(this.storagePath, name)).json();
+            entries.push(content);
+        } catch (e) {
+            // ignore
+        }
+      }
+      
+      return entries;
+
+    } catch (error) {
+       logger.error("Failed to query debug traces", { error });
+       return [];
+    }
+  }
+
+  /**
    * Delete logs older than specific days
    */
   async deleteOldLogs(days: number): Promise<number> {

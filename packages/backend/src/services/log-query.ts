@@ -38,18 +38,26 @@ export class LogQueryService {
             entries: filtered
         };
     } else if (query.type === "trace") {
-       // DebugStore doesn't strictly have a query method for list yet in the provided code,
-       // it scans files. We might need to implement a scan method in DebugStore 
-       // or just return empty for now if not implemented.
-       // Assuming we can't easily query list of traces without opening all files.
+       const traces = await this.debugStore.query({
+           startDate: query.startDate,
+           endDate: query.endDate,
+           limit: query.limit,
+           offset: query.offset
+       });
+
+       // We don't have an easy way to get total count without scanning all.
+       // For now returning current page count or approximation if needed.
+       // Or we could return 'total: -1' to indicate unknown.
+       // Let's assume hasMore if we got full limit.
+       
        return {
            type: "trace",
-           total: 0,
+           total: traces.length, // Only returning count of fetched page effectively
            limit: query.limit || 100,
            offset: query.offset || 0,
-           hasMore: false,
-           entries: []
-       }
+           hasMore: traces.length === (query.limit || 100),
+           entries: traces
+       };
     } else {
         // Default to usage
         const usage = await this.usageStore.query({
