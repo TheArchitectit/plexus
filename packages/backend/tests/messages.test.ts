@@ -1,6 +1,9 @@
 import { test, expect, describe, mock } from "bun:test";
 import { handleMessages } from "../src/routes/messages";
 import type { PlexusConfig } from "../src/types/config";
+import { CooldownManager } from "../src/services/cooldown-manager";
+import { HealthMonitor } from "../src/services/health-monitor";
+import type { ServerContext } from "../src/types/server";
 
 const mockConfig: PlexusConfig = {
   server: { port: 4000, host: "localhost" },
@@ -31,6 +34,33 @@ const mockConfig: PlexusConfig = {
     },
   ],
   apiKeys: [{ name: "default", secret: "test-key", enabled: true }],
+  pricing: {},
+  resilience: {
+    cooldown: {
+      defaults: {
+        rate_limit: 60,
+        auth_error: 3600,
+        timeout: 30,
+        server_error: 120,
+        connection_error: 60,
+      },
+      maxDuration: 3600,
+      minDuration: 5,
+      storagePath: "./data/cooldowns.json",
+    },
+    health: {
+      degradedThreshold: 0.5,
+      unhealthyThreshold: 0.9,
+    },
+  },
+};
+
+const cooldownManager = new CooldownManager(mockConfig);
+const healthMonitor = new HealthMonitor(mockConfig, cooldownManager);
+const mockContext: ServerContext = {
+  config: mockConfig,
+  cooldownManager,
+  healthMonitor,
 };
 
 describe("POST /v1/messages", () => {
@@ -48,7 +78,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       expect(response.status).toBe(401);
 
       const body = await response.json();
@@ -70,7 +100,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       // Should fail with model not found, not auth error
       expect(response.status).toBe(404);
     });
@@ -89,7 +119,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       // Should fail with model not found, not auth error
       expect(response.status).toBe(404);
     });
@@ -108,7 +138,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       expect(response.status).toBe(401);
 
       const body = await response.json();
@@ -127,7 +157,7 @@ describe("POST /v1/messages", () => {
         body: "not valid json",
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       expect(response.status).toBe(400);
 
       const body = await response.json();
@@ -147,7 +177,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       expect(response.status).toBe(400);
 
       const body = await response.json();
@@ -168,7 +198,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       expect(response.status).toBe(400);
 
       const body = await response.json();
@@ -189,7 +219,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       expect(response.status).toBe(400);
 
       const body = await response.json();
@@ -213,7 +243,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       expect(response.status).toBe(404);
 
       const body = await response.json();
@@ -236,7 +266,7 @@ describe("POST /v1/messages", () => {
         }),
       });
 
-      const response = await handleMessages(req, mockConfig, "test-id");
+      const response = await handleMessages(req, mockContext, "test-id", "127.0.0.1");
       const body = await response.json();
 
       // Anthropic error format has type and error.type/error.message

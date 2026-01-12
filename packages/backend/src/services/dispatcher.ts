@@ -63,12 +63,16 @@ export class Dispatcher {
    * @param request - The incoming request body
    * @param requestId - Request ID for tracing
    * @param clientApiType - The API type of the incoming request (chat or messages)
+   * @param clientIp - Client IP address
+   * @param apiKeyName - Name of the API key used for authentication
    * @returns Response in the client's expected format
    */
   async dispatch(
     request: any,
     requestId: string,
-    clientApiType: ApiType
+    clientApiType: ApiType,
+    clientIp: string = "0.0.0.0",
+    apiKeyName: string = "default"
   ): Promise<Response> {
     const requestLogger = logger.child({ requestId, clientApiType });
 
@@ -77,8 +81,8 @@ export class Dispatcher {
       ? {
           id: requestId,
           startTime: Date.now(),
-          clientIp: "0.0.0.0", // TODO: Extract from request in route handler
-          apiKeyName: "default", // TODO: Pass from route handler
+          clientIp,
+          apiKeyName,
           clientApiType,
         }
       : undefined;
@@ -364,16 +368,26 @@ export class Dispatcher {
    * Dispatch a chat completion request (OpenAI format)
    * Convenience method that calls dispatch with clientApiType="chat"
    */
-  async dispatchChatCompletion(request: any, requestId: string): Promise<Response> {
-    return this.dispatch(request, requestId, "chat");
+  async dispatchChatCompletion(
+    request: any, 
+    requestId: string, 
+    clientIp?: string, 
+    apiKeyName?: string
+  ): Promise<Response> {
+    return this.dispatch(request, requestId, "chat", clientIp, apiKeyName);
   }
 
   /**
    * Dispatch a messages request (Anthropic format)
    * Convenience method that calls dispatch with clientApiType="messages"
    */
-  async dispatchMessages(request: any, requestId: string): Promise<Response> {
-    return this.dispatch(request, requestId, "messages");
+  async dispatchMessages(
+    request: any, 
+    requestId: string, 
+    clientIp?: string, 
+    apiKeyName?: string
+  ): Promise<Response> {
+    return this.dispatch(request, requestId, "messages", clientIp, apiKeyName);
   }
 
   /**

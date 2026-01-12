@@ -11,9 +11,10 @@ import type { ServerContext } from "../types/server";
 export async function handleMessages(
   req: Request,
   context: ServerContext,
-  requestId: string
+  requestId: string,
+  clientIp: string
 ): Promise<Response> {
-  const requestLogger = logger.child({ requestId, endpoint: "/v1/messages" });
+  const requestLogger = logger.child({ requestId, endpoint: "/v1/messages", clientIp });
 
   try {
     // Validate authentication - support both Bearer and x-api-key headers
@@ -96,7 +97,7 @@ export async function handleMessages(
       context.usageLogger,
       context.debugLogger
     );
-    const response = await dispatcher.dispatchMessages(body, requestId);
+    const response = await dispatcher.dispatchMessages(body, requestId, clientIp, validKey.name);
 
     // The dispatcher returns a Response object that's already been transformed
     // to the client's expected format (Anthropic messages format)

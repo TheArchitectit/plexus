@@ -1,6 +1,9 @@
-import { test, expect, mock } from "bun:test";
+import { test, expect, mock, spyOn } from "bun:test";
 import { handleChatCompletions } from "../src/routes/chat-completions";
 import type { PlexusConfig } from "../src/types/config";
+import { CooldownManager } from "../src/services/cooldown-manager";
+import { HealthMonitor } from "../src/services/health-monitor";
+import type { ServerContext } from "../src/types/server";
 
 const mockConfig: PlexusConfig = {
   server: { port: 4000, host: "localhost" },
@@ -33,6 +36,33 @@ const mockConfig: PlexusConfig = {
     },
   ],
   apiKeys: [{ name: "default", secret: "test-key-123", enabled: true }],
+  pricing: {},
+  resilience: {
+    cooldown: {
+      defaults: {
+        rate_limit: 60,
+        auth_error: 3600,
+        timeout: 30,
+        server_error: 120,
+        connection_error: 60,
+      },
+      maxDuration: 3600,
+      minDuration: 5,
+      storagePath: "./data/cooldowns.json",
+    },
+    health: {
+      degradedThreshold: 0.5,
+      unhealthyThreshold: 0.9,
+    },
+  },
+};
+
+const cooldownManager = new CooldownManager(mockConfig);
+const healthMonitor = new HealthMonitor(mockConfig, cooldownManager);
+const mockContext: ServerContext = {
+  config: mockConfig,
+  cooldownManager,
+  healthMonitor,
 };
 
 test("Chat Completions - Missing Authorization Header", async () => {
@@ -45,7 +75,7 @@ test("Chat Completions - Missing Authorization Header", async () => {
     }),
   });
 
-  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
   expect(response.status).toBe(401);
 
   const data = await response.json();
@@ -62,7 +92,7 @@ test("Chat Completions - Invalid JSON Body", async () => {
     body: "not valid json",
   });
 
-  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
   expect(response.status).toBe(400);
 
   const data = await response.json();
@@ -81,7 +111,7 @@ test("Chat Completions - Missing Model Field", async () => {
     }),
   });
 
-  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
   expect(response.status).toBe(400);
 
   const data = await response.json();
@@ -100,7 +130,7 @@ test("Chat Completions - Missing Messages Field", async () => {
     }),
   });
 
-  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
   expect(response.status).toBe(400);
 
   const data = await response.json();
@@ -120,7 +150,7 @@ test("Chat Completions - Invalid Role in Message", async () => {
     }),
   });
 
-  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
   expect(response.status).toBe(400);
 
   const data = await response.json();
@@ -140,7 +170,7 @@ test("Chat Completions - Unknown Model", async () => {
     }),
   });
 
-  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
   expect(response.status).toBe(404);
 
   const data = await response.json();
@@ -148,10 +178,8 @@ test("Chat Completions - Unknown Model", async () => {
 });
 
 test("Chat Completions - Valid Request (with mock provider)", async () => {
-  // Mock the fetch to simulate provider response
-  const originalFetch = global.fetch;
-  (global as any).fetch = async () => {
-    return new Response(
+  const fetchSpy = spyOn(global, "fetch").mockResolvedValue(
+    new Response(
       JSON.stringify({
         id: "chatcmpl-test-123",
         object: "chat.completion",
@@ -167,8 +195,8 @@ test("Chat Completions - Valid Request (with mock provider)", async () => {
         usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
       }),
       { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
+    )
+  );
 
   try {
     process.env.OPENAI_API_KEY = "test-openai-key";
@@ -185,7 +213,7 @@ test("Chat Completions - Valid Request (with mock provider)", async () => {
       }),
     });
 
-    const response = await handleChatCompletions(req, mockConfig, "test-id");
+    const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
     expect(response.status).toBe(200);
 
     const data = await response.json();
@@ -194,13 +222,12 @@ test("Chat Completions - Valid Request (with mock provider)", async () => {
     expect(data.choices).toHaveLength(1);
     expect(data.choices[0].message.role).toBe("assistant");
   } finally {
-    (global as any).fetch = originalFetch;
+    fetchSpy.mockRestore();
   }
 });
 
 test("Chat Completions - Valid with All Optional Fields", async () => {
-  const originalFetch = global.fetch;
-  (global as any).fetch = async (url: string, options: any) => {
+  const fetchSpy = spyOn(global, "fetch").mockImplementation(async (url: string | URL | Request, options?: any) => {
     // Verify that all fields were passed through
     const body = JSON.parse(options.body);
     expect(body.temperature).toBe(0.7);
@@ -225,7 +252,7 @@ test("Chat Completions - Valid with All Optional Fields", async () => {
       }),
       { status: 200, headers: { "content-type": "application/json" } }
     );
-  };
+  });
 
   try {
     process.env.OPENAI_API_KEY = "test-key";
@@ -246,9 +273,9 @@ test("Chat Completions - Valid with All Optional Fields", async () => {
       }),
     });
 
-    const response = await handleChatCompletions(req, mockConfig, "test-id");
+    const response = await handleChatCompletions(req, mockContext, "test-id", "127.0.0.1");
     expect(response.status).toBe(200);
   } finally {
-    (global as any).fetch = originalFetch;
+    fetchSpy.mockRestore();
   }
 });

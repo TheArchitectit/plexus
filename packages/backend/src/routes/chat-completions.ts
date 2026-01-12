@@ -13,9 +13,10 @@ import type { ServerContext } from "../types/server";
 export async function handleChatCompletions(
   req: Request,
   context: ServerContext,
-  requestId: string
+  requestId: string,
+  clientIp: string
 ): Promise<Response> {
-  const requestLogger = logger.child({ requestId, endpoint: "/v1/chat/completions" });
+  const requestLogger = logger.child({ requestId, endpoint: "/v1/chat/completions", clientIp });
 
   try {
     // Validate authentication
@@ -64,7 +65,7 @@ export async function handleChatCompletions(
       context.usageLogger,
       context.debugLogger
     );
-    const response = await dispatcher.dispatchChatCompletion(validatedRequest, requestId);
+    const response = await dispatcher.dispatchChatCompletion(validatedRequest, requestId, clientIp, auth.apiKeyName);
 
     // The dispatcher returns a Response object that's already been transformed
     // to the client's expected format (OpenAI chat completions format)

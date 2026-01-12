@@ -29,7 +29,7 @@ import { LogQueryService } from "./services/log-query";
 /**
  * Request router - maps URLs to handlers
  */
-async function router(req: Request, context: ServerContext, adminAuth: AdminAuth): Promise<Response> {
+async function router(req: Request, context: ServerContext, adminAuth: AdminAuth, clientIp: string): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
 
@@ -40,6 +40,7 @@ async function router(req: Request, context: ServerContext, adminAuth: AdminAuth
   requestLogger.debug("Incoming request", {
     method: req.method,
     path,
+    clientIp,
   });
 
   // --- Management API (v0) ---
@@ -79,11 +80,11 @@ async function router(req: Request, context: ServerContext, adminAuth: AdminAuth
   }
 
   if (path === "/v1/chat/completions" && req.method === "POST") {
-    return handleChatCompletions(req, context, requestId);
+    return handleChatCompletions(req, context, requestId, clientIp);
   }
 
   if (path === "/v1/messages" && req.method === "POST") {
-    return handleMessages(req, context, requestId);
+    return handleMessages(req, context, requestId, clientIp);
   }
 
   if (path === "/v1/models" && req.method === "GET") {
@@ -216,7 +217,10 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
   const server = Bun.serve({
     port: config.server.port,
     hostname: config.server.host,
-    fetch: (req: Request) => router(req, context, adminAuth),
+    fetch: (req: Request) => {
+      const clientIp = req.headers.get("x-forwarded-for") || server.requestIP(req)?.address || "0.0.0.0";
+      return router(req, context, adminAuth, clientIp);
+    },
   });
 
   logger.info("Server started", {
