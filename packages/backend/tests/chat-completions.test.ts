@@ -1,0 +1,254 @@
+import { test, expect, mock } from "bun:test";
+import { handleChatCompletions } from "../src/routes/chat-completions";
+import type { PlexusConfig } from "../src/types/config";
+
+const mockConfig: PlexusConfig = {
+  server: { port: 4000, host: "localhost" },
+  logging: { level: "info" },
+  providers: [
+    {
+      name: "openai",
+      enabled: true,
+      apiTypes: ["chat"],
+      baseUrls: {
+        chat: "https://api.openai.com/v1/chat/completions",
+      },
+      auth: {
+        type: "bearer",
+        apiKeyEnv: "OPENAI_API_KEY",
+      },
+      models: ["gpt-4", "gpt-3.5-turbo"],
+    },
+  ],
+  models: [
+    {
+      alias: "gpt-4",
+      targets: [{ provider: "openai", model: "gpt-4" }],
+      selector: "random",
+    },
+    {
+      alias: "gpt-3.5-turbo",
+      targets: [{ provider: "openai", model: "gpt-3.5-turbo" }],
+      selector: "random",
+    },
+  ],
+  apiKeys: [{ name: "default", secret: "test-key-123", enabled: true }],
+};
+
+test("Chat Completions - Missing Authorization Header", async () => {
+  const req = new Request("http://localhost/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4",
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  expect(response.status).toBe(401);
+
+  const data = await response.json();
+  expect(data.error.type).toBe("authentication_error");
+});
+
+test("Chat Completions - Invalid JSON Body", async () => {
+  const req = new Request("http://localhost/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "authorization": "Bearer test-key-123",
+      "content-type": "application/json",
+    },
+    body: "not valid json",
+  });
+
+  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  expect(response.status).toBe(400);
+
+  const data = await response.json();
+  expect(data.error.type).toBe("invalid_request_error");
+});
+
+test("Chat Completions - Missing Model Field", async () => {
+  const req = new Request("http://localhost/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "authorization": "Bearer test-key-123",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  expect(response.status).toBe(400);
+
+  const data = await response.json();
+  expect(data.error.type).toBe("invalid_request_error");
+});
+
+test("Chat Completions - Missing Messages Field", async () => {
+  const req = new Request("http://localhost/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "authorization": "Bearer test-key-123",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4",
+    }),
+  });
+
+  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  expect(response.status).toBe(400);
+
+  const data = await response.json();
+  expect(data.error.type).toBe("invalid_request_error");
+});
+
+test("Chat Completions - Invalid Role in Message", async () => {
+  const req = new Request("http://localhost/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "authorization": "Bearer test-key-123",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4",
+      messages: [{ role: "invalid-role", content: "hello" }],
+    }),
+  });
+
+  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  expect(response.status).toBe(400);
+
+  const data = await response.json();
+  expect(data.error.type).toBe("invalid_request_error");
+});
+
+test("Chat Completions - Unknown Model", async () => {
+  const req = new Request("http://localhost/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "authorization": "Bearer test-key-123",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "unknown-model",
+      messages: [{ role: "user", content: "hello" }],
+    }),
+  });
+
+  const response = await handleChatCompletions(req, mockConfig, "test-id");
+  expect(response.status).toBe(404);
+
+  const data = await response.json();
+  expect(data.error.type).toBe("invalid_request_error");
+});
+
+test("Chat Completions - Valid Request (with mock provider)", async () => {
+  // Mock the fetch to simulate provider response
+  const originalFetch = global.fetch;
+  (global as any).fetch = async () => {
+    return new Response(
+      JSON.stringify({
+        id: "chatcmpl-test-123",
+        object: "chat.completion",
+        created: 1234567890,
+        model: "gpt-4",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "Hello! How can I help?" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    process.env.OPENAI_API_KEY = "test-openai-key";
+
+    const req = new Request("http://localhost/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "authorization": "Bearer test-key-123",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [{ role: "user", content: "Hello!" }],
+      }),
+    });
+
+    const response = await handleChatCompletions(req, mockConfig, "test-id");
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.object).toBe("chat.completion");
+    expect(data.model).toBe("gpt-4");
+    expect(data.choices).toHaveLength(1);
+    expect(data.choices[0].message.role).toBe("assistant");
+  } finally {
+    (global as any).fetch = originalFetch;
+  }
+});
+
+test("Chat Completions - Valid with All Optional Fields", async () => {
+  const originalFetch = global.fetch;
+  (global as any).fetch = async (url: string, options: any) => {
+    // Verify that all fields were passed through
+    const body = JSON.parse(options.body);
+    expect(body.temperature).toBe(0.7);
+    expect(body.top_p).toBe(0.9);
+    expect(body.max_tokens).toBe(100);
+    expect(body.presence_penalty).toBe(0.1);
+
+    return new Response(
+      JSON.stringify({
+        id: "chatcmpl-test-123",
+        object: "chat.completion",
+        created: 1234567890,
+        model: "gpt-3.5-turbo",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "Response" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    process.env.OPENAI_API_KEY = "test-key";
+
+    const req = new Request("http://localhost/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "authorization": "Bearer test-key-123",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: "Test" }],
+        temperature: 0.7,
+        top_p: 0.9,
+        max_tokens: 100,
+        presence_penalty: 0.1,
+      }),
+    });
+
+    const response = await handleChatCompletions(req, mockConfig, "test-id");
+    expect(response.status).toBe(200);
+  } finally {
+    (global as any).fetch = originalFetch;
+  }
+});

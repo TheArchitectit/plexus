@@ -1,0 +1,170 @@
+# Plexus Configuration Example - Phase 6: Resilience & Health Management
+# This example demonstrates the cooldown system and provider health management
+
+server:
+  port: 4000
+  host: "0.0.0.0"
+
+logging:
+  level: "info"  # silly, debug, info, warn, error
+
+# Resilience configuration (Phase 6)
+# Handles provider errors, rate limits, and automatic recovery
+resilience:
+  cooldown:
+    # Default cooldown durations by error type (in seconds)
+    defaults:
+      rate_limit: 60           # 429 errors - default 1 minute
+      auth_error: 3600         # 401/403 errors - default 1 hour (likely config issue)
+      timeout: 30              # Request timeout - default 30 seconds
+      server_error: 120        # 5xx errors - default 2 minutes
+      connection_error: 60     # Network failures - default 1 minute
+    
+    # Maximum cooldown duration (cap for retry-after headers)
+    maxDuration: 3600          # 1 hour maximum
+    
+    # Minimum cooldown duration
+    minDuration: 5             # At least 5 seconds
+    
+    # Persistent storage path for cooldown state
+    storagePath: "./data/cooldowns.json"
+  
+  # Health check thresholds
+  health:
+    degradedThreshold: 0.5     # 50% of providers down = degraded status
+    unhealthyThreshold: 0.9    # 90% of providers down = unhealthy status
+
+# Provider configurations
+providers:
+  - name: "openai"
+    enabled: true
+    apiTypes:
+      - "chat"
+    baseUrls:
+      chat: "https://api.openai.com/v1/chat/completions"
+    auth:
+      type: "bearer"
+      apiKeyEnv: "OPENAI_API_KEY"
+    models:
+      - "gpt-4o"
+      - "gpt-4o-mini"
+      - "gpt-3.5-turbo"
+    # Provider-specific cooldown overrides
+    cooldown:
+      rate_limit: 30           # OpenAI has good rate limit recovery
+      server_error: 180        # Give more time for server errors
+
+  - name: "anthropic"
+    enabled: true
+    apiTypes:
+      - "messages"
+    baseUrls:
+      messages: "https://api.anthropic.com/v1/messages"
+    auth:
+      type: "x-api-key"
+      apiKeyEnv: "ANTHROPIC_API_KEY"
+    models:
+      - "claude-3-5-sonnet-20241022"
+      - "claude-3-5-haiku-20241022"
+    customHeaders:
+      anthropic-version: "2023-06-01"
+    # Provider-specific cooldown overrides
+    cooldown:
+      rate_limit: 60
+      server_error: 120
+
+  - name: "google"
+    enabled: true
+    apiTypes:
+      - "chat"
+    baseUrls:
+      chat: "https://generativelanguage.googleapis.com/v1beta/models"
+    auth:
+      type: "bearer"
+      apiKeyEnv: "GOOGLE_API_KEY"
+    models:
+      - "gemini-2.0-flash-exp"
+      - "gemini-1.5-pro"
+      - "gemini-1.5-flash"
+
+# Model aliases with load balancing
+# If a provider goes on cooldown, requests automatically route to healthy alternatives
+models:
+  - alias: "fast"
+    description: "Fast, cost-effective model with automatic failover"
+    additionalAliases:
+      - "quick"
+      - "cheap"
+    targets:
+      - provider: "openai"
+        model: "gpt-4o-mini"
+        weight: 50
+      - provider: "google"
+        model: "gemini-2.0-flash-exp"
+        weight: 50
+    selector: "random"
+
+  - alias: "smart"
+    description: "High-quality model with multi-provider redundancy"
+    additionalAliases:
+      - "intelligent"
+      - "capable"
+    targets:
+      - provider: "openai"
+        model: "gpt-4o"
+        weight: 50
+      - provider: "anthropic"
+        model: "claude-3-5-sonnet-20241022"
+        weight: 50
+    selector: "random"
+
+  - alias: "claude-sonnet"
+    description: "Claude Sonnet with OpenAI fallback"
+    targets:
+      - provider: "anthropic"
+        model: "claude-3-5-sonnet-20241022"
+      - provider: "openai"
+        model: "gpt-4o"
+    selector: "in_order"  # Try Anthropic first, fall back to OpenAI if on cooldown
+
+# API Keys for client authentication
+apiKeys:
+  - name: "production"
+    secret: "${PLEXUS_API_KEY}"  # Load from environment variable
+    enabled: true
+  
+  - name: "development"
+    secret: "dev-key-change-in-production"
+    enabled: true
+
+# Health Monitoring Examples:
+#
+# Simple health check (for load balancers):
+#   GET /health
+#   Returns: {"status": "ok", "timestamp": "...", "version": "0.1.0"}
+#
+# Detailed health check:
+#   GET /health?detail=true
+#   Returns full system health including:
+#   - Overall status (healthy/degraded/unhealthy)
+#   - Per-provider status
+#   - Cooldown details with remaining time
+#   - Summary statistics
+#
+# Cooldown Behavior:
+# - Rate limits (429): Provider on cooldown for 30-60s (or retry-after header)
+# - Auth errors (401/403): Provider on cooldown for 1 hour (requires manual fix)
+# - Server errors (5xx): Provider on cooldown for 2-3 minutes
+# - Timeouts: Provider on cooldown for 30s
+# - Connection errors: Provider on cooldown for 1 minute
+#
+# Automatic Recovery:
+# - Cooldowns expire automatically after duration
+# - State persists across server restarts
+# - Router filters out providers on cooldown
+# - Requests automatically route to healthy alternatives
+#
+# Manual Management:
+# - Clear specific cooldown: POST /admin/cooldowns/clear/{provider}
+# - Clear all cooldowns: POST /admin/cooldowns/clear
+# - View cooldowns: GET /health?detail=true

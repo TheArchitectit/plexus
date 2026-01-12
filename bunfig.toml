@@ -1,0 +1,3 @@
+[test]
+# Preload the setup file to mock common modules
+preload = ["./packages/backend/tests/setup.ts"]
