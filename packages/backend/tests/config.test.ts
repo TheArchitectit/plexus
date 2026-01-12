@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { writeFileSync, unlinkSync, mkdirSync } from "fs";
+import { mkdir, unlink } from "node:fs/promises";
 import { join } from "path";
 import { loadConfig } from "../src/config";
 import { tmpdir } from "os";
@@ -8,23 +8,23 @@ describe("Configuration Loading", () => {
   let testConfigDir: string;
   let testConfigPath: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Create a temporary directory for test configs
     testConfigDir = join(tmpdir(), `plexus-test-${Date.now()}`);
-    mkdirSync(testConfigDir, { recursive: true });
+    await mkdir(testConfigDir, { recursive: true });
     testConfigPath = join(testConfigDir, "plexus.yaml");
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up test config file
     try {
-      unlinkSync(testConfigPath);
+      await unlink(testConfigPath);
     } catch {
       // Ignore if file doesn't exist
     }
   });
 
-  test("Valid YAML loads successfully", () => {
+  test("Valid YAML loads successfully", async () => {
     const validConfig = `
 server:
   port: 4000
@@ -37,9 +37,9 @@ providers: []
 models: []
 apiKeys: []
 `;
-    writeFileSync(testConfigPath, validConfig);
+    await Bun.write(testConfigPath, validConfig);
 
-    const config = loadConfig(testConfigPath);
+    const config = await loadConfig(testConfigPath);
 
     expect(config.server.port).toBe(4000);
     expect(config.server.host).toBe("0.0.0.0");
@@ -49,27 +49,27 @@ apiKeys: []
     expect(config.apiKeys).toEqual([]);
   });
 
-  test("Missing file throws error with path", () => {
+  test("Missing file throws error with path", async () => {
     const nonExistentPath = join(testConfigDir, "does-not-exist.yaml");
 
-    expect(() => loadConfig(nonExistentPath)).toThrow(
+    expect(loadConfig(nonExistentPath)).rejects.toThrow(
       `Configuration file not found: ${nonExistentPath}`
     );
   });
 
-  test("Invalid YAML syntax throws parse error", () => {
+  test("Invalid YAML syntax throws parse error", async () => {
     const invalidYaml = `
 server:
   port: 4000
   host: "0.0.0.0
   # Missing closing quote above
 `;
-    writeFileSync(testConfigPath, invalidYaml);
+    await Bun.write(testConfigPath, invalidYaml);
 
-    expect(() => loadConfig(testConfigPath)).toThrow("Failed to load configuration");
+    expect(loadConfig(testConfigPath)).rejects.toThrow("Failed to load configuration");
   });
 
-  test("Schema violation throws Zod validation error", () => {
+  test("Schema violation throws Zod validation error", async () => {
     const invalidSchema = `
 server:
   port: "not-a-number"
@@ -82,12 +82,12 @@ providers: []
 models: []
 apiKeys: []
 `;
-    writeFileSync(testConfigPath, invalidSchema);
+    await Bun.write(testConfigPath, invalidSchema);
 
-    expect(() => loadConfig(testConfigPath)).toThrow("Failed to load configuration");
+    expect(loadConfig(testConfigPath)).rejects.toThrow("Failed to load configuration");
   });
 
-  test("Missing required field throws validation error", () => {
+  test("Missing required field throws validation error", async () => {
     const missingField = `
 server:
   host: "0.0.0.0"
@@ -100,12 +100,12 @@ providers: []
 models: []
 apiKeys: []
 `;
-    writeFileSync(testConfigPath, missingField);
+    await Bun.write(testConfigPath, missingField);
 
-    expect(() => loadConfig(testConfigPath)).toThrow("Failed to load configuration");
+    expect(loadConfig(testConfigPath)).rejects.toThrow("Failed to load configuration");
   });
 
-  test("Environment variable PLEXUS_PORT overrides config", () => {
+  test("Environment variable PLEXUS_PORT overrides config", async () => {
     const validConfig = `
 server:
   port: 4000
@@ -118,12 +118,12 @@ providers: []
 models: []
 apiKeys: []
 `;
-    writeFileSync(testConfigPath, validConfig);
+    await Bun.write(testConfigPath, validConfig);
 
     // Set environment variable
     process.env.PLEXUS_PORT = "5000";
 
-    const config = loadConfig(testConfigPath);
+    const config = await loadConfig(testConfigPath);
 
     expect(config.server.port).toBe(5000);
 
@@ -131,7 +131,7 @@ apiKeys: []
     delete process.env.PLEXUS_PORT;
   });
 
-  test("Environment variable PLEXUS_LOG_LEVEL overrides config", () => {
+  test("Environment variable PLEXUS_LOG_LEVEL overrides config", async () => {
     const validConfig = `
 server:
   port: 4000
@@ -144,12 +144,12 @@ providers: []
 models: []
 apiKeys: []
 `;
-    writeFileSync(testConfigPath, validConfig);
+    await Bun.write(testConfigPath, validConfig);
 
     // Set environment variable
     process.env.PLEXUS_LOG_LEVEL = "debug";
 
-    const config = loadConfig(testConfigPath);
+    const config = await loadConfig(testConfigPath);
 
     expect(config.logging.level).toBe("debug");
 
@@ -157,13 +157,13 @@ apiKeys: []
     delete process.env.PLEXUS_LOG_LEVEL;
   });
 
-  test("Empty file throws error", () => {
-    writeFileSync(testConfigPath, "");
+  test("Empty file throws error", async () => {
+    await Bun.write(testConfigPath, "");
 
-    expect(() => loadConfig(testConfigPath)).toThrow("Configuration file is empty");
+    expect(loadConfig(testConfigPath)).rejects.toThrow("Configuration file is empty");
   });
 
-  test("Invalid log level throws validation error", () => {
+  test("Invalid log level throws validation error", async () => {
     const invalidLogLevel = `
 server:
   port: 4000
@@ -176,12 +176,12 @@ providers: []
 models: []
 apiKeys: []
 `;
-    writeFileSync(testConfigPath, invalidLogLevel);
+    await Bun.write(testConfigPath, invalidLogLevel);
 
-    expect(() => loadConfig(testConfigPath)).toThrow("Failed to load configuration");
+    expect(loadConfig(testConfigPath)).rejects.toThrow("Failed to load configuration");
   });
 
-  test("Port out of range throws validation error", () => {
+  test("Port out of range throws validation error", async () => {
     const invalidPort = `
 server:
   port: 99999
@@ -194,8 +194,8 @@ providers: []
 models: []
 apiKeys: []
 `;
-    writeFileSync(testConfigPath, invalidPort);
+    await Bun.write(testConfigPath, invalidPort);
 
-    expect(() => loadConfig(testConfigPath)).toThrow("Failed to load configuration");
+    expect(loadConfig(testConfigPath)).rejects.toThrow("Failed to load configuration");
   });
 });

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { HealthMonitor } from "../services/health-monitor";
 import { CooldownManager } from "../services/cooldown-manager";
 import type { PlexusConfig } from "../types/config";
-import { existsSync, unlinkSync } from "fs";
+import { unlink } from "node:fs/promises";
 
 // Mock logger to avoid noise in tests
 mock.module("../utils/logger", () => ({
@@ -28,10 +28,10 @@ describe("Health Monitor", () => {
   let healthMonitor: HealthMonitor;
   const testStoragePath = "./test-health-cooldowns.json";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clean up test storage file if it exists
-    if (existsSync(testStoragePath)) {
-      unlinkSync(testStoragePath);
+    if (await Bun.file(testStoragePath).exists()) {
+      await unlink(testStoragePath);
     }
 
     mockConfig = {
@@ -97,10 +97,10 @@ describe("Health Monitor", () => {
     healthMonitor = new HealthMonitor(mockConfig, cooldownManager);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up test storage file
-    if (existsSync(testStoragePath)) {
-      unlinkSync(testStoragePath);
+    if (await Bun.file(testStoragePath).exists()) {
+      await unlink(testStoragePath);
     }
   });
 

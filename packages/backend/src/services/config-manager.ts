@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, renameSync } from "fs";
+import { rename } from "node:fs/promises";
 import { join } from "path";
 import { createHash } from "crypto";
 import { parse, stringify } from "yaml";
@@ -20,13 +20,13 @@ export class ConfigManager {
   /**
    * Get raw config with metadata
    */
-  getConfig() {
-    const rawContent = readFileSync(this.configPath, "utf8");
-    const stat = Bun.file(this.configPath);
+  async getConfig() {
+    const file = Bun.file(this.configPath);
+    const rawContent = await file.text();
     
     return {
       config: rawContent,
-      lastModified: new Date(stat.lastModified).toISOString(),
+      lastModified: new Date(file.lastModified).toISOString(),
       checksum: this.calculateChecksum(rawContent),
     };
   }
@@ -35,7 +35,7 @@ export class ConfigManager {
    * Update configuration
    */
   async updateConfig(newConfigYaml: string, validate = true, reload = true): Promise<{ previousChecksum: string; newChecksum: string }> {
-    const current = this.getConfig();
+    const current = await this.getConfig();
 
     // 1. Parse and Validate
     if (validate) {
@@ -49,10 +49,10 @@ export class ConfigManager {
 
     // 2. Write to temp file
     const tempPath = `${this.configPath}.tmp`;
-    writeFileSync(tempPath, newConfigYaml);
+    await Bun.write(tempPath, newConfigYaml);
 
     // 3. Atomic rename
-    renameSync(tempPath, this.configPath);
+    await rename(tempPath, this.configPath);
 
     // 4. Calculate new checksum
     const newChecksum = this.calculateChecksum(newConfigYaml);

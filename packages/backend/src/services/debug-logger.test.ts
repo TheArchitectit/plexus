@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { DebugLogger } from "./debug-logger";
 import { rm } from "node:fs/promises";
-import { exists } from "node:fs/promises";
 
 describe("DebugLogger", () => {
   const testStoragePath = "./test-data/debug-logs";
@@ -135,7 +134,7 @@ describe("DebugLogger", () => {
 
     // Check that file was created
     const filePath = `${testStoragePath}/${requestId}.json`;
-    const fileExists = await exists(filePath);
+    const fileExists = await Bun.file(filePath).exists();
     expect(fileExists).toBe(true);
 
     // Verify trace was removed from memory

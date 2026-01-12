@@ -1,6 +1,6 @@
 import type { DebugTraceEntry } from "../types/usage";
 import { logger } from "../utils/logger";
-import { mkdir, exists, unlink } from "node:fs/promises";
+import { mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -18,7 +18,7 @@ export class DebugStore {
    */
   async initialize(): Promise<void> {
     try {
-      const storageExists = await exists(this.storagePath);
+      const storageExists = await Bun.file(this.storagePath).exists();
       if (!storageExists) {
         await mkdir(this.storagePath, { recursive: true });
         logger.info("Debug storage initialized", { path: this.storagePath });
@@ -132,7 +132,7 @@ export class DebugStore {
    */
   async deleteOldLogs(days: number): Promise<number> {
       try {
-      const storageExists = await exists(this.storagePath);
+      const storageExists = await Bun.file(this.storagePath).exists();
       if (!storageExists) {
         return 0;
       }
@@ -184,7 +184,7 @@ export class DebugStore {
    */
   async cleanup(): Promise<void> {
     try {
-      const storageExists = await exists(this.storagePath);
+      const storageExists = await Bun.file(this.storagePath).exists();
       if (!storageExists) {
         return;
       }

@@ -55,7 +55,7 @@ export async function handleState(req: Request, context: ServerContext): Promise
             // Persist changes
             if (context.configManager) {
                 try {
-                    const { config: rawYaml } = context.configManager.getConfig();
+                    const { config: rawYaml } = await context.configManager.getConfig();
                     const parsed = parse(rawYaml) as PlexusConfig;
                     
                     const configProvider = parsed.providers.find(p => p.name === providerName);

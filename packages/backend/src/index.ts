@@ -5,7 +5,7 @@ import { logger } from "./utils/logger";
 async function main() {
   try {
     // Load configuration
-    const config = loadConfig();
+    const config = await loadConfig();
 
     // Configure logger with loaded settings
     logger.configure(config.logging);

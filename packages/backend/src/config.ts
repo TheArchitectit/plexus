@@ -1,4 +1,4 @@
-import { readFileSync, watch } from "fs";
+import { watch } from "fs";
 import { parse } from "yaml";
 import { PlexusConfigSchema, type PlexusConfig } from "./types/config";
 import { logger } from "./utils/logger";
@@ -105,12 +105,20 @@ function validateModelAliases(config: PlexusConfig): void {
  * - PLEXUS_LOG_LEVEL → logging.level
  * - ${VAR_NAME} syntax in config values for environment variable substitution
  */
-export function loadConfig(configPath?: string): PlexusConfig {
+export async function loadConfig(configPath?: string): Promise<PlexusConfig> {
   const path = configPath || join(process.cwd(), "config", "plexus.yaml");
 
   try {
+    // Check if file exists first to match previous ENOENT behavior
+    const file = Bun.file(path);
+    if (!(await file.exists())) {
+         const error: any = new Error(`Configuration file not found: ${path}`);
+         error.code = "ENOENT";
+         throw error;
+    }
+
     // Read and parse YAML file
-    const fileContents = readFileSync(path, "utf8");
+    const fileContents = await file.text();
     const rawConfig = parse(fileContents);
 
     if (!rawConfig) {
@@ -175,11 +183,11 @@ export function watchConfig(
   configPath: string,
   onChange: (config: PlexusConfig) => void
 ): () => void {
-  const watcher = watch(configPath, (eventType) => {
+  const watcher = watch(configPath, async (eventType) => {
     if (eventType === "change") {
       try {
         logger.info("Configuration file changed, reloading...");
-        const config = loadConfig(configPath);
+        const config = await loadConfig(configPath);
         onChange(config);
       } catch (error) {
         logger.error("Failed to reload configuration", { error });

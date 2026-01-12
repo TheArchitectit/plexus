@@ -7,7 +7,7 @@ export async function handleConfig(req: Request, configManager: ConfigManager): 
 
   if (method === "GET") {
     try {
-      const configData = configManager.getConfig();
+      const configData = await configManager.getConfig();
       return Response.json(configData);
     } catch (error) {
       logger.error("Failed to get config", { error });

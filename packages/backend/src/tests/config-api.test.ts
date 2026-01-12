@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import { ConfigManager } from "../services/config-manager";
 import { EventEmitter } from "../services/event-emitter";
 import { handleConfig } from "../routes/v0/config";
-import { writeFileSync, unlinkSync, existsSync } from "fs";
+import { unlink } from "node:fs/promises";
 import { join } from "path";
 
 describe("Config API", () => {
@@ -19,16 +19,18 @@ logging:
   let configManager: ConfigManager;
   let eventEmitter: EventEmitter;
 
-  beforeAll(() => {
-    writeFileSync(tempConfigPath, initialConfig);
+  beforeAll(async () => {
+    await Bun.write(tempConfigPath, initialConfig);
     eventEmitter = new EventEmitter();
     // Mocking current config object - strict type matching isn't needed for this unit test of the route/manager logic
     const mockConfig: any = { server: { port: 3000 } }; 
     configManager = new ConfigManager(tempConfigPath, mockConfig, eventEmitter);
   });
 
-  afterAll(() => {
-    if (existsSync(tempConfigPath)) unlinkSync(tempConfigPath);
+  afterAll(async () => {
+    if (await Bun.file(tempConfigPath).exists()) {
+      await unlink(tempConfigPath);
+    }
     eventEmitter.shutdown();
   });
 

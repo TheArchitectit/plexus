@@ -2,8 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
 import { CooldownManager } from "../services/cooldown-manager";
 import { ProviderClient } from "../services/provider-client";
 import type { PlexusConfig } from "../types/config";
-import { file, write } from "bun";
-import { existsSync, unlinkSync } from "fs";
+import { unlink } from "node:fs/promises";
 
 // Mock logger to avoid noise in tests
 mock.module("../utils/logger", () => ({
@@ -28,10 +27,10 @@ describe("Cooldown Manager", () => {
   let manager: CooldownManager;
   const testStoragePath = "./test-cooldowns.json";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clean up test storage file if it exists
-    if (existsSync(testStoragePath)) {
-      unlinkSync(testStoragePath);
+    if (await Bun.file(testStoragePath).exists()) {
+      await unlink(testStoragePath);
     }
 
     mockConfig = {
@@ -84,10 +83,10 @@ describe("Cooldown Manager", () => {
     manager = new CooldownManager(mockConfig);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up test storage file
-    if (existsSync(testStoragePath)) {
-      unlinkSync(testStoragePath);
+    if (await Bun.file(testStoragePath).exists()) {
+      await unlink(testStoragePath);
     }
   });
 
