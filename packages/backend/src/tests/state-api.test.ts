@@ -2,11 +2,13 @@ import { describe, test, expect, beforeAll, mock, spyOn } from "bun:test";
 import { handleState } from "../routes/v0/state";
 import { CooldownManager } from "../services/cooldown-manager";
 import { HealthMonitor } from "../services/health-monitor";
+import { MetricsCollector } from "../services/metrics-collector";
 import type { ServerContext } from "../types/server";
 
 describe("State API", () => {
   let context: ServerContext;
   let updateConfigSpy: any;
+  let metricsCollector: MetricsCollector;
 
   beforeAll(() => {
     const mockConfig: any = {
@@ -23,6 +25,28 @@ describe("State API", () => {
 
     const cooldownManager = new CooldownManager(mockConfig);
     const healthMonitor = new HealthMonitor(mockConfig, cooldownManager);
+    metricsCollector = new MetricsCollector();
+
+    // Seed some metrics
+    metricsCollector.recordRequest({
+        provider: "openai",
+        latencyMs: 100,
+        success: true,
+        timestamp: Date.now(),
+        ttftMs: 50,
+        tokensPerSecond: 10,
+        costPer1M: 5
+    });
+    metricsCollector.recordRequest({
+        provider: "openai",
+        latencyMs: 200,
+        success: true,
+        timestamp: Date.now(),
+        ttftMs: 60,
+        tokensPerSecond: 10,
+        costPer1M: 5
+    });
+
     
     // Mock ConfigManager
     updateConfigSpy = mock(async () => ({ previousChecksum: "old", newChecksum: "new" }));
@@ -35,11 +59,12 @@ describe("State API", () => {
       config: mockConfig,
       cooldownManager,
       healthMonitor,
+      metricsCollector,
       configManager: mockConfigManager
     };
   });
 
-  test("GET /v0/state returns system state", async () => {
+  test("GET /v0/state returns system state with metrics", async () => {
     const req = new Request("http://localhost/v0/state", { method: "GET" });
     const res = await handleState(req, context);
     
@@ -49,6 +74,13 @@ describe("State API", () => {
     expect(body.uptime).toBeDefined();
     expect(body.providers).toHaveLength(2);
     expect(body.providers[0].name).toBe("openai");
+    
+    // Verify real metrics
+    const openai = body.providers[0];
+    expect(openai.metrics.requestsLast5Min).toBe(2);
+    expect(openai.metrics.avgLatency).toBe(150); // (100 + 200) / 2
+    expect(openai.metrics.successRate).toBe(1.0);
+    
     expect(body.debug.enabled).toBe(false);
   });
 

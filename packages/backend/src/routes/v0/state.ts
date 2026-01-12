@@ -100,7 +100,7 @@ export async function handleState(req: Request, context: ServerContext): Promise
 }
 
 function buildStateResponse(context: ServerContext) {
-  const { config, cooldownManager, healthMonitor } = context;
+  const { config, cooldownManager, healthMonitor, metricsCollector } = context;
 
   // Build providers list with metrics
   const providers = config.providers.map(p => {
@@ -108,17 +108,18 @@ function buildStateResponse(context: ServerContext) {
     const cooldownEntry = cooldownManager.getCooldown(p.name);
     const cooldownRemaining = cooldownEntry ? Math.max(0, cooldownEntry.endTime - Date.now()) : undefined;
     
+    // Fetch real metrics
+    const metrics = metricsCollector?.getProviderMetrics(p.name);
+    
     return {
       name: p.name,
       enabled: p.enabled,
       healthy: health?.status === 'healthy',
       cooldownRemaining,
       metrics: {
-        // Mock metrics for now as we don't have easy access to aggregated metrics per provider here
-        // unless MetricsCollector exposes it directly.
-        avgLatency: 0,
-        successRate: 1.0,
-        requestsLast5Min: 0
+        avgLatency: metrics?.avgLatency || 0,
+        successRate: metrics?.successRate ?? 1.0,
+        requestsLast5Min: metrics?.requests || 0
       }
     };
   });
