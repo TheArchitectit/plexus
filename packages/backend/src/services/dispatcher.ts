@@ -2,9 +2,8 @@ import { logger } from "../utils/logger";
 import { ProviderClient } from "./provider-client";
 import { Router } from "./router";
 import { PlexusErrorResponse } from "../types/errors";
-import { transformerFactory, TransformerFactory, ApiType } from "./transformer-factory";
+import { transformerFactory, TransformerFactory, ApiType, getProviderApiType } from "./transformer-factory";
 import type { PlexusConfig, ProviderConfig } from "../types/config";
-import type { TransformerContext } from "../lib/llms-transformer/src/types/transformer";
 import type { CooldownManager } from "./cooldown-manager";
 import type { CooldownReason } from "../types/health";
 import type { CostCalculator } from "./cost-calculator";
@@ -93,12 +92,6 @@ export class Dispatcher {
         this.debugLogger.startTrace(requestId, clientApiType, request);
       }
 
-      // Create transformer context
-      const context: TransformerContext = {
-        req: { id: requestId },
-        requestId,
-      };
-
       // Step 1: Resolve model using router
       const resolution = this.router.resolve(request.model);
 
@@ -126,7 +119,7 @@ export class Dispatcher {
       }
 
       // Step 2: Determine provider's native API type
-      const providerApiType = TransformerFactory.getProviderApiType(provider.apiTypes || ["chat"]);
+      const providerApiType = getProviderApiType(provider.apiTypes || ["chat"], clientApiType);
 
       // Update request context with API type info (Phase 7)
       if (requestContext) {
@@ -147,8 +140,7 @@ export class Dispatcher {
       // Step 3: Transform request to unified format (from client format)
       const unifiedRequest = await transformerFactory.transformToUnified(
         request,
-        clientApiType,
-        context
+        clientApiType
       );
 
       // Override model with resolved model name
@@ -166,9 +158,7 @@ export class Dispatcher {
       // Step 4: Transform from unified to provider format
       const providerRequest = await transformerFactory.transformFromUnified(
         unifiedRequest,
-        providerApiType,
-        this.createLLMProvider(provider),
-        context
+        providerApiType
       );
 
       // Add any extra body params from provider config
@@ -231,8 +221,7 @@ export class Dispatcher {
         const transformedResponse = await transformerFactory.transformResponse(
           providerResponse,
           providerApiType,
-          clientApiType,
-          context
+          clientApiType
         );
 
         // Intercept the stream to extract usage from final snapshot (Phase 7)
@@ -259,8 +248,7 @@ export class Dispatcher {
       const transformedResponse = await transformerFactory.transformResponse(
         providerResponse,
         providerApiType,
-        clientApiType,
-        context
+        clientApiType
       );
 
       requestLogger.debug("Response transformed to client format", {
@@ -398,23 +386,6 @@ export class Dispatcher {
       return provider.baseUrls.messages;
     }
     return provider.baseUrls.chat;
-  }
-
-  /**
-   * Create an LLMProvider object for the transformer from our ProviderConfig
-   */
-  private createLLMProvider(provider: ProviderConfig): any {
-    // Get API key from environment
-    const apiKey = provider.auth.apiKeyEnv 
-      ? process.env[provider.auth.apiKeyEnv] || ""
-      : "";
-
-    return {
-      name: provider.name,
-      baseUrl: provider.baseUrls.chat || provider.baseUrls.messages || "",
-      apiKey,
-      models: provider.models || [],
-    };
   }
 
   /**

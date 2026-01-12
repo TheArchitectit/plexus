@@ -1,22 +1,29 @@
 import { test, expect, describe } from "bun:test";
-import { TransformerFactory, transformerFactory, ApiType } from "../src/services/transformer-factory";
-import { AnthropicTransformer } from "../src/lib/llms-transformer/src/transformer/anthropic.transformer";
-import { OpenAITransformer } from "../src/lib/llms-transformer/src/transformer/openai.transformer";
+import { TransformerFactory, transformerFactory, ApiType, getProviderApiType } from "../src/services/transformer-factory";
+import { AnthropicTransformer } from "../src/transformers/anthropic";
+import { OpenAITransformer } from "../src/transformers/openai";
+import { GeminiTransformer } from "../src/transformers/gemini";
 
 describe("TransformerFactory", () => {
   describe("getTransformer", () => {
     test("returns OpenAITransformer for chat API type", () => {
       const transformer = transformerFactory.getTransformer("chat");
       expect(transformer).toBeInstanceOf(OpenAITransformer);
-      expect(transformer.name).toBe("OpenAI");
-      expect(transformer.endPoint).toBe("/v1/chat/completions");
+      expect(transformer.name).toBe("chat");
+      expect(transformer.defaultEndpoint).toBe("/chat/completions");
     });
 
     test("returns AnthropicTransformer for messages API type", () => {
       const transformer = transformerFactory.getTransformer("messages");
       expect(transformer).toBeInstanceOf(AnthropicTransformer);
-      expect(transformer.name).toBe("Anthropic");
-      expect(transformer.endPoint).toBe("/v1/messages");
+      expect(transformer.name).toBe("messages");
+      expect(transformer.defaultEndpoint).toBe("/v1/messages");
+    });
+
+    test("returns GeminiTransformer for gemini API type", () => {
+      const transformer = transformerFactory.getTransformer("gemini");
+      expect(transformer).toBeInstanceOf(GeminiTransformer);
+      expect(transformer.name).toBe("gemini");
     });
 
     test("throws for unknown API type", () => {
@@ -37,6 +44,10 @@ describe("TransformerFactory", () => {
       expect(TransformerFactory.detectApiType("/api/v1/messages")).toBe("messages");
     });
 
+    test("detects gemini API type from path", () => {
+      expect(TransformerFactory.detectApiType("/v1beta/models/gemini-pro:generateContent")).toBe("gemini");
+    });
+
     test("returns null for unknown path", () => {
       expect(TransformerFactory.detectApiType("/v1/unknown")).toBeNull();
       expect(TransformerFactory.detectApiType("/other/path")).toBeNull();
@@ -44,14 +55,28 @@ describe("TransformerFactory", () => {
   });
 
   describe("getProviderApiType", () => {
-    test("returns messages if provider supports messages", () => {
-      expect(TransformerFactory.getProviderApiType(["messages"])).toBe("messages");
-      expect(TransformerFactory.getProviderApiType(["chat", "messages"])).toBe("messages");
+    test("returns preferred type if supported", () => {
+      expect(getProviderApiType(["chat", "messages"], "messages")).toBe("messages");
+      expect(getProviderApiType(["chat", "messages"], "chat")).toBe("chat");
     });
 
-    test("returns chat as default", () => {
-      expect(TransformerFactory.getProviderApiType(["chat"])).toBe("chat");
-      expect(TransformerFactory.getProviderApiType([])).toBe("chat");
+    test("returns chat as priority if no preference or preference not supported", () => {
+      expect(getProviderApiType(["chat", "messages"])).toBe("chat");
+      expect(getProviderApiType(["messages", "chat"])).toBe("chat");
+      expect(getProviderApiType(["chat", "messages"], "gemini")).toBe("chat");
+    });
+
+    test("returns messages if only messages supported", () => {
+      expect(getProviderApiType(["messages"])).toBe("messages");
+    });
+
+    test("returns gemini if only gemini supported", () => {
+        expect(getProviderApiType(["gemini"])).toBe("gemini");
+    });
+
+    test("returns chat as absolute default", () => {
+      expect(getProviderApiType(["chat"])).toBe("chat");
+      expect(getProviderApiType([])).toBe("chat");
     });
   });
 
@@ -68,7 +93,7 @@ describe("TransformerFactory", () => {
   });
 });
 
-describe("Anthropic Transformer - transformRequestOut", () => {
+describe("Anthropic Transformer - parseRequest", () => {
   const anthropicTransformer = new AnthropicTransformer();
 
   test("converts basic Anthropic request to unified format", async () => {
@@ -80,7 +105,7 @@ describe("Anthropic Transformer - transformRequestOut", () => {
       ]
     };
 
-    const unified = await anthropicTransformer.transformRequestOut!(anthropicRequest, {});
+    const unified = await anthropicTransformer.parseRequest(anthropicRequest);
 
     expect(unified.model).toBe("claude-3-opus");
     expect(unified.max_tokens).toBe(1000);
@@ -99,7 +124,7 @@ describe("Anthropic Transformer - transformRequestOut", () => {
       ]
     };
 
-    const unified = await anthropicTransformer.transformRequestOut!(anthropicRequest, {});
+    const unified = await anthropicTransformer.parseRequest(anthropicRequest);
 
     // System should be first message
     expect(unified.messages[0].role).toBe("system");
@@ -130,7 +155,7 @@ describe("Anthropic Transformer - transformRequestOut", () => {
       ]
     };
 
-    const unified = await anthropicTransformer.transformRequestOut!(anthropicRequest, {});
+    const unified = await anthropicTransformer.parseRequest(anthropicRequest);
 
     expect(unified.tools).toHaveLength(1);
     expect(unified.tools![0].type).toBe("function");
@@ -153,7 +178,7 @@ describe("Anthropic Transformer - transformRequestOut", () => {
       ]
     };
 
-    const unified = await anthropicTransformer.transformRequestOut!(anthropicRequest, {});
+    const unified = await anthropicTransformer.parseRequest(anthropicRequest);
 
     expect(unified.messages[1].role).toBe("assistant");
     expect(unified.messages[1].content).toBe("Hi there!");
@@ -172,8 +197,7 @@ describe("transformToUnified and transformFromUnified", () => {
       temperature: 0.7
     };
 
-    const context = { req: { id: "test" } };
-    const unified = await transformerFactory.transformToUnified(openaiRequest, "chat", context);
+    const unified = await transformerFactory.transformToUnified(openaiRequest, "chat");
 
     // Should be the same object (or equivalent)
     expect(unified.model).toBe("gpt-4");
@@ -193,8 +217,7 @@ describe("transformToUnified and transformFromUnified", () => {
       temperature: 0.7
     };
 
-    const context = { req: { id: "test" } };
-    const unified = await transformerFactory.transformToUnified(anthropicRequest, "messages", context);
+    const unified = await transformerFactory.transformToUnified(anthropicRequest, "messages");
 
     expect(unified.model).toBe("claude-3-opus");
     // System message should be converted to a message in unified format

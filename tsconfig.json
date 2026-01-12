@@ -34,5 +34,5 @@
     "types": ["bun-types"]
   },
   "include": ["packages/**/src/**/*", "packages/**/tests/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules","new_translations"]
 }

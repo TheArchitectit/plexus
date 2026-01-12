@@ -4,8 +4,16 @@ import { logger } from "./utils/logger";
 
 async function main() {
   try {
+    // Determine config path from environment variable or command line argument
+    const envConfigPath = process.env.PLEXUS_CONFIG_PATH;
+    const args = process.argv.slice(2);
+    const configArgIndex = args.indexOf("--config");
+    const argConfigPath = configArgIndex !== -1 ? args[configArgIndex + 1] : null;
+
+    const configPath = argConfigPath || envConfigPath;
+
     // Load configuration
-    const config = await loadConfig();
+    const config = await loadConfig(configPath);
 
     // Configure logger with loaded settings
     logger.configure(config.logging);
