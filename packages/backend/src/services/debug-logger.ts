@@ -21,8 +21,8 @@ export class DebugLogger {
   private store: DebugStore;
   private traces: Map<string, Partial<DebugTraceEntry>> = new Map();
 
-  constructor(private config: DebugConfig) {
-    this.store = new DebugStore(config.storagePath, config.retentionDays);
+  constructor(private config: DebugConfig, store?: DebugStore) {
+    this.store = store || new DebugStore(config.storagePath, config.retentionDays);
   }
 
   /**

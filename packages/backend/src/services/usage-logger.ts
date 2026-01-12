@@ -6,6 +6,7 @@ import { CostCalculator } from "./cost-calculator";
 import { MetricsCollector } from "./metrics-collector";
 import { logger } from "../utils/logger";
 import type { RequestMetrics } from "../types/metrics";
+import type { EventEmitter } from "./event-emitter";
 
 /**
  * Context for tracking a request throughout its lifecycle
@@ -54,6 +55,7 @@ export class UsageLogger {
   private errorStore: ErrorStore;
   private costCalculator: CostCalculator;
   private metricsCollector: MetricsCollector;
+  private eventEmitter?: EventEmitter;
   private enabled: boolean;
 
   constructor(
@@ -61,13 +63,15 @@ export class UsageLogger {
     errorStore: ErrorStore,
     costCalculator: CostCalculator,
     metricsCollector: MetricsCollector,
-    enabled: boolean = true
+    enabled: boolean = true,
+    eventEmitter?: EventEmitter
   ) {
     this.usageStore = usageStore;
     this.errorStore = errorStore;
     this.costCalculator = costCalculator;
     this.metricsCollector = metricsCollector;
     this.enabled = enabled;
+    this.eventEmitter = eventEmitter;
 
     logger.info("Usage logger initialized", { enabled });
   }
@@ -185,6 +189,20 @@ export class UsageLogger {
       costPer1M: usage.totalTokens > 0 ? (costResult.totalCost / usage.totalTokens) * 1_000_000 : 0,
     };
     this.metricsCollector.recordRequest(requestMetrics);
+
+    // Emit event
+    if (this.eventEmitter) {
+      this.eventEmitter.emitEvent("usage", {
+        requestId: entry.id,
+        alias: entry.aliasUsed,
+        provider: entry.actualProvider,
+        model: entry.actualModel,
+        success: true,
+        tokens: entry.usage.totalTokens,
+        cost: entry.cost.totalCost,
+        duration: entry.metrics.durationMs
+      });
+    }
 
     logger.debug("Usage logged", {
       requestId: context.id,

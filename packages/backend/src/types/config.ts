@@ -8,6 +8,25 @@ export const ServerConfigSchema = z.object({
 
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
 
+// Admin configuration (Phase 8)
+export const AdminConfigSchema = z.object({
+  apiKey: z.string().min(1),
+  rateLimit: z.object({
+    windowMs: z.number().default(60000),
+    maxRequests: z.number().default(100),
+  }).default({}),
+});
+
+export type AdminConfig = z.infer<typeof AdminConfigSchema>;
+
+// Events configuration (Phase 8)
+export const EventsConfigSchema = z.object({
+  heartbeatIntervalMs: z.number().default(30000),
+  maxClients: z.number().default(10),
+});
+
+export type EventsConfig = z.infer<typeof EventsConfigSchema>;
+
 // Logging configuration schema (Phase 7)
 export const LoggingConfigSchema = z.object({
   level: z.enum(["silly", "debug", "info", "warn", "error"]),
@@ -219,6 +238,8 @@ export type PricingConfigType = z.infer<typeof PricingConfigSchema>;
 // Main Plexus configuration schema
 export const PlexusConfigSchema = z.object({
   server: ServerConfigSchema,
+  admin: AdminConfigSchema.optional(), // Phase 8
+  events: EventsConfigSchema.optional(), // Phase 8
   logging: LoggingConfigSchema,
   providers: z.array(ProviderConfigSchema),
   models: z.array(ModelAliasConfigSchema).optional().default([]),

@@ -3,23 +3,33 @@ import { handleHealth, handleReady } from "./routes/health";
 import { handleChatCompletions } from "./routes/chat-completions";
 import { handleMessages } from "./routes/messages";
 import { handleModels } from "./routes/models";
+// Phase 8 Management Routes
+import { handleConfig } from "./routes/v0/config";
+import { handleState } from "./routes/v0/state";
+import { handleLogs } from "./routes/v0/logs";
+import { handleEvents } from "./routes/v0/events";
+import { AdminAuth } from "./middleware/admin-auth";
+
 import type { PlexusConfig } from "./types/config";
 import type { ServerContext } from "./types/server";
-import { randomUUID } from "crypto";
 import { createRequestId } from "./utils/headers";
 import { CooldownManager } from "./services/cooldown-manager";
 import { HealthMonitor } from "./services/health-monitor";
 import { UsageStore } from "./storage/usage-store";
 import { ErrorStore } from "./storage/error-store";
+import { DebugStore } from "./storage/debug-store"; // Ensure DebugStore is imported
 import { CostCalculator } from "./services/cost-calculator";
 import { MetricsCollector } from "./services/metrics-collector";
 import { UsageLogger } from "./services/usage-logger";
 import { DebugLogger } from "./services/debug-logger";
+import { EventEmitter } from "./services/event-emitter";
+import { ConfigManager } from "./services/config-manager";
+import { LogQueryService } from "./services/log-query";
 
 /**
  * Request router - maps URLs to handlers
  */
-async function router(req: Request, context: ServerContext): Promise<Response> {
+async function router(req: Request, context: ServerContext, adminAuth: AdminAuth): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
 
@@ -32,7 +42,34 @@ async function router(req: Request, context: ServerContext): Promise<Response> {
     path,
   });
 
-  // Route handlers
+  // --- Management API (v0) ---
+  if (path.startsWith("/v0/")) {
+    // Authenticate Admin
+    const authError = await adminAuth.validate(req);
+    if (authError) return authError;
+
+    if (path === "/v0/config") {
+      if (!context.configManager) return new Response("Config manager not initialized", { status: 503 });
+      return handleConfig(req, context.configManager);
+    }
+
+    if (path === "/v0/state") {
+      return handleState(req, context);
+    }
+
+    if (path.startsWith("/v0/logs")) {
+      if (!context.logQueryService) return new Response("Log query service not initialized", { status: 503 });
+      return handleLogs(req, context.logQueryService);
+    }
+
+    if (path === "/v0/events") {
+      if (!context.eventEmitter) return new Response("Event emitter not initialized", { status: 503 });
+      return handleEvents(req, context.eventEmitter);
+    }
+  }
+
+  // --- Standard API ---
+
   if (path === "/health" && req.method === "GET") {
     return handleHealth(req, context.healthMonitor);
   }
@@ -72,21 +109,44 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
   const cooldownManager = new CooldownManager(config);
   const healthMonitor = new HealthMonitor(config, cooldownManager);
 
+  // Initialize Management Services (Phase 8)
+  const eventEmitter = new EventEmitter(
+    config.events?.maxClients,
+    config.events?.heartbeatIntervalMs
+  );
+
+  const configManager = new ConfigManager(
+    // Assume config file path from existing loader logic if possible, 
+    // but here we might need to know where it came from.
+    // For now, we'll assume default "./config/plexus.yaml" or env
+    // Ideally loadConfig returns path too, but for now:
+    "config/plexus.yaml", 
+    config,
+    eventEmitter
+  );
+
+  const adminAuth = new AdminAuth(config);
+
   // Initialize observability services (Phase 7)
   let usageLogger: UsageLogger | undefined;
   let metricsCollector: MetricsCollector | undefined;
   let costCalculator: CostCalculator | undefined;
   let debugLogger: DebugLogger | undefined;
+  let logQueryService: LogQueryService | undefined;
+
+  let usageStore: UsageStore | undefined;
+  let errorStore: ErrorStore | undefined;
+  let debugStore: DebugStore | undefined;
 
   if (config.logging.usage?.enabled) {
     // Initialize storage
-    const usageStore = new UsageStore(
+    usageStore = new UsageStore(
       config.logging.usage.storagePath,
       config.logging.usage.retentionDays
     );
     await usageStore.initialize();
 
-    const errorStore = new ErrorStore(
+    errorStore = new ErrorStore(
       config.logging.errors.storagePath,
       config.logging.errors.retentionDays
     );
@@ -104,23 +164,40 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
       errorStore,
       costCalculator,
       metricsCollector,
-      true
+      true,
+      eventEmitter // Pass event emitter
     );
 
     logger.info("Observability services initialized");
   }
 
-  // Initialize debug logger (Phase 7)
+  // Initialize debug store (shared between Logger and QueryService)
+  // We initialize it even if debug logging is disabled, to allow querying historical logs
+  debugStore = new DebugStore(
+      config.logging.debug?.storagePath || "./logs/debug",
+      config.logging.debug?.retentionDays || 7
+  );
+  
   if (config.logging.debug?.enabled) {
-    debugLogger = new DebugLogger({
+     // Ensure directory exists if we are going to write
+     await debugStore.initialize();
+
+     debugLogger = new DebugLogger({
       enabled: config.logging.debug.enabled,
       captureRequests: config.logging.debug.captureRequests,
       captureResponses: config.logging.debug.captureResponses,
       storagePath: config.logging.debug.storagePath,
       retentionDays: config.logging.debug.retentionDays,
-    });
+    }, debugStore);
+    
+    // DebugLogger.initialize() also calls store.initialize(), but it's safe to call idempotent
     await debugLogger.initialize();
     logger.info("Debug logger initialized");
+  }
+
+  // Initialize Log Query Service
+  if (usageStore && errorStore && debugStore) {
+      logQueryService = new LogQueryService(usageStore, errorStore, debugStore);
   }
 
   const context: ServerContext = {
@@ -131,12 +208,15 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
     metricsCollector,
     costCalculator,
     debugLogger,
+    eventEmitter,
+    configManager,
+    logQueryService
   };
 
   const server = Bun.serve({
     port: config.server.port,
     hostname: config.server.host,
-    fetch: (req: Request) => router(req, context),
+    fetch: (req: Request) => router(req, context, adminAuth),
   });
 
   logger.info("Server started", {
@@ -149,6 +229,7 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
   const shutdown = async (): Promise<void> => {
     logger.info("Shutting down server...");
     server.stop();
+    eventEmitter.shutdown();
     logger.info("Server shutdown complete");
   };
 
