@@ -1,4 +1,5 @@
 import { join, dirname } from "path";
+import { unlink } from "node:fs/promises";
 import type { UsageLogEntry, UsageQuery, UsageSummary } from "../types/usage";
 import { logger } from "../utils/logger";
 
@@ -212,11 +213,14 @@ export class UsageStore {
         const fileDate = dateMatch[1];
         if (fileDate < cutoffString) {
           const filePath = join(this.storagePath, file);
-          await Bun.file(filePath).writer().end(); // Truncate
-          const proc = Bun.spawn(["rm", filePath]);
-          await proc.exited;
-          deletedCount++;
-          logger.info("Deleted usage log file", { file, date: fileDate });
+          try {
+            await unlink(filePath);
+            deletedCount++;
+            logger.info("Deleted usage log file", { file, date: fileDate });
+          } catch (e) {
+            // If unlink fails, try to truncate as fallback
+            await Bun.write(filePath, "");
+          }
         }
       }
       return deletedCount;
@@ -225,6 +229,45 @@ export class UsageStore {
         error: error instanceof Error ? error.message : String(error),
       });
       return 0;
+    }
+  }
+
+  /**
+   * Find a specific log entry by request ID
+   * @param requestId - The unique request ID to search for
+   */
+  async getById(requestId: string): Promise<UsageLogEntry | null> {
+    try {
+      const glob = new Bun.Glob("*.jsonl");
+      const files = Array.from(glob.scanSync(this.storagePath)).sort().reverse();
+
+      for (const fileName of files) {
+        const filePath = join(this.storagePath, fileName);
+        const file = Bun.file(filePath);
+        const content = await file.text();
+        const lines = content.trim().split("\n");
+
+        // Scan backwards in file as newer logs are at the bottom
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const line = lines[i];
+          if (!line) continue;
+
+          try {
+            if (line.includes(requestId)) {
+              const entry: UsageLogEntry = JSON.parse(line);
+              if (entry.id === requestId) {
+                return entry;
+              }
+            }
+          } catch (e) {
+            // Ignore parse errors for individual lines
+          }
+        }
+      }
+      return null;
+    } catch (error) {
+      logger.error("Failed to find log by ID", { requestId, error });
+      return null;
     }
   }
 

@@ -82,35 +82,11 @@ export class LogQueryService {
    */
   async getLogDetails(requestId: string): Promise<LogDetailResponse | null> {
     // 1. Find usage log
-    // We don't have a direct "get by ID" in UsageStore, we have to search.
-    // Ideally UsageStore should have getById.
-    // For now, we'll search recent files or assume we need to index.
-    // Optimization: If we have the date, we can narrow it down. But we just have ID here.
-    // We'll search last 30 days of usage logs (default retention).
-    
-    // NOTE: This is inefficient. In a real DB, this is an index lookup.
-    // With file logs, we have to grep.
-    // Let's assume for this phase we might not find it efficiently without date.
-    // However, if the user provides the date in a separate param (not in spec), it would be faster.
-    
-    // Let's try to find it in the usage store by querying with no filters but... wait UsageQuery needs filters?
-    // UsageStore.query iterates files.
-    
-    const usage = await this.findUsageById(requestId);
+    const usage = await this.usageStore.getById(requestId);
     if (!usage) return null;
 
     // 2. Find traces
-    // DebugStore stores by RequestID filename!
-    const tracePath = `${this.debugStore['storagePath']}/${requestId}.json`; // Accessing private prop or we need a get method
-    let trace = null;
-    try {
-        const file = Bun.file(tracePath);
-        if (await file.exists()) {
-            trace = await file.json();
-        }
-    } catch (e) {
-        // ignore
-    }
+    const trace = await this.debugStore.getById(requestId);
 
     // 3. Find errors
     // ErrorStore also strictly date based. We'd have to scan.
@@ -157,32 +133,5 @@ export class LogQueryService {
      }
      
      return result;
-  }
-
-  private async findUsageById(requestId: string) {
-      // Brute force search recent logs (last 7 days for speed?)
-      // Or use `grep` via shell command? 
-      // Using grep is faster.
-      
-      try {
-        // We assume usage store path is available. 
-        // We'll hackily access it or need to pass it in constructor publically.
-        // Assuming ./logs/usage for now if not exposed.
-        const path = this.usageStore['storagePath']; 
-        
-        // Use ripgrep or grep
-        const proc = Bun.spawn(["grep", "-r", requestId, path], { stdout: "pipe" });
-        const output = await new Response(proc.stdout).text();
-        
-        if (output) {
-            const line = output.split('\n')[0];
-            // format: filename:json
-            const jsonStr = line.substring(line.indexOf(':') + 1);
-            return JSON.parse(jsonStr);
-        }
-      } catch (e) {
-          logger.warn("Failed to search usage log by ID", { error: e });
-      }
-      return null;
   }
 }

@@ -1,4 +1,5 @@
 import { join } from "path";
+import { unlink } from "node:fs/promises";
 import type { ErrorLogEntry } from "../types/usage";
 import { logger } from "../utils/logger";
 
@@ -127,11 +128,13 @@ export class ErrorStore {
         const fileDate = dateMatch[1];
         if (fileDate < cutoffString) {
           const filePath = join(this.storagePath, file);
-          await Bun.file(filePath).writer().end();
-          const proc = Bun.spawn(["rm", filePath]);
-          await proc.exited;
-          deletedCount++;
-          logger.info("Deleted error log file", { file, date: fileDate });
+          try {
+            await unlink(filePath);
+            deletedCount++;
+            logger.info("Deleted error log file", { file, date: fileDate });
+          } catch (e) {
+            await Bun.write(filePath, "");
+          }
         }
       }
       return deletedCount;

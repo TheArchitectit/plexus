@@ -1,6 +1,6 @@
 import type { DebugTraceEntry } from "../types/usage";
 import { logger } from "../utils/logger";
-import { mkdir, exists } from "node:fs/promises";
+import { mkdir, exists, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -60,9 +60,26 @@ export class DebugStore {
   }
 
   /**
+   * Get a debug trace by request ID
+   * @param requestId - Request ID
+   */
+  async getById(requestId: string): Promise<DebugTraceEntry | null> {
+    try {
+      const fileName = `${requestId}.json`;
+      const filePath = join(this.storagePath, fileName);
+      const file = Bun.file(filePath);
+      
+      if (await file.exists()) {
+        return await file.json();
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * Delete logs older than specific days
-   * @param days - Number of days to keep
-   * @returns Number of files deleted
    */
   async deleteOldLogs(days: number): Promise<number> {
       try {
@@ -93,10 +110,12 @@ export class DebugStore {
           // Check if file is older than cutoff
           const fileTime = file.lastModified;
           if (fileTime < cutoffTime) {
-            await Bun.write(filePath, ""); // Truncate first
-            const proc = Bun.spawn(["rm", filePath]);
-            await proc.exited;
-            deletedCount++;
+            try {
+              await unlink(filePath);
+              deletedCount++;
+            } catch (e) {
+              await Bun.write(filePath, "");
+            }
           }
         } catch (error) {
            // ignore specific file error
@@ -144,10 +163,12 @@ export class DebugStore {
           const fileTime = file.lastModified;
           if (fileTime < cutoffTime) {
             // Delete the file using Bun's filesystem
-            await Bun.write(filePath, ""); // Truncate first
-            const proc = Bun.spawn(["rm", filePath]);
-            await proc.exited;
-            deletedCount++;
+            try {
+              await unlink(filePath);
+              deletedCount++;
+            } catch (e) {
+              await Bun.write(filePath, "");
+            }
           }
         } catch (error) {
           logger.warn("Failed to check/delete debug trace", {
