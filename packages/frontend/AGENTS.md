@@ -27,3 +27,6 @@ const { data, error } = await client.PUT("/blogposts", {
   },
 });
 ```
+
+
+NEVER USE npm, npx, pnpm or pnpx.  ALWAYS USE bun or bunx

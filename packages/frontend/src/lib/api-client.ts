@@ -1,0 +1,31 @@
+import createClient from 'openapi-fetch';
+import type { paths, components } from './management.d.ts';
+
+const API_BASE = '';
+
+const client = createClient<paths>({
+  baseUrl: API_BASE,
+});
+
+client.use({
+  async onRequest({ request }) {
+    const adminKey = localStorage.getItem('plexus_admin_key');
+    if (adminKey) {
+      request.headers.set('x-admin-key', adminKey);
+    }
+    return request;
+  },
+  async onResponse({ response }) {
+    if (response.status === 401) {
+      localStorage.removeItem('plexus_admin_key');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return response;
+  },
+});
+
+export { client };
+
+export type { paths, components };
