@@ -25,6 +25,8 @@ import { DebugLogger } from "./services/debug-logger";
 import { EventEmitter } from "./services/event-emitter";
 import { ConfigManager } from "./services/config-manager";
 import { LogQueryService } from "./services/log-query";
+// @ts-ignore
+import frontendHtml from "../../frontend/src/index.html";
 
 /**
  * Request router - maps URLs to handlers
@@ -90,6 +92,8 @@ async function router(req: Request, context: ServerContext, adminAuth: AdminAuth
   if (path === "/v1/models" && req.method === "GET") {
     return handleModels(req, context.config, requestId);
   }
+
+  // Frontend is served via Bun.serve routes option below
 
   // 404 for unknown routes
   requestLogger.debug("Route not found", { path });
@@ -217,6 +221,13 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
   const server = Bun.serve({
     port: config.server.port,
     hostname: config.server.host,
+    development: process.env.NODE_ENV !== "production" && {
+      hmr: true,
+    },
+    routes: {
+      "/ui": frontendHtml,
+      "/ui/*": frontendHtml,
+    },
     fetch: (req: Request, server): Promise<Response> | Response => {
       const clientIp = req.headers.get("x-forwarded-for") || server.requestIP(req)?.address || "0.0.0.0";
       return router(req, context, adminAuth, clientIp);

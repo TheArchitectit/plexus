@@ -1,0 +1,19 @@
+# Dependencies
+node_modules
+dist
+.bun
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log*
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

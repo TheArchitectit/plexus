@@ -1,0 +1,26 @@
+{
+  "name": "@plexus/frontend",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --host 0.0.0.0 src/index.html",
+    "build": "bun build src/index.html --outdir=dist --minify",
+    "typecheck": "bun tsc --noEmit"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.6",
+    "@types/react-dom": "^19.0.2",
+    "bun-plugin-tailwind": "latest",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.3"
+  }
+}
