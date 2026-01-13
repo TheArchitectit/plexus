@@ -14,7 +14,11 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "skipLibCheck": true,
-    "jsxImportSource": "react"
+    "jsxImportSource": "react",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
