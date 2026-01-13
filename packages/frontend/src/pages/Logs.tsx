@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import { parse } from 'yaml';
+import { fetchEventSource, EventStreamContentType } from '@microsoft/fetch-event-source';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,24 +17,33 @@ import {
 } from '@/components/ui/table';
 import { Search, Trash2, ChevronLeft, ChevronRight, Bug, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
+const activeSSEConnections = new Set<AbortController>();
+
 interface UsageLog {
-  id: string;
-  timestamp: string;
-  apiKey: string;
-  sourceIp: string;
-  api: string;
-  model: string;
-  tokens: {
-    prompt?: number;
-    completion?: number;
-    total?: number;
+  id?: string;
+  timestamp?: string;
+  clientIp?: string;
+  apiKey?: string;
+  apiType?: string;
+  aliasUsed?: string;
+  actualProvider?: string;
+  actualModel?: string;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+    reasoningTokens?: number;
+    totalTokens?: number;
   };
-  cost: number;
-  performance: {
-    latency: number;
-    duration: number;
+  cost?: {
+    totalCost?: number;
   };
-  success: boolean;
+  metrics?: {
+    durationMs?: number;
+    ttftMs?: number;
+  };
+  success?: boolean;
   debug?: string;
   error?: string;
 }
@@ -79,8 +89,8 @@ export function LogsPage() {
       } else {
         setLogs([]);
       }
-      setTotal(response.total);
-      setHasMore(response.hasMore);
+      setTotal(response.total ?? 0);
+      setHasMore(response.hasMore ?? false);
     } catch (error) {
       console.error('Failed to fetch logs:', error);
     } finally {
@@ -92,15 +102,17 @@ export function LogsPage() {
     try {
       const configYaml = await api.getConfig();
       const config = parse(configYaml);
-      const provs = (config as any).providers || [];
-      const keys = (config as any).keys || [];
+      const provs = (config as any)?.providers || [];
+      const keys = (config as any)?.keys || [];
 
-      const providerNames = provs.map((p: any) => p.name);
+      const providerNames = provs.filter((p: any) => p && p.name).map((p: any) => p.name);
       const modelsMap: Record<string, string[]> = {};
-      const keyNames = keys.map((k: any) => k.name);
+      const keyNames = keys.filter((k: any) => k && k.name).map((k: any) => k.name);
 
       provs.forEach((p: any) => {
-        modelsMap[p.name] = p.models || [];
+        if (p && p.name) {
+          modelsMap[p.name] = Array.isArray(p.models) ? p.models : [];
+        }
       });
 
       setProviders(providerNames);
@@ -111,14 +123,9 @@ export function LogsPage() {
     }
   };
 
-  useEffect(() => {
-    fetchLogs();
-    fetchConfig();
-  }, [page, filters]);
-
-  const handleDeleteLog = async (id: string) => {
+  const handleDeleteLog = async (id?: string) => {
+    if (!id) return;
     try {
-      // Note: API doesn't support individual delete, deleting all for now
       await api.deleteLogs({ all: true });
       setPage(0);
       await fetchLogs();
@@ -140,17 +147,93 @@ export function LogsPage() {
     setDeleteAllDialogOpen(false);
   };
 
-  const formatLatency = (ms: number) => {
+  const formatLatency = (ms?: number) => {
+    if (ms === undefined || ms === null) return '-';
     if (ms < 1000) return `${Math.round(ms)}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
-  const formatCost = (cost: number) => {
-    return `$${cost.toFixed(6)}`;
+  const formatCost = (cost?: number | string) => {
+    if (cost === undefined || cost === null) return '-';
+    const numCost = typeof cost === 'string' ? parseFloat(cost) : cost;
+    if (isNaN(numCost)) return '-';
+    return `$${numCost.toFixed(6)}`;
   };
+
+  const formatTimestamp = (timestamp?: string) => {
+    if (!timestamp) return '-';
+    try {
+      return new Date(timestamp).toLocaleString();
+    } catch {
+      return '-';
+    }
+  };
+
+  const safeText = (value?: string) => value || '-';
 
   const selectedProviderModels = filters.provider ? models[filters.provider] || [] : [];
   const allModels = Object.values(models).flat();
+  const fetchLogsRef = useRef<(() => Promise<void>) | null>(null);
+
+  fetchLogsRef.current = fetchLogs;
+
+  useEffect(() => {
+    fetchLogs();
+    fetchConfig();
+  }, [page, filters.model, filters.provider, filters.apiKey, filters.success]);
+
+  useEffect(() => {
+    if (activeSSEConnections.size > 0) {
+      console.log('[SSE] Connection already exists, skipping', { totalConnections: activeSSEConnections.size });
+      return;
+    }
+
+    const adminKey = localStorage.getItem('plexus_admin_key');
+    const abortController = new AbortController();
+
+    activeSSEConnections.add(abortController);
+    console.log('[SSE] Connecting...', { totalConnections: activeSSEConnections.size });
+
+    fetchEventSource('/v0/events', {
+      method: 'GET',
+      signal: abortController.signal,
+      headers: {
+        'Authorization': adminKey ? `Bearer ${adminKey}` : '',
+      },
+      async onopen(response) {
+        console.log('[SSE] Connection opened', { status: response.status, contentType: response.headers.get('content-type') });
+        if (response.ok && response.headers.get('content-type') === EventStreamContentType) {
+          return;
+        }
+        throw new Error('SSE connection failed');
+      },
+      onmessage(msg) {
+        if (!msg.data) return;
+        try {
+          const data = JSON.parse(msg.data);
+          if (data.type === 'usage') {
+            console.log('[SSE] Usage event received', data);
+            fetchLogsRef.current?.();
+          } else if (data.type === 'heartbeat') {
+            console.log('[SSE] Heartbeat', new Date().toISOString());
+          }
+        } catch (error) {
+          console.log('[SSE] Parse error', { error, data: msg.data });
+        }
+      },
+      onerror(err) {
+        console.log('[SSE] Error', err);
+      },
+    }).catch((err) => {
+      console.log('[SSE] Connection failed', err);
+    });
+
+    return () => {
+      console.log('[SSE] Cleanup', { totalConnections: activeSSEConnections.size });
+      abortController.abort();
+      activeSSEConnections.delete(abortController);
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-6">
@@ -213,7 +296,7 @@ export function LogsPage() {
               }}
             >
               <option value="">All Providers</option>
-              {providers.map((p) => (
+              {providers.filter(Boolean).map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
@@ -278,32 +361,34 @@ export function LogsPage() {
               </TableRow>
             ) : (
               logs.map((log) => (
-                <TableRow key={log.id}>
+                <TableRow key={log.id || Math.random()}>
                   <TableCell className="whitespace-nowrap">
-                    {new Date(log.timestamp).toLocaleString()}
+                    {formatTimestamp(log.timestamp)}
                   </TableCell>
-                  <TableCell>{log.apiKey}</TableCell>
-                  <TableCell className="text-muted-foreground">{log.sourceIp}</TableCell>
+                  <TableCell>{safeText(log.apiKey)}</TableCell>
+                  <TableCell className="text-muted-foreground">{safeText(log.clientIp)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{log.api}</Badge>
+                    <Badge variant="outline">{safeText(log.apiType)}</Badge>
                   </TableCell>
-                  <TableCell className="font-medium">{log.model}</TableCell>
+                  <TableCell className="font-medium">{safeText(log.actualModel)}</TableCell>
                   <TableCell>
-                    {log.tokens.total !== undefined ? log.tokens.total.toLocaleString() : '-'}
+                    {log.usage?.totalTokens !== undefined ? log.usage.totalTokens.toLocaleString() : '-'}
                   </TableCell>
-                  <TableCell>{formatCost(log.cost)}</TableCell>
-                  <TableCell>{formatLatency(log.performance.latency)}</TableCell>
+                  <TableCell>{formatCost(log.cost?.totalCost)}</TableCell>
+                  <TableCell>{formatLatency(log.metrics?.durationMs)}</TableCell>
                   <TableCell>
-                    {log.success ? (
+                    {log.success === true ? (
                       <Badge variant="default" className="gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Success
                       </Badge>
-                    ) : (
+                    ) : log.success === false ? (
                       <Badge variant="destructive" className="gap-1">
                         <XCircle className="h-3 w-3" />
                         Error
                       </Badge>
+                    ) : (
+                      <Badge variant="outline">Unknown</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -327,8 +412,10 @@ export function LogsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setLogToDelete(log.id);
-                              setDeleteDialogOpen(true);
+                              if (log.id) {
+                                setLogToDelete(log.id);
+                                setDeleteDialogOpen(true);
+                              }
                             }}
                           >
                             <Trash2 className="h-4 w-4" />

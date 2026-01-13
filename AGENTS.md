@@ -15,6 +15,14 @@
     *   **Runtime:** Native Bun APIs are preferred over Node.js polyfills (e.g., file I/O).
     *   **Transformations:** NEVER build custom transformations. Use the existing architecture in `src/transformers` (derived from `@musistudio/llms`).
     *   **Types:** Do not duplicate types. Check `src/types` and `src/transformers/types.ts` first.
+*   **Image/Asset Imports:**
+    *   **Frontend:** Import images directly from the `@/assets/` path alias. Bun bundler handles the import and provides the resolved path.
+    *   **Example:**
+        ```typescript
+        import plexusLogo from '@/assets/plexus_logo_transparent.png';
+        // usage: <img src={plexusLogo} alt="Logo" />
+        ```
+    *   **Note:** Do NOT use Vite-specific syntax. This is a Bun project.
 
 ---
 

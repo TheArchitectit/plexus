@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './components/theme-provider';
 import { AuthProvider } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ProtectedRoute } from './contexts/ProtectedRoute';
@@ -10,7 +11,7 @@ import { UsagePage, LogsPage, ProvidersPage, ModelsPage, KeysPage, ConfigPage, D
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/ui">
       <ThemeProvider>
         <AuthProvider>
           <SidebarProvider>

@@ -6,6 +6,7 @@ export async function handleEvents(req: Request, eventEmitter: EventEmitter): Pr
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
   });
 
   return new Response(new ReadableStream({
@@ -15,6 +16,7 @@ export async function handleEvents(req: Request, eventEmitter: EventEmitter): Pr
         eventEmitter.addClient(controller);
       } catch (error) {
         logger.error("Failed to add client", { error });
+        controller.close();
       }
     },
     cancel(controller) {

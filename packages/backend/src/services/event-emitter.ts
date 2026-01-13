@@ -26,10 +26,15 @@ export class EventEmitter extends NodeEventEmitter {
     }
 
     this.clients.add(controller);
-    logger.debug("SSE client connected", { totalClients: this.clients.size });
+    logger.silly("SSE client connected", { totalClients: this.clients.size });
 
     // Send initial ping
-    this.sendToClient(controller, ":heartbeat\n\n");
+    const heartbeatEvent = {
+      type: "heartbeat",
+      timestamp: new Date().toISOString(),
+    };
+    const heartbeatMessage = `event: heartbeat\ndata: ${JSON.stringify(heartbeatEvent)}\n\n`;
+    this.sendToClient(controller, heartbeatMessage);
   }
 
   /**
@@ -37,7 +42,7 @@ export class EventEmitter extends NodeEventEmitter {
    */
   removeClient(controller: ReadableStreamDirectController): void {
     this.clients.delete(controller);
-    logger.debug("SSE client disconnected", { totalClients: this.clients.size });
+    logger.silly("SSE client disconnected", { totalClients: this.clients.size });
   }
 
   /**
@@ -51,6 +56,7 @@ export class EventEmitter extends NodeEventEmitter {
     };
 
     const message = `event: ${type}\ndata: ${JSON.stringify(event)}\n\n`;
+    logger.info("SSE emitting event", { type, clientCount: this.clients.size });
 
     for (const client of this.clients) {
       this.sendToClient(client, message);
@@ -68,17 +74,34 @@ export class EventEmitter extends NodeEventEmitter {
         controller.enqueue(new TextEncoder().encode(message));
       }
     } catch (error) {
-      logger.error("Error sending to client", { error: error instanceof Error ? error.message : String(error) });
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('already closed') || errorMsg.includes('Invalid state')) {
+        // Suppressed - client disconnected
+      } else {
+        logger.error("Error sending to client", {
+          error: errorMsg,
+          errorStack: error instanceof Error ? error.stack : undefined,
+          clientCount: this.clients.size
+        });
+      }
       // Client likely disconnected
       this.removeClient(controller);
     }
   }
 
   private startHeartbeat() {
+    logger.silly("Starting heartbeat timer", { interval: this.heartbeatInterval });
     this.heartbeatTimer = setInterval(() => {
+      logger.silly("Heartbeat timer fired to clients", { clients: this.clients.size });
       if (this.clients.size > 0) {
+        const heartbeatEvent = {
+          type: "heartbeat",
+          timestamp: new Date().toISOString(),
+        };
+        const heartbeatMessage = `event: heartbeat\ndata: ${JSON.stringify(heartbeatEvent)}\n\n`;
+        logger.silly("Heartbeat sending to clients", { clients: this.clients.size });
         for (const client of this.clients) {
-          this.sendToClient(client, ":heartbeat\n\n");
+          this.sendToClient(client, heartbeatMessage);
         }
       }
     }, this.heartbeatInterval);

@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import plexusLogo from '@/assets/plexus_logo_transparent.png';
 
 interface NavItemProps {
   to: string;
@@ -46,13 +47,13 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, isCollapsed })
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 py-3 px-2 rounded-md text-sm font-medium transition-all duration-200 border border-transparent hover:bg-accent hover:text-accent-foreground',
+          'flex items-center gap-3 py-1.5 px-2 rounded-md text-sm font-medium transition-all duration-200 border border-transparent hover:bg-accent hover:text-accent-foreground',
           isCollapsed && 'justify-center',
           isActive && 'bg-primary text-primary-foreground shadow-sm'
         )
       }
     >
-      <Icon className="h-5 w-5" />
+      <Icon className="h-4 w-4" />
       <span
         className={cn('transition-opacity duration-200', isCollapsed && 'opacity-0 w-0 overflow-hidden')}
       >
@@ -125,9 +126,7 @@ export const Sidebar: React.FC = () => {
             isCollapsed && 'opacity-0 w-0 overflow-hidden'
           )}
         >
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">P</span>
-          </div>
+          <img src={plexusLogo} alt="Plexus Logo" className="w-8 h-8" />
           <h1 className="text-xl font-bold m-0 bg-clip-text text-transparent bg-gradient-to-br from-primary to-secondary">
             Plexus
           </h1>
@@ -137,10 +136,10 @@ export const Sidebar: React.FC = () => {
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="flex-shrink-0"
+          className="flex-shrink-0 h-8 w-8"
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </Button>
       </div>
 
@@ -150,11 +149,11 @@ export const Sidebar: React.FC = () => {
         AI Infrastructure Management
       </p>
 
-      <nav className="flex-1 py-4 px-2 flex flex-col gap-1">
-        <div className="px-2">
+      <nav className="flex-1 py-4 px-2 flex flex-col gap-6">
+        <div className="flex flex-col gap-2 px-2">
           <h3
             className={cn(
-              'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 transition-opacity duration-200',
+              'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-opacity duration-200',
               isCollapsed && 'opacity-0 h-0 overflow-hidden'
             )}
           >
@@ -165,7 +164,7 @@ export const Sidebar: React.FC = () => {
           <NavItem to="/logs" icon={FileText} label="Logs" isCollapsed={isCollapsed} />
         </div>
 
-        <div className="mt-6 px-2">
+        <div className="flex flex-col gap-2 px-2">
           <h3
             className={cn(
               'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 transition-opacity duration-200',
@@ -180,10 +179,10 @@ export const Sidebar: React.FC = () => {
           <NavItem to="/config" icon={Settings} label="Config" isCollapsed={isCollapsed} />
         </div>
 
-        <div className="mt-6 px-2 mt-auto">
+        <div className="flex flex-col gap-2 px-2 mt-auto">
           <h3
             className={cn(
-              'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 transition-opacity duration-200',
+              'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-opacity duration-200',
               isCollapsed && 'opacity-0 h-0 overflow-hidden'
             )}
           >
@@ -194,13 +193,13 @@ export const Sidebar: React.FC = () => {
               <Button
                 variant={debugMode ? 'destructive' : 'ghost'}
                 className={cn(
-                  'w-full justify-start mb-2',
+                  'w-full justify-start h-8',
                   isCollapsed && 'justify-center',
                   debugMode && 'border-destructive/30'
                 )}
                 onClick={handleToggleClick}
               >
-                <Bug className="h-5 w-5" />
+                <Bug className="h-4 w-4" />
                 <span
                   className={cn('transition-opacity duration-200', isCollapsed && 'opacity-0 w-0 overflow-hidden')}
                 >
@@ -228,10 +227,10 @@ export const Sidebar: React.FC = () => {
             const themeButton = (
               <Button
                 variant="ghost"
-                className={cn('w-full justify-start mt-2', isCollapsed && 'justify-center')}
+                className={cn('w-full justify-start h-8', isCollapsed && 'justify-center')}
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               >
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 <span
                   className={cn('transition-opacity duration-200', isCollapsed && 'opacity-0 w-0 overflow-hidden')}
                 >
@@ -257,10 +256,10 @@ export const Sidebar: React.FC = () => {
             const logoutButton = (
               <Button
                 variant="ghost"
-                className={cn('w-full justify-start text-destructive hover:text-destructive mt-4', isCollapsed && 'justify-center')}
+                className={cn('w-full justify-start text-destructive hover:text-destructive h-8', isCollapsed && 'justify-center')}
                 onClick={handleLogout}
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
                 <span
                   className={cn('transition-opacity duration-200', isCollapsed && 'opacity-0 w-0 overflow-hidden')}
                 >

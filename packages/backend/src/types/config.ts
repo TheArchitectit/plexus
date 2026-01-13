@@ -21,7 +21,7 @@ export type AdminConfig = z.infer<typeof AdminConfigSchema>;
 
 // Events configuration (Phase 8)
 export const EventsConfigSchema = z.object({
-  heartbeatIntervalMs: z.number().default(30000),
+  heartbeatIntervalMs: z.number().min(5000).max(50000).default(30000),
   maxClients: z.number().default(10),
 });
 

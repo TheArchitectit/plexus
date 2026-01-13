@@ -185,24 +185,38 @@ export class DebugStore {
         return 0;
       }
 
-      const now = Date.now();
-      const cutoffTime = now - days * 24 * 60 * 60 * 1000;
-      const cutoffStr = this.getTimestamp(new Date(cutoffTime).toISOString());
-
-      // Read directory
       const glob = new Bun.Glob("*/");
       const dirs = Array.from(glob.scanSync({ cwd: this.storagePath, onlyFiles: false }));
 
       let deletedCount = 0;
+      
       for (const dirName of dirs) {
         const name = dirName.replace(/\/$/, "");
+
+        // If days is 0, delete ALL directories
+        if (days === 0) {
+          try {
+            await rm(join(this.storagePath, dirName), { recursive: true, force: true });
+            deletedCount++;
+            logger.info("Deleted debug directory", { dirName });
+          } catch (e) {
+            logger.error("Failed to delete debug directory", { dirName, error: e instanceof Error ? e.message : String(e) });
+          }
+          continue;
+        }
+
+        // Otherwise, check if directory is older than the cutoff time
+        const now = Date.now();
+        const cutoffTime = now - days * 24 * 60 * 60 * 1000;
+        const cutoffStr = this.getTimestamp(new Date(cutoffTime).toISOString());
 
         if (name < cutoffStr) {
           try {
             await rm(join(this.storagePath, dirName), { recursive: true, force: true });
             deletedCount++;
+            logger.info("Deleted old debug directory", { dirName });
           } catch (e) {
-            logger.warn("Failed to delete old debug directory", { dirName, error: e });
+            logger.error("Failed to delete old debug directory", { dirName, error: e instanceof Error ? e.message : String(e) });
           }
         }
       }

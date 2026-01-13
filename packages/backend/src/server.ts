@@ -93,7 +93,15 @@ async function router(req: Request, context: ServerContext, adminAuth: AdminAuth
     return handleModels(req, context.config, requestId);
   }
 
-  // Frontend is served via Bun.serve routes option below
+  // Frontend routes - serve HTML for React Router client-side routing
+  if (path === "/ui" || path.startsWith("/ui/")) {
+    //ts-ignore
+    return new Response(frontendHtml, {
+      headers: {
+        "Content-Type": "text/html",
+      },
+    });
+  }
 
   // 404 for unknown routes
   requestLogger.debug("Route not found", { path });
@@ -221,6 +229,7 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
   const server = Bun.serve({
     port: config.server.port,
     hostname: config.server.host,
+    idleTimeout: 60, // 60 seconds to allow for 30s keep-alive heatbeats for SSE
     development: process.env.NODE_ENV !== "production" && {
       hmr: true,
     },

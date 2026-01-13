@@ -115,11 +115,27 @@ export class ErrorStore {
     try {
       const glob = new Bun.Glob("*.jsonl");
       const files = Array.from(glob.scanSync(this.storagePath));
+      
+      let deletedCount = 0;
+
+      // If days is 0, delete ALL logs (including today)
+      if (days === 0) {
+        for (const file of files) {
+          const filePath = join(this.storagePath, file);
+          try {
+            await unlink(filePath);
+            deletedCount++;
+            logger.info("Deleted error log file", { file });
+          } catch (e) {
+            logger.error("Failed to delete error log file", { file, error: e instanceof Error ? e.message : String(e) });
+          }
+        }
+        return deletedCount;
+      }
+
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
       const cutoffString = cutoffDate.toISOString().split("T")[0];
-      
-      let deletedCount = 0;
 
       for (const file of files) {
         const dateMatch = file.match(/^(\d{4}-\d{2}-\d{2})\.jsonl$/);
@@ -133,7 +149,7 @@ export class ErrorStore {
             deletedCount++;
             logger.info("Deleted error log file", { file, date: fileDate });
           } catch (e) {
-            await Bun.write(filePath, "");
+            logger.error("Failed to delete error log file", { file, date: fileDate, error: e instanceof Error ? e.message : String(e) });
           }
         }
       }
