@@ -21,19 +21,25 @@ describe("Trace List Integration", () => {
     const errorStore = new ErrorStore(join(TEST_LOG_DIR, "errors"));
     debugStore = new DebugStore(join(TEST_LOG_DIR, "debug"), 7);
 
-    // Write mock debug traces with different timestamps
-    // We can't easily fake file creation time (birthtime/mtime) cross-platform reliably without hacks,
-    // but we can rely on Bun.write updating mtime.
-    // We'll write them sequentially with a small delay if needed, or just check they are listed.
-    
+    // Write mock debug traces using the store method to ensure correct structure
     for (let i = 1; i <= 5; i++) {
         const entry = {
             id: `trace-${i}`,
             timestamp: new Date().toISOString(),
-            clientRequest: { apiType: "chat" }
+            clientRequest: { 
+                apiType: "chat" as any,
+                body: { message: `test ${i}` },
+                headers: {}
+            },
+            unifiedRequest: {},
+            providerRequest: {
+                apiType: "chat" as any,
+                body: {},
+                headers: {}
+            }
         };
-        await Bun.write(join(TEST_LOG_DIR, "debug", `trace-${i}.json`), JSON.stringify(entry));
-        // small sleep to ensure mtime diff if filesystem has low resolution (not strictly needed for "list" existence check)
+        await debugStore.store(entry);
+        // small sleep to ensure mtime diff
         await new Promise(r => setTimeout(r, 10)); 
     }
 

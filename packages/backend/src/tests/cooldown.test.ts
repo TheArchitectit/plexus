@@ -43,7 +43,7 @@ describe("Cooldown Manager", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY}" },
           models: ["test-model"],
         },
         {
@@ -51,7 +51,7 @@ describe("Cooldown Manager", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test2.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_2" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_2}" },
           models: ["test-model-2"],
           cooldown: {
             rate_limit: 30,

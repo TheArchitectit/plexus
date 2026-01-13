@@ -44,7 +44,7 @@ describe("Health Monitor", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test1.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_1" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_1}" },
           models: ["model-1"],
         },
         {
@@ -52,7 +52,7 @@ describe("Health Monitor", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test2.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_2" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_2}" },
           models: ["model-2"],
         },
         {
@@ -60,7 +60,7 @@ describe("Health Monitor", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test3.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_3" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_3}" },
           models: ["model-3"],
         },
         {
@@ -68,7 +68,7 @@ describe("Health Monitor", () => {
           enabled: false,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test4.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_4" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_4}" },
           models: ["model-4"],
         },
       ],
@@ -288,7 +288,7 @@ describe("Health Monitor", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test1.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_1" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_1}" },
           models: ["model-1"],
         },
         {
@@ -296,7 +296,7 @@ describe("Health Monitor", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test2.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_2" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_2}" },
           models: ["model-2"],
         },
       ];
@@ -321,7 +321,7 @@ describe("Health Monitor", () => {
           enabled: true,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test1.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_1" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_1}" },
           models: ["model-1"],
         },
         {
@@ -329,7 +329,7 @@ describe("Health Monitor", () => {
           enabled: false,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test2.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_2" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_2}" },
           models: ["model-2"],
         },
         {
@@ -337,7 +337,7 @@ describe("Health Monitor", () => {
           enabled: false,
           apiTypes: ["chat"],
           baseUrls: { chat: "https://api.test3.com" },
-          auth: { type: "bearer", apiKeyEnv: "TEST_KEY_3" },
+          auth: { type: "bearer", apiKey: "{env:TEST_KEY_3}" },
           models: ["model-3"],
         },
       ];

@@ -192,7 +192,7 @@ export class Dispatcher {
         requestId,
       });
 
-      requestLogger.debug("Provider response received", {
+      requestLogger.debug("Dispatcher received provider response", {
         provider: provider.name,
         status: providerResponse.status,
       });

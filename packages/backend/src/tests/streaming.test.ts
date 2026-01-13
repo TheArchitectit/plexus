@@ -45,7 +45,7 @@ describe("Streaming Support", () => {
           },
           auth: {
             type: "bearer",
-            apiKeyEnv: "OPENAI_API_KEY",
+            apiKey: "{env:OPENAI_API_KEY}",
           },
           models: ["gpt-4"],
         },
@@ -58,7 +58,7 @@ describe("Streaming Support", () => {
           },
           auth: {
             type: "x-api-key",
-            apiKeyEnv: "ANTHROPIC_API_KEY",
+            apiKey: "{env:ANTHROPIC_API_KEY}",
           },
           models: ["claude-3-5-sonnet-20241022"],
         },

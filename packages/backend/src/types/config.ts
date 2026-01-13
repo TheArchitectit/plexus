@@ -72,7 +72,7 @@ export type LoggingConfig = z.infer<typeof LoggingConfigSchema>;
 // Provider authentication configuration
 export const ProviderAuthSchema = z.object({
   type: z.enum(["bearer", "x-api-key"]),
-  apiKeyEnv: z.string(),
+  apiKey: z.string(),
 });
 
 export type ProviderAuth = z.infer<typeof ProviderAuthSchema>;

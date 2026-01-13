@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { DebugLogger } from "./debug-logger";
 import { rm } from "node:fs/promises";
+import { join } from "node:path";
 
 describe("DebugLogger", () => {
   const testStoragePath = "./test-data/debug-logs";
@@ -132,10 +133,17 @@ describe("DebugLogger", () => {
 
     await debugLogger.completeTrace(requestId);
 
-    // Check that file was created
-    const filePath = `${testStoragePath}/${requestId}.json`;
-    const fileExists = await Bun.file(filePath).exists();
-    expect(fileExists).toBe(true);
+    // Check that directory was created and contains the expected files
+    // Since the directory name includes a timestamp, we use a glob to find it
+    const glob = new Bun.Glob(`*-${requestId}`);
+    const dirs = Array.from(glob.scanSync({ cwd: testStoragePath, onlyFiles: false }));
+    
+    expect(dirs).toHaveLength(1);
+    const dirPath = join(testStoragePath, dirs[0]);
+    
+    expect(await Bun.file(join(dirPath, "trace.json")).exists()).toBe(true);
+    expect(await Bun.file(join(dirPath, "client_request.json")).exists()).toBe(true);
+    expect(await Bun.file(join(dirPath, "unified_request.json")).exists()).toBe(true);
 
     // Verify trace was removed from memory
     const traces = (debugLogger as any).traces;

@@ -101,7 +101,7 @@ A list of external LLM providers.
 | `apiTypes` | array | Supported API formats (`chat`, `messages`, `gemini`). |
 | `baseUrls` | object | Endpoint URLs for each supported API type. |
 | `auth.type` | string | Authentication method (`bearer` or `x-api-key`). |
-| `auth.apiKeyEnv` | string | Name of the environment variable containing the API key. |
+| `auth.apiKey` | string | The API key. Can be a direct string (e.g., `"sk-..."`) or an environment variable reference (e.g., `"{env:OPENAI_API_KEY}"`). |
 | `models` | array | List of model names supported by this provider. |
 | `customHeaders` | object | (Optional) Additional headers to send to the provider. |
 | `extraBody` | object | (Optional) Additional fields to merge into every request body. |

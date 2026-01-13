@@ -18,7 +18,7 @@ const mockConfig: PlexusConfig = {
       },
       auth: {
         type: "bearer",
-        apiKeyEnv: "OPENAI_API_KEY",
+        apiKey: "{env:OPENAI_API_KEY}",
       },
       models: ["gpt-4", "gpt-3.5-turbo"],
     },

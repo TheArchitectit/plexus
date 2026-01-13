@@ -18,7 +18,7 @@ const mockConfig: PlexusConfig = {
       },
       auth: {
         type: "x-api-key",
-        apiKeyEnv: "ANTHROPIC_API_KEY",
+        apiKey: "{env:ANTHROPIC_API_KEY}",
       },
       models: ["claude-3-opus", "claude-3-sonnet"],
       customHeaders: {

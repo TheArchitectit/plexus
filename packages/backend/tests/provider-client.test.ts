@@ -12,7 +12,7 @@ const mockProviderConfig: ProviderConfig = {
   },
   auth: {
     type: "bearer",
-    apiKeyEnv: "TEST_API_KEY",
+    apiKey: "{env:TEST_API_KEY}",
   },
   models: ["test-model"],
 };
@@ -72,7 +72,7 @@ test("Provider Client - Missing API Key", async () => {
     ...mockProviderConfig,
     auth: {
       type: "bearer",
-      apiKeyEnv: "NONEXISTENT_KEY",
+      apiKey: "{env:NONEXISTENT_KEY}",
     },
   };
 
@@ -94,7 +94,7 @@ test("Provider Client - X-API-Key Authentication", async () => {
     ...mockProviderConfig,
     auth: {
       type: "x-api-key",
-      apiKeyEnv: "CUSTOM_API_KEY",
+      apiKey: "{env:CUSTOM_API_KEY}",
     },
   };
 
@@ -132,6 +132,43 @@ test("Provider Client - X-API-Key Authentication", async () => {
     });
 
     expect(capturedHeaders?.["x-api-key"]).toBe("custom-key-value");
+  } finally {
+    (global as any).fetch = originalFetch;
+  }
+});
+
+test("Provider Client - Direct String API Key", async () => {
+  const config: ProviderConfig = {
+    ...mockProviderConfig,
+    auth: {
+      type: "bearer",
+      apiKey: "direct-api-key-value",
+    },
+  };
+
+  const client = new ProviderClient(config);
+  let capturedHeaders: Record<string, string> | null = null;
+
+  const originalFetch = global.fetch;
+  (global as any).fetch = async (url: string, options: any) => {
+    capturedHeaders = options.headers;
+    return new Response(
+      JSON.stringify({
+        id: "test-response",
+        choices: [{ message: { role: "assistant", content: "test" } }],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    await client.request({
+      method: "POST",
+      url: "https://api.test.com/v1/chat/completions",
+      body: {},
+    });
+
+    expect(capturedHeaders?.authorization).toBe("Bearer direct-api-key-value");
   } finally {
     (global as any).fetch = originalFetch;
   }

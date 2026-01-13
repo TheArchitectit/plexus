@@ -16,7 +16,7 @@ describe("TargetSelector", () => {
       enabled: true,
       apiTypes: ["chat"],
       baseUrls: { chat: "https://api-a.com" },
-      auth: { type: "bearer", apiKeyEnv: "KEY_A" },
+      auth: { type: "bearer", apiKey: "{env:KEY_A}" },
       models: ["model-1"],
     } as ProviderConfig;
 
@@ -25,7 +25,7 @@ describe("TargetSelector", () => {
       enabled: true,
       apiTypes: ["chat"],
       baseUrls: { chat: "https://api-b.com" },
-      auth: { type: "bearer", apiKeyEnv: "KEY_B" },
+      auth: { type: "bearer", apiKey: "{env:KEY_B}" },
       models: ["model-2"],
     } as ProviderConfig;
 
@@ -34,7 +34,7 @@ describe("TargetSelector", () => {
       enabled: true,
       apiTypes: ["chat"],
       baseUrls: { chat: "https://api-c.com" },
-      auth: { type: "bearer", apiKeyEnv: "KEY_C" },
+      auth: { type: "bearer", apiKey: "{env:KEY_C}" },
       models: ["model-3"],
     } as ProviderConfig;
   });

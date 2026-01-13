@@ -214,6 +214,10 @@ export class Router {
     }
 
     if (!provider.models.includes(model)) {
+      logger.debug("Passthrough rejected: model not found in provider", {
+        provider: providerName,
+        model,
+      });
       return null;
     }
 

@@ -25,8 +25,9 @@ describe("Log Details Integration", () => {
 
     // Write a mock usage log
     const today = new Date().toISOString().split('T')[0];
+    const requestId = "test-req-123";
     const usageEntry = {
-      id: "test-req-123",
+      id: requestId,
       timestamp: new Date().toISOString(),
       actualProvider: "openai",
       actualModel: "gpt-4",
@@ -37,13 +38,23 @@ describe("Log Details Integration", () => {
     };
     await Bun.write(join(TEST_LOG_DIR, "usage", `${today}.jsonl`), JSON.stringify(usageEntry) + "\n");
 
-    // Write a mock debug trace
+    // Write a mock debug trace using the store method
     const debugEntry = {
-      id: "test-req-123",
-      request: { model: "gpt-4" },
-      response: { choices: [] }
+      id: requestId,
+      timestamp: new Date().toISOString(),
+      clientRequest: {
+          apiType: "chat" as any,
+          body: { model: "gpt-4" },
+          headers: {}
+      },
+      unifiedRequest: { model: "gpt-4" },
+      providerRequest: {
+          apiType: "chat" as any,
+          body: { model: "gpt-4" },
+          headers: {}
+      }
     };
-    await Bun.write(join(TEST_LOG_DIR, "debug", "test-req-123.json"), JSON.stringify(debugEntry));
+    await debugStore.store(debugEntry);
 
     logQueryService = new LogQueryService(usageStore, errorStore, debugStore);
   });

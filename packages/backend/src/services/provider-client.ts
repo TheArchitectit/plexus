@@ -69,7 +69,7 @@ export class ProviderClient {
         clearTimeout(timeoutId);
 
         // Log response status
-        this.requestLogger.debug("Provider response received", {
+        this.requestLogger.debug("ProviderClient response received", {
           provider: this.config.name,
           status: response.status,
           requestId,
@@ -131,18 +131,27 @@ export class ProviderClient {
   }
 
   /**
-   * Gets the provider API key from environment variables
+   * Gets the provider API key, supporting both direct values and {env:VAR} references
    */
   private getProviderApiKey(): string {
-    const apiKey = process.env[this.config.auth.apiKeyEnv];
+    const keyConfig = this.config.auth.apiKey;
 
-    if (!apiKey) {
-      throw new Error(
-        `Provider API key not found in environment: ${this.config.auth.apiKeyEnv}`
-      );
+    // Check for {env:VAR_NAME} format
+    const envMatch = keyConfig.match(/^\{env:([^}]+)\}$/);
+    if (envMatch) {
+      const varName = envMatch[1];
+      const apiKey = process.env[varName];
+
+      if (!apiKey) {
+        throw new Error(
+          `Provider API key not found in environment: ${varName}`
+        );
+      }
+      return apiKey;
     }
 
-    return apiKey;
+    // Return as direct string
+    return keyConfig;
   }
 
   /**
@@ -188,7 +197,7 @@ export class ProviderClient {
         clearTimeout(timeoutId);
 
         // Log response status
-        this.requestLogger.debug("Provider response received (raw)", {
+        this.requestLogger.debug("ProviderClient raw response received", {
           provider: this.config.name,
           status: response.status,
           requestId,

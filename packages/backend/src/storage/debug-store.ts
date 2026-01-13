@@ -1,6 +1,6 @@
 import type { DebugTraceEntry } from "../types/usage";
 import { logger } from "../utils/logger";
-import { mkdir, unlink } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -12,6 +12,22 @@ export class DebugStore {
     private storagePath: string,
     private retentionDays: number
   ) {}
+
+  /**
+   * Helper to format timestamp for directory name
+   */
+  private getTimestamp(dateStr?: string): string {
+    const d = dateStr ? new Date(dateStr) : new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return [
+      d.getFullYear(),
+      pad(d.getMonth() + 1),
+      pad(d.getDate()),
+      pad(d.getHours()),
+      pad(d.getMinutes()),
+      pad(d.getSeconds())
+    ].join("-");
+  }
 
   /**
    * Initialize storage (create directories if needed)
@@ -38,17 +54,43 @@ export class DebugStore {
    */
   async store(entry: DebugTraceEntry): Promise<void> {
     try {
-      // Create filename based on request ID
-      const fileName = `${entry.id}.json`;
-      const filePath = join(this.storagePath, fileName);
+      // Create directory name: strftime(%Y-%m-%d-%H-%M-%S)-<request-id>
+      const timestamp = this.getTimestamp(entry.timestamp);
+      const dirName = `${timestamp}-${entry.id}`;
+      const dirPath = join(this.storagePath, dirName);
 
-      // Write debug trace as formatted JSON
-      const content = JSON.stringify(entry, null, 2);
-      await Bun.write(filePath, content);
+      // Create the directory
+      await mkdir(dirPath, { recursive: true });
 
-      logger.debug("Debug trace stored", {
+      // Split the trace into multiple files for better visibility
+      const tasks = [
+        // Full trace for compatibility and easy loading
+        Bun.write(join(dirPath, "trace.json"), JSON.stringify(entry, null, 2)),
+        // Client request
+        Bun.write(join(dirPath, "client_request.json"), JSON.stringify(entry.clientRequest, null, 2)),
+        // Unified request
+        Bun.write(join(dirPath, "unified_request.json"), JSON.stringify(entry.unifiedRequest, null, 2)),
+        // Provider request
+        Bun.write(join(dirPath, "provider_request.json"), JSON.stringify(entry.providerRequest, null, 2)),
+      ];
+
+      if (entry.providerResponse) {
+        tasks.push(Bun.write(join(dirPath, "provider_response.json"), JSON.stringify(entry.providerResponse, null, 2)));
+      }
+
+      if (entry.clientResponse) {
+        tasks.push(Bun.write(join(dirPath, "client_response.json"), JSON.stringify(entry.clientResponse, null, 2)));
+      }
+
+      if (entry.streamSnapshots) {
+        tasks.push(Bun.write(join(dirPath, "stream_snapshots.json"), JSON.stringify(entry.streamSnapshots, null, 2)));
+      }
+
+      await Promise.all(tasks);
+
+      logger.debug("Debug trace stored in directory", {
         requestId: entry.id,
-        filePath,
+        dirPath,
       });
     } catch (error) {
       logger.error("Failed to store debug trace", {
@@ -65,10 +107,17 @@ export class DebugStore {
    */
   async getById(requestId: string): Promise<DebugTraceEntry | null> {
     try {
-      const fileName = `${requestId}.json`;
-      const filePath = join(this.storagePath, fileName);
-      const file = Bun.file(filePath);
+      // Find directory ending with the request ID
+      const glob = new Bun.Glob(`*-${requestId}`);
+      const dirs = Array.from(glob.scanSync({ cwd: this.storagePath, onlyFiles: false }));
       
+      if (dirs.length === 0) return null;
+
+      // Use the first match (there should only be one for a unique request ID)
+      const dirPath = join(this.storagePath, dirs[0]);
+      const traceFile = join(dirPath, "trace.json");
+      
+      const file = Bun.file(traceFile);
       if (await file.exists()) {
         return await file.json();
       }
@@ -89,30 +138,29 @@ export class DebugStore {
     offset?: number;
   }): Promise<DebugTraceEntry[]> {
     try {
-      const glob = new Bun.Glob("*.json");
-      const files = Array.from(glob.scanSync(this.storagePath));
+      const glob = new Bun.Glob("*/");
+      const dirs = Array.from(glob.scanSync({ cwd: this.storagePath, onlyFiles: false }));
       
-      // Filter by date using file modification time first (optimization)
-      const startMs = query.startDate ? new Date(query.startDate).getTime() : 0;
-      const endMs = query.endDate ? new Date(query.endDate).getTime() : Date.now();
+      // Filter by directory name (starts with timestamp)
+      const startStr = query.startDate ? this.getTimestamp(query.startDate) : "0000";
+      const endStr = query.endDate ? this.getTimestamp(query.endDate) : "9999";
 
-      const validFiles = files.map(name => {
-          const file = Bun.file(join(this.storagePath, name));
-          return { name, time: file.lastModified };
-      })
-      .filter(f => f.time >= startMs && f.time <= endMs)
-      .sort((a, b) => b.time - a.time); // Newest first
+      const validDirs = dirs
+        .map(d => d.replace(/\/$/, "")) // Remove trailing slash if present
+        .filter(name => name >= startStr && name <= endStr)
+        .sort((a, b) => b.localeCompare(a)); // Newest first
 
       const entries: DebugTraceEntry[] = [];
       
       // Pagination
       const offset = query.offset || 0;
       const limit = query.limit || 100;
-      const pagedFiles = validFiles.slice(offset, offset + limit);
+      const pagedDirs = validDirs.slice(offset, offset + limit);
 
-      for (const { name } of pagedFiles) {
+      for (const dirName of pagedDirs) {
         try {
-            const content = await Bun.file(join(this.storagePath, name)).json();
+            const traceFile = join(this.storagePath, dirName, "trace.json");
+            const content = await Bun.file(traceFile).json();
             entries.push(content);
         } catch (e) {
             // ignore
@@ -139,35 +187,23 @@ export class DebugStore {
 
       const now = Date.now();
       const cutoffTime = now - days * 24 * 60 * 60 * 1000;
+      const cutoffStr = this.getTimestamp(new Date(cutoffTime).toISOString());
 
       // Read directory
-      const entries = await Array.fromAsync(
-        new Bun.Glob("*.json").scan({ cwd: this.storagePath })
-      );
+      const glob = new Bun.Glob("*/");
+      const dirs = Array.from(glob.scanSync({ cwd: this.storagePath, onlyFiles: false }));
 
       let deletedCount = 0;
-      for (const entry of entries) {
-        const filePath = join(this.storagePath, entry);
+      for (const dirName of dirs) {
+        const name = dirName.replace(/\/$/, "");
 
-        try {
-          // Get file stats
-          const file = Bun.file(filePath);
-          const stat = await file.exists();
-          
-          if (!stat) continue;
-
-          // Check if file is older than cutoff
-          const fileTime = file.lastModified;
-          if (fileTime < cutoffTime) {
-            try {
-              await unlink(filePath);
-              deletedCount++;
-            } catch (e) {
-              await Bun.write(filePath, "");
-            }
+        if (name < cutoffStr) {
+          try {
+            await rm(join(this.storagePath, dirName), { recursive: true, force: true });
+            deletedCount++;
+          } catch (e) {
+            logger.warn("Failed to delete old debug directory", { dirName, error: e });
           }
-        } catch (error) {
-           // ignore specific file error
         }
       }
       return deletedCount;
@@ -191,39 +227,23 @@ export class DebugStore {
 
       const now = Date.now();
       const cutoffTime = now - this.retentionDays * 24 * 60 * 60 * 1000;
+      const cutoffStr = this.getTimestamp(new Date(cutoffTime).toISOString());
 
       // Read directory
-      const entries = await Array.fromAsync(
-        new Bun.Glob("*.json").scan({ cwd: this.storagePath })
-      );
+      const glob = new Bun.Glob("*/");
+      const dirs = Array.from(glob.scanSync({ cwd: this.storagePath, onlyFiles: false }));
 
       let deletedCount = 0;
-      for (const entry of entries) {
-        const filePath = join(this.storagePath, entry);
+      for (const dirName of dirs) {
+        const name = dirName.replace(/\/$/, "");
 
-        try {
-          // Get file stats
-          const file = Bun.file(filePath);
-          const stat = await file.exists();
-          
-          if (!stat) continue;
-
-          // Check if file is older than retention period
-          const fileTime = file.lastModified;
-          if (fileTime < cutoffTime) {
-            // Delete the file using Bun's filesystem
-            try {
-              await unlink(filePath);
-              deletedCount++;
-            } catch (e) {
-              await Bun.write(filePath, "");
-            }
+        if (name < cutoffStr) {
+          try {
+            await rm(join(this.storagePath, dirName), { recursive: true, force: true });
+            deletedCount++;
+          } catch (e) {
+            logger.warn("Failed to delete old debug directory", { dirName, error: e });
           }
-        } catch (error) {
-          logger.warn("Failed to check/delete debug trace", {
-            file: entry,
-            error: error instanceof Error ? error.message : String(error),
-          });
         }
       }
 

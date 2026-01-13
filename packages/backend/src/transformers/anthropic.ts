@@ -7,7 +7,7 @@ import {
   MessageContent,
 } from "./types";
 import { logger } from "../utils/logger";
-import { countTokens, getThinkLevel, formatBase64 } from "./utils";
+import { getThinkLevel, formatBase64 } from "./utils";
 import { createParser, EventSourceMessage } from "eventsource-parser";
 import { encode } from "eventsource-encoder";
 
@@ -425,20 +425,10 @@ export class AnthropicTransformer implements Transformer {
 
     const inputTokens = response.usage?.input_tokens || 0;
     const totalOutputTokens = response.usage?.output_tokens || 0;
+    const thinkingTokens = response.usage?.thinking_tokens || 0;
     const cacheReadTokens = response.usage?.cache_read_input_tokens || 0;
     const cacheCreationTokens =
       response.usage?.cache_creation_input_tokens || 0;
-
-    let realOutputTokens = totalOutputTokens;
-    let imputedThinkingTokens = 0;
-
-    // TOKEN IMPUTATION LOGIC:
-    // If the provider doesn't explicitly return thinking tokens but has thinking content,
-    // we estimate text tokens and assume the remainder is reasoning.
-    if (reasoning.length > 0) {
-      realOutputTokens = countTokens(text);
-      imputedThinkingTokens = Math.max(0, totalOutputTokens - realOutputTokens);
-    }
 
     return {
       id: response.id,
@@ -448,9 +438,9 @@ export class AnthropicTransformer implements Transformer {
       tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
       usage: {
         input_tokens: inputTokens,
-        output_tokens: realOutputTokens,
+        output_tokens: totalOutputTokens,
         total_tokens: inputTokens + totalOutputTokens,
-        reasoning_tokens: imputedThinkingTokens,
+        reasoning_tokens: thinkingTokens,
         cached_tokens: cacheReadTokens,
         cache_creation_tokens: cacheCreationTokens,
       },
@@ -463,8 +453,6 @@ export class AnthropicTransformer implements Transformer {
    */
   transformStream(stream: ReadableStream): ReadableStream {
     const decoder = new TextDecoder();
-    let accumulatedText = "";
-    let seenThinking = false;
     let parser: any;
     let messageId: string | undefined;
     let model: string | undefined;
@@ -502,12 +490,10 @@ export class AnthropicTransformer implements Transformer {
                   break;
                 case "content_block_delta":
                   if (data.delta.type === "text_delta") {
-                    accumulatedText += data.delta.text;
                     unifiedChunk = {
                       delta: { content: data.delta.text },
                     };
                   } else if (data.delta.type === "thinking_delta") {
-                    seenThinking = true;
                     unifiedChunk = {
                       delta: { 
                         reasoning_content: data.delta.thinking,
@@ -551,7 +537,6 @@ export class AnthropicTransformer implements Transformer {
                       },
                     };
                   } else if (data.content_block.type === "thinking") {
-                    seenThinking = true;
                     unifiedChunk = {
                       delta: {
                         thinking: { content: data.content_block.thinking || "" }
@@ -563,17 +548,7 @@ export class AnthropicTransformer implements Transformer {
                   // Handle usage update and finish reason
                   const inputTokens = data.usage?.input_tokens || 0;
                   const totalOutputTokens = data.usage?.output_tokens || 0;
-
-                  let realOutputTokens = totalOutputTokens;
-                  let imputedThinkingTokens = 0;
-
-                  if (seenThinking) {
-                    realOutputTokens = countTokens(accumulatedText);
-                    imputedThinkingTokens = Math.max(
-                      0,
-                      totalOutputTokens - realOutputTokens
-                    );
-                  }
+                  const thinkingTokens = data.usage?.thinking_tokens || 0;
 
                   unifiedChunk = {
                     finish_reason:
@@ -585,9 +560,9 @@ export class AnthropicTransformer implements Transformer {
                     usage: data.usage
                       ? {
                           input_tokens: inputTokens,
-                          output_tokens: realOutputTokens,
+                          output_tokens: totalOutputTokens,
                           total_tokens: inputTokens + totalOutputTokens,
-                          reasoning_tokens: imputedThinkingTokens,
+                          reasoning_tokens: thinkingTokens,
                           cached_tokens: data.usage.cache_read_input_tokens || 0,
                           cache_creation_tokens: data.usage.cache_creation_input_tokens || 0,
                         }

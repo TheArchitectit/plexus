@@ -3,6 +3,7 @@ import type {
   SelectionContext,
   SelectorStrategy,
 } from "../types/routing";
+import { logger } from "../utils/logger";
 import type { CostCalculator } from "./cost-calculator";
 import type { MetricsCollector } from "./metrics-collector";
 
@@ -18,7 +19,10 @@ export class TargetSelector {
    * @param costCalculator - Cost calculator for cost-based selection
    * @param metricsCollector - Metrics collector for latency/performance selection
    */
-  constructor(costCalculator?: CostCalculator, metricsCollector?: MetricsCollector) {
+  constructor(
+    costCalculator?: CostCalculator,
+    metricsCollector?: MetricsCollector
+  ) {
     this.costCalculator = costCalculator;
     this.metricsCollector = metricsCollector;
   }
@@ -36,8 +40,15 @@ export class TargetSelector {
     context: SelectionContext = {}
   ): TargetWithProvider | null {
     if (targets.length === 0) {
+      logger.debug("Selector called with no targets");
       return null;
     }
+
+    logger.debug(`Selecting target`, {
+      strategy,
+      targetsCount: targets.length,
+      context,
+    });
 
     switch (strategy) {
       case "random":
@@ -52,6 +63,7 @@ export class TargetSelector {
         return this.selectByPerformance(targets);
       default:
         // Fallback to random
+        logger.warn(`Unknown strategy '${strategy}', falling back to random`);
         return this.selectRandom(targets);
     }
   }
@@ -68,7 +80,12 @@ export class TargetSelector {
     if (!hasWeights) {
       // Uniform random selection
       const randomIndex = Math.floor(Math.random() * targets.length);
-      return targets[randomIndex];
+      const selected = targets[randomIndex];
+      logger.debug("Selected random target (uniform)", {
+        provider: selected.provider,
+        model: selected.model,
+      });
+      return selected;
     }
 
     // Weighted random selection
@@ -84,12 +101,24 @@ export class TargetSelector {
     for (let i = 0; i < targets.length; i++) {
       cumulativeWeight += weights[i];
       if (random < cumulativeWeight) {
-        return targets[i];
+        const selected = targets[i];
+        logger.debug("Selected random target (weighted)", {
+          provider: selected.provider,
+          model: selected.model,
+          weight: weights[i],
+          totalWeight,
+        });
+        return selected;
       }
     }
 
     // Fallback (should never reach here, but needed for type safety)
-    return targets[targets.length - 1];
+    const fallback = targets[targets.length - 1];
+    logger.debug("Selected random target (fallback)", {
+      provider: fallback.provider,
+      model: fallback.model,
+    });
+    return fallback;
   }
 
   /**
@@ -106,12 +135,24 @@ export class TargetSelector {
     // Find first target not yet attempted
     for (let i = 0; i < targets.length; i++) {
       if (!previousAttempts.includes(i)) {
-        return targets[i];
+        const selected = targets[i];
+        logger.debug("Selected in-order target", {
+          provider: selected.provider,
+          model: selected.model,
+          index: i,
+          previousAttempts,
+        });
+        return selected;
       }
     }
 
     // All targets attempted, return first one
-    return targets[0];
+    const fallback = targets[0];
+    logger.debug("All targets attempted, returning first one (in-order)", {
+      provider: fallback.provider,
+      model: fallback.model,
+    });
+    return fallback;
   }
 
   /**
@@ -119,24 +160,20 @@ export class TargetSelector {
    * Falls back to random if no cost data available
    */
   private selectByCost(targets: TargetWithProvider[]): TargetWithProvider {
-    if (!this.costCalculator) {
-      // No cost calculator available, fall back to random
+    // We currently rely on metricsCollector for synchronous cost data
+    if (!this.metricsCollector) {
+      logger.debug(
+        "No metrics collector available for cost data, falling back to random"
+      );
       return this.selectRandom(targets);
     }
-
-    // Get cost estimates for each target
-    const costsPromises = targets.map(async (target) => {
-      const cost = await this.costCalculator!.getEstimatedCostPer1M(
-        target.model,
-        target.provider.name
-      );
-      return { target, cost };
-    });
 
     // Since we can't use async in select, we need to handle this synchronously
     // For now, use metrics collector's cached cost data if available
     const targetCosts = targets.map((target) => {
-      const cost = this.metricsCollector?.getProviderCost(target.providerConfig.name);
+      const cost = this.metricsCollector?.getProviderCost(
+        target.providerConfig.name
+      );
       return { target, cost };
     });
 
@@ -145,6 +182,7 @@ export class TargetSelector {
 
     if (targetsWithCosts.length === 0) {
       // No cost data available, fall back to random
+      logger.debug("No cost data available for targets, falling back to random");
       return this.selectRandom(targets);
     }
 
@@ -152,6 +190,13 @@ export class TargetSelector {
     const cheapest = targetsWithCosts.reduce((min, current) =>
       current.cost! < min.cost! ? current : min
     );
+
+    logger.debug("Selected cheapest target", {
+      provider: cheapest.target.provider,
+      model: cheapest.target.model,
+      cost: cheapest.cost,
+      candidatesCount: targetsWithCosts.length,
+    });
 
     return cheapest.target;
   }
@@ -163,20 +208,28 @@ export class TargetSelector {
   private selectByLatency(targets: TargetWithProvider[]): TargetWithProvider {
     if (!this.metricsCollector) {
       // No metrics collector available, fall back to random
+      logger.debug("No metrics collector available, falling back to random");
       return this.selectRandom(targets);
     }
 
     // Get latency data for each target
     const targetLatencies = targets.map((target) => {
-      const latency = this.metricsCollector!.getProviderLatency(target.providerConfig.name);
+      const latency = this.metricsCollector!.getProviderLatency(
+        target.providerConfig.name
+      );
       return { target, latency };
     });
 
     // Filter out targets without latency data
-    const targetsWithLatencies = targetLatencies.filter((tl) => tl.latency !== null);
+    const targetsWithLatencies = targetLatencies.filter(
+      (tl) => tl.latency !== null
+    );
 
     if (targetsWithLatencies.length === 0) {
       // No latency data available, fall back to random
+      logger.debug(
+        "No latency data available for targets, falling back to random"
+      );
       return this.selectRandom(targets);
     }
 
@@ -184,6 +237,13 @@ export class TargetSelector {
     const fastest = targetsWithLatencies.reduce((min, current) =>
       current.latency! < min.latency! ? current : min
     );
+
+    logger.debug("Selected fastest target", {
+      provider: fastest.target.provider,
+      model: fastest.target.model,
+      latency: fastest.latency,
+      candidatesCount: targetsWithLatencies.length,
+    });
 
     return fastest.target;
   }
@@ -193,15 +253,20 @@ export class TargetSelector {
    * Score = throughput / (latency * cost)
    * Falls back to random if no performance data available
    */
-  private selectByPerformance(targets: TargetWithProvider[]): TargetWithProvider {
+  private selectByPerformance(
+    targets: TargetWithProvider[]
+  ): TargetWithProvider {
     if (!this.metricsCollector) {
       // No metrics collector available, fall back to random
+      logger.debug("No metrics collector available, falling back to random");
       return this.selectRandom(targets);
     }
 
     // Get performance scores for each target
     const targetScores = targets.map((target) => {
-      const score = this.metricsCollector!.getProviderPerformance(target.providerConfig.name);
+      const score = this.metricsCollector!.getProviderPerformance(
+        target.providerConfig.name
+      );
       return { target, score };
     });
 
@@ -210,6 +275,9 @@ export class TargetSelector {
 
     if (targetsWithScores.length === 0) {
       // No performance data available, fall back to random
+      logger.debug(
+        "No performance data available for targets, falling back to random"
+      );
       return this.selectRandom(targets);
     }
 
@@ -217,6 +285,13 @@ export class TargetSelector {
     const best = targetsWithScores.reduce((max, current) =>
       current.score! > max.score! ? current : max
     );
+
+    logger.debug("Selected best performing target", {
+      provider: best.target.provider,
+      model: best.target.model,
+      score: best.score,
+      candidatesCount: targetsWithScores.length,
+    });
 
     return best.target;
   }

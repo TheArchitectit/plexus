@@ -8,7 +8,7 @@ const mockProvider1: ProviderConfig = {
   enabled: true,
   apiTypes: ["chat"],
   baseUrls: { chat: "https://api.provider1.com" },
-  auth: { type: "bearer", apiKeyEnv: "KEY1" },
+  auth: { type: "bearer", apiKey: "{env:KEY1}" },
   models: ["model1"],
 };
 
@@ -17,7 +17,7 @@ const mockProvider2: ProviderConfig = {
   enabled: true,
   apiTypes: ["chat"],
   baseUrls: { chat: "https://api.provider2.com" },
-  auth: { type: "bearer", apiKeyEnv: "KEY2" },
+  auth: { type: "bearer", apiKey: "{env:KEY2}" },
   models: ["model2"],
 };
 

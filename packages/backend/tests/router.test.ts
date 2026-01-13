@@ -11,7 +11,7 @@ const mockConfig: PlexusConfig = {
       enabled: true,
       apiTypes: ["chat"],
       baseUrls: { chat: "https://api.openai.com/v1/chat/completions" },
-      auth: { type: "bearer", apiKeyEnv: "OPENAI_API_KEY" },
+      auth: { type: "bearer", apiKey: "{env:OPENAI_API_KEY}" },
       models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
     },
     {
@@ -19,7 +19,7 @@ const mockConfig: PlexusConfig = {
       enabled: true,
       apiTypes: ["chat"],
       baseUrls: { chat: "https://azure.openai.com" },
-      auth: { type: "x-api-key", apiKeyEnv: "AZURE_KEY" },
+      auth: { type: "x-api-key", apiKey: "{env:AZURE_KEY}" },
       models: ["gpt-4o"],
     },
     {
@@ -27,7 +27,7 @@ const mockConfig: PlexusConfig = {
       enabled: false,
       apiTypes: ["chat"],
       baseUrls: { chat: "https://disabled.com" },
-      auth: { type: "bearer", apiKeyEnv: "DISABLED_KEY" },
+      auth: { type: "bearer", apiKey: "{env:DISABLED_KEY}" },
       models: ["disabled-model"],
     },
   ],

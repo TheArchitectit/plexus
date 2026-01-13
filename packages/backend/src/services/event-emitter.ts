@@ -68,7 +68,7 @@ export class EventEmitter extends NodeEventEmitter {
         controller.enqueue(new TextEncoder().encode(message));
       }
     } catch (error) {
-      console.error("Error sending to client:", error);
+      logger.error("Error sending to client", { error: error instanceof Error ? error.message : String(error) });
       // Client likely disconnected
       this.removeClient(controller);
     }
