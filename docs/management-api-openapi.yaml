@@ -1,0 +1,585 @@
+openapi: 3.1.0
+info:
+  title: Plexus 2 Management API
+  version: 0.8.0
+  description: |
+    Unified management API for Plexus 2 LLM Gateway. Consolidates configuration,
+    state monitoring, logging, and real-time event streaming.
+
+servers:
+  - url: http://localhost:3000/v0
+    description: Development server
+
+paths:
+  /config:
+    get:
+      summary: Get current configuration
+      description: Retrieves the raw YAML configuration with metadata
+      operationId: getConfig
+      tags:
+        - Configuration
+      responses:
+        '200':
+          description: Configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [config, lastModified, checksum]
+                properties:
+                  config:
+                    type: string
+                    description: Raw YAML content of plexus.yaml
+                  lastModified:
+                    type: string
+                    format: date-time
+                    description: ISO 8601 timestamp of last modification
+                  checksum:
+                    type: string
+                    description: SHA-256 hash for change detection
+        '500':
+          description: Internal server error
+
+    post:
+      summary: Update configuration
+      description: |
+        Updates the plexus.yaml configuration file with validation and optional hot reload.
+      operationId: updateConfig
+      tags:
+        - Configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [config]
+              properties:
+                config:
+                  type: string
+                  description: New YAML content
+                validate:
+                  type: boolean
+                  default: true
+                  description: Validate configuration before applying
+                reload:
+                  type: boolean
+                  default: true
+                  description: Hot reload after save
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, previousChecksum, newChecksum]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  previousChecksum:
+                    type: string
+                    description: SHA-256 of previous configuration
+                  newChecksum:
+                    type: string
+                    description: SHA-256 of new configuration
+                  validationErrors:
+                    type: array
+                    items:
+                      type: string
+                    description: Present only if validation fails
+        '400':
+          description: Invalid request or validation failure
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message]
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                  validationErrors:
+                    type: array
+                    items:
+                      type: string
+        '500':
+          description: Internal server error
+
+  /state:
+    get:
+      summary: Get system state
+      description: Returns current debug settings, cooldowns, and provider metrics
+      operationId: getState
+      tags:
+        - State
+      responses:
+        '200':
+          description: State retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [debug, cooldowns, providers, uptime, version]
+                properties:
+                  debug:
+                    type: object
+                    required: [enabled, captureRequests, captureResponses]
+                    properties:
+                      enabled:
+                        type: boolean
+                      captureRequests:
+                        type: boolean
+                      captureResponses:
+                        type: boolean
+                  cooldowns:
+                    type: array
+                    items:
+                      type: object
+                      required: [provider, reason, endTime, remaining]
+                      properties:
+                        provider:
+                          type: string
+                        reason:
+                          type: string
+                        endTime:
+                          type: integer
+                          format: int64
+                          description: Unix timestamp in milliseconds
+                        remaining:
+                          type: integer
+                          description: Remaining seconds
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, enabled, healthy, metrics]
+                      properties:
+                        name:
+                          type: string
+                        enabled:
+                          type: boolean
+                        healthy:
+                          type: boolean
+                          description: True if not on cooldown
+                        cooldownRemaining:
+                          type: integer
+                          nullable: true
+                        metrics:
+                          type: object
+                          required: [avgLatency, successRate, requestsLast5Min]
+                          properties:
+                            avgLatency:
+                              type: number
+                              description: Average latency in milliseconds
+                            successRate:
+                              type: number
+                              minimum: 0
+                              maximum: 1
+                            requestsLast5Min:
+                              type: integer
+                  uptime:
+                    type: number
+                    description: Seconds since process start
+                  version:
+                    type: string
+                    example: "0.8.0"
+
+    post:
+      summary: Execute state action
+      description: |
+        Execute runtime commands to modify system state.
+      operationId: updateState
+      tags:
+        - State
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/SetDebugAction'
+                - $ref: '#/components/schemas/ClearCooldownsAction'
+                - $ref: '#/components/schemas/EnableProviderAction'
+                - $ref: '#/components/schemas/DisableProviderAction'
+      responses:
+        '200':
+          description: Action completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, state]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  state:
+                    $ref: '#/components/schemas/StateGetResponse'
+        '400':
+          description: Unknown action or invalid payload
+        '500':
+          description: Internal server error
+
+  /logs:
+    get:
+      summary: Query logs
+      description: Query log entries with filters and pagination
+      operationId: queryLogs
+      tags:
+        - Logs
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [usage, error, trace]
+            default: usage
+          description: Log type to query
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+          description: Maximum number of entries to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+        - name: provider
+          in: query
+          schema:
+            type: string
+          description: Filter by provider name
+        - name: model
+          in: query
+          schema:
+            type: string
+          description: Filter by model name
+        - name: apiKey
+          in: query
+          schema:
+            type: string
+          description: Filter by API key name
+        - name: success
+          in: query
+          schema:
+            type: boolean
+          description: Filter by request success status
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp for start of range
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp for end of range
+      responses:
+        '200':
+          description: Logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [type, total, limit, offset, hasMore, entries]
+                properties:
+                  type:
+                    type: string
+                    enum: [usage, error, trace]
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  entries:
+                    type: array
+                    description: Entries vary based on type parameter
+                    items:
+                      type: object
+        '500':
+          description: Internal server error
+
+    delete:
+      summary: Delete logs
+      description: Bulk delete log entries by type, age, or all
+      operationId: deleteLogs
+      tags:
+        - Logs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [usage, error, trace]
+                  description: Delete only this type
+                olderThanDays:
+                  type: integer
+                  minimum: 0
+                  description: Delete entries older than N days
+                all:
+                  type: boolean
+                  description: Delete all log entries
+              additionalProperties: false
+      responses:
+        '200':
+          description: Logs deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, deleted]
+                properties:
+                  success:
+                    type: boolean
+                  deleted:
+                    type: object
+                    required: [usage, error, trace]
+                    properties:
+                      usage:
+                        type: integer
+                      error:
+                        type: integer
+                      trace:
+                        type: integer
+        '500':
+          description: Internal server error
+
+  /logs/{id}:
+    get:
+      summary: Get log details
+      description: |
+        Retrieve full details for a specific request including usage, errors,
+        and debug traces.
+      operationId: getLogDetails
+      tags:
+        - Logs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Request ID
+      responses:
+        '200':
+          description: Log details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [usage]
+                properties:
+                  usage:
+                    type: object
+                    description: Complete usage log entry
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                    description: Array of error log entries
+                  traces:
+                    type: array
+                    items:
+                      type: object
+                    description: Array of debug trace entries
+        '404':
+          description: Log entry not found
+        '500':
+          description: Internal server error
+
+  /events:
+    get:
+      summary: Event stream (SSE)
+      description: |
+        Server-Sent Events stream for real-time monitoring. Includes usage events,
+        system logs, state changes, and configuration updates.
+
+        Client disconnects automatically after 30 seconds of inactivity (heartbeat).
+
+        Max concurrent clients: 10
+      operationId: getEvents
+      tags:
+        - Events
+      responses:
+        '200':
+          description: Event stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE event stream
+              examples:
+                usage:
+                  summary: Usage event
+                  value: |
+                    event: usage
+                    data: {"type":"usage","timestamp":"2026-01-12T00:00:00.000Z","data":{"requestId":"abc123","alias":"gpt-4","provider":"openai","model":"gpt-4","success":true,"tokens":100,"cost":0.002,"duration":1500}}
+
+                state_change:
+                  summary: State change event
+                  value: |
+                    event: state_change
+                    data: {"type":"state_change","timestamp":"2026-01-12T00:00:00.000Z","data":{"change":"cooldown_set","provider":"openai","details":{"reason":"rate_limit","endTime":1234567890000}}}
+
+                config_change:
+                  summary: Config change event
+                  value: |
+                    event: config_change
+                    data: {"type":"config_change","timestamp":"2026-01-12T00:00:00.000Z","data":{"previousChecksum":"abc123","newChecksum":"def456","changedSections":["providers"]}}
+
+                heartbeat:
+                  summary: Heartbeat (sent every 30 seconds)
+                  value: ":heartbeat"
+
+        '429':
+          description: Too many clients connected (max 10)
+
+components:
+  schemas:
+    StateGetResponse:
+      type: object
+      required: [debug, cooldowns, providers, uptime, version]
+      properties:
+        debug:
+          type: object
+          required: [enabled, captureRequests, captureResponses]
+          properties:
+            enabled:
+              type: boolean
+            captureRequests:
+              type: boolean
+            captureResponses:
+              type: boolean
+        cooldowns:
+          type: array
+          items:
+            type: object
+            required: [provider, reason, endTime, remaining]
+            properties:
+              provider:
+                type: string
+              reason:
+                type: string
+              endTime:
+                type: integer
+                format: int64
+              remaining:
+                type: integer
+        providers:
+          type: array
+          items:
+            type: object
+            required: [name, enabled, healthy, metrics]
+            properties:
+              name:
+                type: string
+              enabled:
+                type: boolean
+              healthy:
+                type: boolean
+              cooldownRemaining:
+                type: integer
+                nullable: true
+              metrics:
+                type: object
+                required: [avgLatency, successRate, requestsLast5Min]
+                properties:
+                  avgLatency:
+                    type: number
+                  successRate:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  requestsLast5Min:
+                    type: integer
+        uptime:
+          type: number
+        version:
+          type: string
+
+    SetDebugAction:
+      type: object
+      required: [action, payload]
+      properties:
+        action:
+          type: string
+          enum: [set-debug]
+        payload:
+          type: object
+          required: [enabled]
+          properties:
+            enabled:
+              type: boolean
+
+    ClearCooldownsAction:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [clear-cooldowns]
+        payload:
+          type: object
+          properties:
+            provider:
+              type: string
+              description: Specific provider to clear (omit to clear all)
+
+    EnableProviderAction:
+      type: object
+      required: [action, payload]
+      properties:
+        action:
+          type: string
+          enum: [enable-provider]
+        payload:
+          type: object
+          required: [provider]
+          properties:
+            provider:
+              type: string
+
+    DisableProviderAction:
+      type: object
+      required: [action, payload]
+      properties:
+        action:
+          type: string
+          enum: [disable-provider]
+        payload:
+          type: object
+          required: [provider]
+          properties:
+            provider:
+              type: string
+
+tags:
+  - name: Configuration
+    description: Manage plexus.yaml configuration
+  - name: State
+    description: Monitor and control system runtime state
+  - name: Logs
+    description: Query and manage historical log data
+  - name: Events
+    description: Real-time event streaming via SSE
