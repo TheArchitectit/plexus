@@ -23,6 +23,8 @@ describe("UsageLogger", () => {
       initialize: async () => {},
       query: async () => [],
       getSummary: async () => ({} as any),
+      getById: async () => null,
+      updateUsageWithMetrics: async () => false,
       cleanup: async () => {},
     };
     usageLogSpy = spyOn(mockUsageStore, "log");
@@ -47,7 +49,7 @@ describe("UsageLogger", () => {
         discount: 1.0,
       }),
       getEstimatedCostPer1M: async () => 1.0,
-      updateConfig: () => {},
+    updateConfig: () => {},
     };
     calculateCostSpy = spyOn(mockCostCalculator, "calculateCost");
 
@@ -102,17 +104,16 @@ describe("UsageLogger", () => {
 
       await usageLogger.logRequest(context, responseInfo);
 
-      expect(usageLogSpy).toHaveBeenCalled();
-      expect(calculateCostSpy).toHaveBeenCalledWith({
-        model: "gpt-4o-mini",
-        provider: "openai",
-        inputTokens: 100,
-        outputTokens: 50,
-        cacheReadTokens: 10,
-        cacheCreationTokens: 0,
-        reasoningTokens: 0,
-      });
-      expect(recordRequestSpy).toHaveBeenCalled();
+       expect(usageLogSpy).toHaveBeenCalled();
+       expect(calculateCostSpy).toHaveBeenCalledWith({
+         model: "gpt-4o-mini",
+      provider: "openai",
+         inputTokens: 100,
+         outputTokens: 50,
+      cachedTokens: 10,
+         reasoningTokens: 0,
+       });
+       expect(recordRequestSpy).toHaveBeenCalled();
     });
 
     test("logs successful streaming request with TTFT", async () => {
@@ -251,24 +252,42 @@ describe("UsageLogger", () => {
   });
 
   describe("markFirstToken", () => {
-    test("sets first token time only once", () => {
+    test("sets provider first token time only once", () => {
+    const context: RequestContext = {
+      id: "req-stream",
+        startTime: Date.now(),
+        clientIp: "127.0.0.1",
+        apiKeyName: "test-key",
+      clientApiType: "chat",
+      };
+
+      usageLogger.markFirstToken(context, "provider");
+      const firstTokenTime = context.providerFirstTokenTime;
+
+      // Wait a bit
+      setTimeout(() => {}, 10);
+
+      usageLogger.markFirstToken(context, "provider");
+      expect(context.providerFirstTokenTime).toBe(firstTokenTime);
+    });
+
+    test("sets client first token time only once", () => {
       const context: RequestContext = {
-        id: "req-stream",
+        id: "req-stream-2",
         startTime: Date.now(),
         clientIp: "127.0.0.1",
         apiKeyName: "test-key",
         clientApiType: "chat",
       };
 
-      const firstCall = Date.now();
-      usageLogger.markFirstToken(context);
-      const firstTokenTime = context.firstTokenTime;
+      usageLogger.markFirstToken(context, "client");
+      const firstTokenTime = context.clientFirstTokenTime;
 
       // Wait a bit
       setTimeout(() => {}, 10);
 
-      usageLogger.markFirstToken(context);
-      expect(context.firstTokenTime).toBe(firstTokenTime);
+      usageLogger.markFirstToken(context, "client");
+      expect(context.clientFirstTokenTime).toBe(firstTokenTime);
     });
   });
 

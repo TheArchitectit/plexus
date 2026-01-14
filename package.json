@@ -7,13 +7,8 @@
   ],
   "scripts": {
     "dev": "bun --watch packages/backend/src/index.ts",
-    "debug": "bun --inspect --watch packages/backend/src/index.ts",
-    "dev:frontend": "cd packages/frontend && bun src/index.html",
     "test": "bun test",
-    "test:backend": "bun test packages/backend",
-    "typecheck": "bun run typecheck:backend && bun run typecheck:frontend",
-    "typecheck:backend": "cd packages/backend && bun tsc --noEmit",
-    "typecheck:frontend": "cd packages/frontend && bun tsc --noEmit"
+    "typecheck": "bun --workspaces run typecheck"
   },
   "devDependencies": {
     "@microsoft/fetch-event-source": "^2.0.1",

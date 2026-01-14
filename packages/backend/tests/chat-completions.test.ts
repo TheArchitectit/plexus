@@ -63,6 +63,18 @@ const mockContext: ServerContext = {
   config: mockConfig,
   cooldownManager,
   healthMonitor,
+  debugLogger: {
+    enabled: false,
+    startTrace: () => {},
+    captureProviderRequest: () => {},
+    captureProviderResponse: () => {},
+    captureClientResponse: () => {},
+    captureProviderStreamChunk: () => {},
+    captureClientStreamChunk: () => {},
+    completeTrace: async () => {},
+    cleanup: async () => {},
+    initialize: async () => {},
+  } as any,
 };
 
 test("Chat Completions - Missing Authorization Header", async () => {

@@ -1,11 +1,14 @@
 import { test, expect } from "bun:test";
 import { Dispatcher } from "../src/services/dispatcher";
 import { PlexusErrorResponse } from "../src/types/errors";
-import type { PlexusConfig } from "../src/types/config";
+import type { PlexusConfig, ServerContext } from "../src/types/config";
+import type { ServerContext as SC } from "../src/types/server";
+import { Router } from "../src/services/router";
+import { spyOn } from "bun:test";
 
 const mockConfig: any = {
   server: { port: 4000, host: "localhost" },
-  logging: { level: "info", debug: { enabled: false, storagePath: "logs/debug", retentionDays: 7, captureRequests: false, captureResponses: false }, usage: { enabled: false, storagePath: "logs/usage", retentionDays: 30 }, errors: { storagePath: "logs/errors", retentionDays: 90 } },
+  logging: { level: "info", debug: { enabled: false, storagePath: "logs/debug", retentionDays: 7 }, usage: { enabled: false, storagePath: "logs/usage", retentionDays: 30 }, errors: { storagePath: "logs/errors", retentionDays: 90 } },
   providers: [
     {
       name: "openai",
@@ -13,6 +16,7 @@ const mockConfig: any = {
       apiTypes: ["chat"],
       baseUrls: {
         chat: "https://api.openai.com/v1/chat/completions",
+        messages: "https://api.openai.com/v1/messages",
       },
       auth: {
         type: "bearer",
@@ -26,6 +30,7 @@ const mockConfig: any = {
       apiTypes: ["chat"],
       baseUrls: {
         chat: "https://api.disabled.com/v1/chat/completions",
+        messages: "https://api.disabled.com/v1/messages",
       },
       auth: {
         type: "bearer",
@@ -35,10 +40,30 @@ const mockConfig: any = {
     },
   ],
   apiKeys: [{ name: "default", secret: "test-key", enabled: true }],
+  aliases: {},
 };
 
+const createMockContext = (config: any): SC => ({
+  config,
+  cooldownManager: {
+    isOnCooldown: () => false,
+    setCooldown: () => {},
+    removeCooldown: () => {},
+    updateConfig: () => {},
+  } as any,
+  healthMonitor: {
+    getProviderHealth: () => null,
+    recordRequest: () => {},
+  } as any,
+  usageLogger: undefined,
+  metricsCollector: undefined,
+  costCalculator: undefined,
+  debugLogger: undefined,
+});
+
 test("Dispatcher - Find Provider for Valid Model", () => {
-  const dispatcher = new Dispatcher(mockConfig);
+  const context = createMockContext(mockConfig);
+  const dispatcher = new Dispatcher(context);
 
   // This is a private method test, so we'll verify it indirectly through dispatchChatCompletion
   // by checking that it finds the provider correctly
@@ -46,13 +71,13 @@ test("Dispatcher - Find Provider for Valid Model", () => {
 });
 
 test("Dispatcher - Model Not Found", async () => {
-  const dispatcher = new Dispatcher(mockConfig);
-
+  const context = createMockContext(mockConfig);
+  const dispatcher = new Dispatcher(context);
   try {
     await dispatcher.dispatchChatCompletion(
       {
         model: "nonexistent-model",
-        messages: [{ role: "user", content: "test" }],
+      messages: [{ role: "user", content: "test" }],
       },
       "test-request-id"
     );
@@ -68,7 +93,8 @@ test("Dispatcher - Model Not Found", async () => {
 });
 
 test("Dispatcher - Disabled Provider Not Found", async () => {
-  const dispatcher = new Dispatcher(mockConfig);
+  const context = createMockContext(mockConfig);
+  const dispatcher = new Dispatcher(context);
 
   try {
     await dispatcher.dispatchChatCompletion(
@@ -90,12 +116,13 @@ test("Dispatcher - Disabled Provider Not Found", async () => {
 });
 
 test("Dispatcher - No Providers Configured", async () => {
-  const configNoProviders: PlexusConfig = {
+  const configNoProviders: any = {
     ...mockConfig,
     providers: [],
   };
 
-  const dispatcher = new Dispatcher(configNoProviders);
+  const context = createMockContext(configNoProviders);
+  const dispatcher = new Dispatcher(context);
 
   try {
     await dispatcher.dispatchChatCompletion(
@@ -104,7 +131,7 @@ test("Dispatcher - No Providers Configured", async () => {
         messages: [{ role: "user", content: "test" }],
       },
       "test-request-id"
-    );
+  );
     expect.unreachable();
   } catch (error) {
     if (error instanceof PlexusErrorResponse) {

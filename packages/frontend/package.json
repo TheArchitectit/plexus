@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun src/index.html --host 0.0.0.0",
     "build": "bun build src/index.html --outdir=dist --minify",
-    "typecheck": "bun tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

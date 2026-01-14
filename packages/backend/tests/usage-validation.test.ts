@@ -2,16 +2,18 @@ import { test, expect, mock } from "bun:test";
 import { Dispatcher } from "../src/services/dispatcher";
 import { UsageLogger } from "../src/services/usage-logger";
 import type { PlexusConfig } from "../src/types/config";
+import type { ServerContext } from "../src/types/server";
 
 const mockConfig: any = {
   server: { port: 4000, host: "localhost" },
-  logging: { level: "error", debug: { enabled: false, storagePath: "logs/debug", retentionDays: 7, captureRequests: false, captureResponses: false }, usage: { enabled: false, storagePath: "logs/usage", retentionDays: 30 }, errors: { storagePath: "logs/errors", retentionDays: 90 } },
+  logging: { level: "error", debug: { enabled: false, storagePath: "logs/debug", retentionDays: 7 }, usage: { enabled: false, storagePath: "logs/usage", retentionDays: 30 }, errors: { storagePath: "logs/errors", retentionDays: 90 } },
   providers: [
     {
       name: "anthropic-mock",
       enabled: true,
       apiTypes: ["messages"],
       baseUrls: {
+        chat: "https://api.anthropic.com/v1/chat/completions",
         messages: "https://api.anthropic.com/v1/messages",
       },
       auth: {
@@ -24,13 +26,43 @@ const mockConfig: any = {
       name: "openai-mock",
       enabled: true,
       apiTypes: ["chat"],
-      baseUrls: { chat: "https://api.openai.com/v1/chat/completions" },
+      baseUrls: { chat: "https://api.openai.com/v1/chat/completions", messages: "https://api.openai.com/v1/chat/completions" },
       auth: { type: "bearer", apiKey: "test" },
       models: ["gpt-4o"],
     }
   ],
   apiKeys: [{ name: "default", secret: "test-key", enabled: true }],
+  aliases: {},
 };
+
+const createMockContext = (config: any): ServerContext => ({
+  config,
+  cooldownManager: {
+    isOnCooldown: () => false,
+    setCooldown: () => {},
+    removeCooldown: () => {},
+    updateConfig: () => {},
+  } as any,
+  healthMonitor: {
+    getProviderHealth: () => null,
+    recordRequest: () => {},
+  } as any,
+  usageLogger: undefined,
+  metricsCollector: undefined,
+  costCalculator: undefined,
+  debugLogger: {
+    enabled: false,
+    startTrace: () => {},
+    captureProviderRequest: () => {},
+    captureProviderResponse: () => {},
+    captureClientResponse: () => {},
+    captureProviderStreamChunk: () => {},
+    captureClientStreamChunk: () => {},
+  completeTrace: async () => {},
+    cleanup: async () => {},
+    initialize: async () => {},
+  } as any,
+});
 
 const waitFor = async (condition: () => boolean, timeoutMs = 1000) => {
   const start = Date.now();
@@ -62,11 +94,8 @@ test("Dispatcher - Correctly logs usage from Anthropic format response", async (
   });
 
   try {
-    const dispatcher = new Dispatcher(
-      mockConfig,
-      undefined, undefined, undefined,
-      undefined
-    );
+    const context = createMockContext(mockConfig);
+    const dispatcher = new Dispatcher(context);
 
     const request = {
       model: "anthropic-mock/claude-3-opus",
@@ -121,11 +150,8 @@ test("Dispatcher - Correctly logs usage from Anthropic streaming response", asyn
   });
 
   try {
-    const dispatcher = new Dispatcher(
-      mockConfig,
-      undefined, undefined, undefined,
-      undefined
-    );
+    const context = createMockContext(mockConfig);
+    const dispatcher = new Dispatcher(context);
 
     const request = {
       model: "anthropic-mock/claude-3-opus",
@@ -169,11 +195,8 @@ test("Dispatcher - Correctly logs usage from Chat (OpenAI) unary response", asyn
   });
 
   try {
-    const dispatcher = new Dispatcher(
-      mockConfig,
-      undefined, undefined, undefined,
-      undefined
-    );
+    const context = createMockContext(mockConfig);
+    const dispatcher = new Dispatcher(context);
 
     await dispatcher.dispatchChatCompletion({
       model: "openai-mock/gpt-4o",
@@ -211,11 +234,8 @@ test("Dispatcher - Correctly logs usage from Chat (OpenAI) streaming response", 
   });
 
   try {
-    const dispatcher = new Dispatcher(
-      mockConfig,
-      undefined, undefined, undefined,
-      undefined
-    );
+    const context = createMockContext(mockConfig);
+    const dispatcher = new Dispatcher(context);
 
     const response = await dispatcher.dispatchChatCompletion({
       model: "openai-mock/gpt-4o",
@@ -226,7 +246,7 @@ test("Dispatcher - Correctly logs usage from Chat (OpenAI) streaming response", 
     const reader = response.body?.getReader();
     while (true) {
       const { done } = await reader!.read();
-      if (done) break;
+    if (done) break;
     }
   } finally {
     (global as any).fetch = originalFetch;

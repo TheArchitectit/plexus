@@ -4,8 +4,8 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

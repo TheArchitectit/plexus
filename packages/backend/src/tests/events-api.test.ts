@@ -42,7 +42,7 @@ describe("Events API", () => {
     
     expect(done).toBe(false);
     const text = new TextDecoder().decode(value);
-    expect(text).toContain(":heartbeat");
+    expect(text).toContain("event: heartbeat");
     
     await reader!.cancel();
   });

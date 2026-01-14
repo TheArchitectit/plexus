@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { DebugLogger } from "./debug-logger";
+import { DebugStore } from "../storage/debug-store";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -17,8 +18,6 @@ describe("DebugLogger", () => {
 
     debugLogger = new DebugLogger({
       enabled: true,
-      captureRequests: true,
-      captureResponses: true,
       storagePath: testStoragePath,
       retentionDays: 7,
     });
@@ -41,10 +40,8 @@ describe("DebugLogger", () => {
   test("should be disabled when configured", () => {
     const disabledLogger = new DebugLogger({
       enabled: false,
-      captureRequests: true,
-      captureResponses: true,
       storagePath: testStoragePath,
-      retentionDays: 7,
+    retentionDays: 7,
     });
     expect(disabledLogger.enabled).toBe(false);
   });
@@ -64,20 +61,6 @@ describe("DebugLogger", () => {
     const traces = (debugLogger as any).traces;
     expect(traces.has(requestId)).toBe(true);
     expect(traces.get(requestId).clientRequest.body).toEqual(clientRequest);
-  });
-
-  test("should capture unified request", () => {
-    const requestId = "test-request-2";
-    debugLogger.startTrace(requestId, "chat", {});
-
-    const unifiedRequest = {
-      model: "gpt-4",
-      messages: [{ role: "user", content: "Hello" }],
-    };
-    debugLogger.captureUnifiedRequest(requestId, unifiedRequest);
-
-    const traces = (debugLogger as any).traces;
-    expect(traces.get(requestId).unifiedRequest).toEqual(unifiedRequest);
   });
 
   test("should capture provider request", () => {
@@ -109,15 +92,26 @@ describe("DebugLogger", () => {
     expect(traces.get(requestId).providerResponse.body).toEqual(response);
   });
 
-  test("should capture stream snapshots", () => {
+  test("should capture provider stream chunks", () => {
     const requestId = "test-request-5";
     debugLogger.startTrace(requestId, "chat", {});
 
-    debugLogger.captureStreamChunk(requestId, { delta: { content: "Hello" } });
-    debugLogger.captureStreamChunk(requestId, { delta: { content: " world" } });
+    debugLogger.captureProviderStreamChunk(requestId, "data: chunk1\n");
+    debugLogger.captureProviderStreamChunk(requestId, "data: chunk2\n");
 
     const traces = (debugLogger as any).traces;
-    expect(traces.get(requestId).streamSnapshots).toHaveLength(2);
+    expect(traces.get(requestId).providerStreamChunks).toHaveLength(2);
+  });
+
+  test("should capture client stream chunks", () => {
+    const requestId = "test-request-5b";
+    debugLogger.startTrace(requestId, "chat", {});
+
+    debugLogger.captureClientStreamChunk(requestId, "data: chunk1\n");
+    debugLogger.captureClientStreamChunk(requestId, "data: chunk2\n");
+
+    const traces = (debugLogger as any).traces;
+    expect(traces.get(requestId).clientStreamChunks).toHaveLength(2);
   });
 
   test("should store complete trace to disk", async () => {
@@ -126,9 +120,7 @@ describe("DebugLogger", () => {
       model: "gpt-4",
       messages: [{ role: "user", content: "Hello" }],
     };
-
     debugLogger.startTrace(requestId, "chat", clientRequest);
-    debugLogger.captureUnifiedRequest(requestId, clientRequest);
     debugLogger.captureClientResponse(requestId, 200, { choices: [] });
 
     await debugLogger.completeTrace(requestId);
@@ -141,44 +133,30 @@ describe("DebugLogger", () => {
     expect(dirs).toHaveLength(1);
     const dirPath = join(testStoragePath, dirs[0]!);
     
-    expect(await Bun.file(join(dirPath, "trace.json")).exists()).toBe(true);
     expect(await Bun.file(join(dirPath, "client_request.json")).exists()).toBe(true);
-    expect(await Bun.file(join(dirPath, "unified_request.json")).exists()).toBe(true);
 
     // Verify trace was removed from memory
     const traces = (debugLogger as any).traces;
     expect(traces.has(requestId)).toBe(false);
   });
 
-  test("should not capture when disabled", () => {
+  test("should not store traces when disabled", async () => {
     const disabledLogger = new DebugLogger({
       enabled: false,
-      captureRequests: true,
-      captureResponses: true,
       storagePath: testStoragePath,
       retentionDays: 7,
     });
 
     const requestId = "test-request-7";
     disabledLogger.startTrace(requestId, "chat", {});
+    
+    // Even though the trace is captured in memory, it should not be stored
+    await disabledLogger.completeTrace(requestId);
 
-    const traces = (disabledLogger as any).traces;
-    expect(traces.has(requestId)).toBe(false);
-  });
-
-  test("should not capture requests when captureRequests is false", () => {
-    const partialLogger = new DebugLogger({
-      enabled: true,
-      captureRequests: false,
-      captureResponses: true,
-      storagePath: testStoragePath,
-      retentionDays: 7,
-    });
-
-    const requestId = "test-request-8";
-    partialLogger.startTrace(requestId, "chat", { model: "gpt-4" });
-
-    const traces = (partialLogger as any).traces;
-    expect(traces.has(requestId)).toBe(false);
+    // Check that no directory was created
+    const glob = new Bun.Glob(`*-${requestId}`);
+    const dirs = Array.from(glob.scanSync({ cwd: testStoragePath, onlyFiles: false }));
+    
+    expect(dirs).toHaveLength(0);
   });
 });
