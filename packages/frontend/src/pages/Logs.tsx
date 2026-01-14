@@ -16,7 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Trash2, ChevronLeft, ChevronRight, Info, AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Search, Trash2, ChevronLeft, ChevronRight, Info, AlertTriangle, CheckCircle, XCircle, Loader2, ArrowLeftRight } from 'lucide-react';
+import chatIcon from '@/assets/chat.svg';
+import messagesIcon from '@/assets/messages.svg';
+import geminiIcon from '@/assets/gemini.svg';
+import { useTheme } from '@/components/theme-provider';
 
 const activeSSEConnections = new Set<AbortController>();
 
@@ -25,7 +29,8 @@ interface UsageLog {
   timestamp?: string;
   clientIp?: string;
   apiKey?: string;
-  apiType?: string;
+  apiType?: string; // Incoming API format
+  targetApiType?: string; // Provider's API format
   aliasUsed?: string;
   actualProvider?: string;
   actualModel?: string;
@@ -82,6 +87,7 @@ export function LogsPage() {
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [logDetails, setLogDetails] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const { theme } = useTheme();
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -199,6 +205,32 @@ export function LogsPage() {
   };
 
   const safeText = (value?: string) => value || '-';
+
+  const getApiIcon = (apiType?: string) => {
+    switch (apiType) {
+      case 'chat':
+        return chatIcon;
+      case 'messages':
+        return messagesIcon;
+      case 'gemini':
+        return geminiIcon;
+      default:
+        return null;
+    }
+  };
+
+  const renderApiIcon = (apiType?: string) => {
+    const icon = getApiIcon(apiType);
+    if (!icon) return null;
+    return (
+      <img 
+        src={icon} 
+        alt={apiType} 
+        className="w-4 h-4" 
+        style={{ filter: (apiType === 'chat' && theme === 'light') ? 'invert(1)' : 'none' }}
+      />
+    );
+  };
 
   const selectedProviderModels = filters.provider ? models[filters.provider] || [] : [];
   const allModels = Object.values(models).flat();
@@ -495,7 +527,11 @@ if (data.type === 'usage') {
                   <TableCell>{safeText(log.apiKey)}</TableCell>
                   <TableCell className="text-muted-foreground">{safeText(log.clientIp)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{safeText(log.apiType)}</Badge>
+                    <div className="flex items-center gap-2">
+                      {renderApiIcon(log.apiType)}
+                      <ArrowLeftRight className="w-3 h-3 text-muted-foreground" />
+                      {renderApiIcon(log.targetApiType)}
+                    </div>
                   </TableCell>
                   <TableCell className="font-medium">{safeText(log.actualModel)}</TableCell>
                   <TableCell>
@@ -655,7 +691,15 @@ if (data.type === 'usage') {
               <div className="bg-muted p-4 rounded-lg">
                 <h3 className="font-semibold mb-2">Usage Info</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><strong>API Type:</strong> {logDetails.usage.apiType}</div>
+                  <div className="flex items-center gap-2">
+                    <strong>API:</strong>
+                    <div className="flex items-center gap-1">
+                      {renderApiIcon(logDetails.usage.apiType)}
+                      <ArrowLeftRight className="w-3 h-3 text-muted-foreground" />
+                      {renderApiIcon(logDetails.usage.targetApiType)}
+                    </div>
+                    <span className="text-muted-foreground">({logDetails.usage.apiType} → {logDetails.usage.targetApiType})</span>
+                  </div>
                   <div><strong>Model:</strong> {logDetails.usage.actualModel}</div>
                   <div><strong>Provider:</strong> {logDetails.usage.actualProvider}</div>
                   <div><strong>Alias:</strong> {logDetails.usage.aliasUsed}</div>
