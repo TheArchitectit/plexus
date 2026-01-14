@@ -15,7 +15,6 @@ interface DebugLog {
     body: Record<string, unknown>;
     headers: Record<string, string>;
   };
-  unifiedRequest?: Record<string, unknown>;
   providerRequest?: {
     apiType: string;
     body: Record<string, unknown>;
@@ -30,9 +29,13 @@ interface DebugLog {
     status: number;
     body: Record<string, unknown>;
   };
-  streamSnapshots?: Array<{
+  providerStreamChunks?: Array<{
     timestamp: string;
-    chunk: Record<string, unknown>;
+    chunk: string;
+  }>;
+  clientStreamChunks?: Array<{
+    timestamp: string;
+    chunk: string;
   }>;
 }
 
@@ -113,6 +116,19 @@ export function DebugPage() {
       }
     }
     return JSON.stringify(data, null, 2);
+  };
+
+  const formatStreamChunk = (chunk: string): string => {
+    // Stream chunks are raw strings, attempt to parse if they look like JSON
+    if (chunk.startsWith('data: ')) {
+      return chunk;
+    }
+    try {
+      const parsed = JSON.parse(chunk);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return chunk;
+    }
   };
 
   return (
@@ -337,27 +353,61 @@ export function DebugPage() {
                     </AccordionItem>
                   )}
 
-                  {selectedLog.streamSnapshots && selectedLog.streamSnapshots.length > 0 && (
-                    <AccordionItem value="stream-snapshots">
-                      <AccordionTrigger className="hover:no-underline">
-                        Stream Snapshots ({selectedLog.streamSnapshots.length})
-                      </AccordionTrigger>
+              {selectedLog.providerStreamChunks && selectedLog.providerStreamChunks.length > 0 && (
+            <AccordionItem value="provider-stream">
+                  <AccordionTrigger className="hover:no-underline">
+                  Provider Stream
+             </AccordionTrigger>
                       <AccordionContent>
-                        <div className="space-y-4">
-                          {selectedLog.streamSnapshots.map((snapshot, index) => (
-                            <div key={index} className="space-y-2">
-                              <p className="text-sm font-medium">Snapshot {index + 1}</p>
-                              <MonacoEditor
-                                value={formatContent(snapshot)}
-                                language="json"
-                                height="200px"
-                                className="rounded-md"
-                                options={{ readOnly: true }}
-                              />
-                            </div>
-                          ))}
+                <div className="space-y-2">
+                     <div className="flex justify-end">
+                          <Button
+                       variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(selectedLog.providerStreamChunks?.map(c => c.chunk).join('') || '')}
+                         >
+                <Copy className="h-4 w-4 mr-2" />
+                        Copy All
+                            </Button>
+                   </div>
+                  <MonacoEditor
+                         value={selectedLog.providerStreamChunks.map(c => formatStreamChunk(c.chunk)).join('\n\n---\n\n')}
+                   language="json"
+                         height="300px"
+                 className="rounded-md"
+                      options={{ readOnly: true, wordWrap: 'on' }}
+                  />
                         </div>
-                      </AccordionContent>
+                 </AccordionContent>
+                  </AccordionItem>
+                )}
+
+              {selectedLog.clientStreamChunks && selectedLog.clientStreamChunks.length > 0 && (
+           <AccordionItem value="client-stream">
+          <AccordionTrigger className="hover:no-underline">
+               Client Stream
+        </AccordionTrigger>
+                      <AccordionContent>
+                     <div className="space-y-2">
+                   <div className="flex justify-end">
+                <Button
+                           variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(selectedLog.clientStreamChunks?.map(c => c.chunk).join('') || '')}
+                >
+                        <Copy className="h-4 w-4 mr-2" />
+                           Copy All
+                            </Button>
+                 </div>
+             <MonacoEditor
+              value={selectedLog.clientStreamChunks.map(c => formatStreamChunk(c.chunk)).join('\n')}
+                    language="text"
+               height="300px"
+                className="rounded-md"
+                        options={{ readOnly: true, wordWrap: 'on' }}
+                     />
+                   </div>
+                    </AccordionContent>
                     </AccordionItem>
                   )}
                 </Accordion>

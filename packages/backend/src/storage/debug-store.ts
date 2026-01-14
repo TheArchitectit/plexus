@@ -27,6 +27,84 @@ export class DebugStore {
   }
 
   /**
+   * Helper to reconstruct a trace from individual files
+   */
+  private async reconstructTraceFromFiles(dirPath: string): Promise<DebugTraceEntry | null> {
+    try {
+      // Extract request ID and timestamp from directory name
+      // Format: YYYY-MM-DD-HH-MM-SS-<request-id>
+      const dirName = dirPath.split("/").pop() || "";
+      const match = dirName.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(.+)$/);
+      
+      if (!match) {
+        logger.warn("Invalid debug directory name format", { dirName });
+        return null;
+   }
+
+      const [, year, month, day, hour, minute, second, requestId] = match;
+      const timestamp = new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute),
+        parseInt(second)
+      ).toISOString();
+
+      // Read individual files
+      const clientRequestFile = Bun.file(join(dirPath, "client_request.json"));
+      const providerRequestFile = Bun.file(join(dirPath, "provider_request.json"));
+      const providerResponseFile = Bun.file(join(dirPath, "provider_response.json"));
+      const clientResponseFile = Bun.file(join(dirPath, "client_response.json"));
+      const providerStreamFile = Bun.file(join(dirPath, "provider_stream.txt"));
+      const clientStreamFile = Bun.file(join(dirPath, "client_stream.txt"));
+
+      // Build the trace entry
+      const trace: DebugTraceEntry = {
+        id: requestId,
+        timestamp,
+        clientRequest: (await clientRequestFile.exists()) ? await clientRequestFile.json() : { apiType: "", body: {}, headers: {} },
+        providerRequest: (await providerRequestFile.exists()) ? await providerRequestFile.json() : { apiType: "", body: {}, headers: {} },
+      };
+
+      // Optional fields
+      if (await providerResponseFile.exists()) {
+        trace.providerResponse = await providerResponseFile.json();
+      }
+
+      if (await clientResponseFile.exists()) {
+        trace.clientResponse = await clientResponseFile.json();
+      }
+
+      // Stream files are text, not JSON
+      if (await providerStreamFile.exists()) {
+        const streamContent = await providerStreamFile.text();
+        trace.providerStreamChunks = [
+          {
+         timestamp,
+            chunk: streamContent,
+          },
+        ];
+      }
+
+      if (await clientStreamFile.exists()) {
+        const streamContent = await clientStreamFile.text();
+        trace.clientStreamChunks = [
+          {
+            timestamp,
+            chunk: streamContent,
+          },
+        ];
+      }
+
+      return trace;
+    } catch (error) {
+      logger.error("Failed to reconstruct trace from files", { dirPath, error });
+      return null;
+    }
+  }
+
+  /**
    * Initialize storage (create directories if needed)
    */
   async initialize(): Promise<void> {
@@ -171,14 +249,9 @@ export class DebugStore {
 
       // Use the first match (there should only be one for a unique request ID)
       const dirPath = join(this.storagePath, dirs[0]!);
-      const traceFile = join(dirPath, "trace.json");
-
-      const file = Bun.file(traceFile);
-      if (await file.exists()) {
-        return await file.json();
-      }
-      return null;
+      return await this.reconstructTraceFromFiles(dirPath);
     } catch (error) {
+      logger.error("Failed to get trace by ID", { requestId, error });
       return null;
     }
   }
@@ -219,11 +292,13 @@ export class DebugStore {
 
       for (const dirName of pagedDirs) {
         try {
-          const traceFile = join(this.storagePath, dirName, "trace.json");
-          const content = await Bun.file(traceFile).json();
-          entries.push(content);
+          const dirPath = join(this.storagePath, dirName);
+          const trace = await this.reconstructTraceFromFiles(dirPath);
+       if (trace) {
+        entries.push(trace);
+          }
         } catch (e) {
-          // ignore
+          logger.debug("Failed to reconstruct trace from files", { dirName, error: e });
         }
       }
 

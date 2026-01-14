@@ -65,9 +65,7 @@ export const api = {
     return data;
   },
 
-  getLogDetails: async (id: string): Promise<
-    paths['/logs/{id}']['get']['responses'][200]['content']['application/json']
-  > => {
+  getLogDetails: async (id: string) => {
     const { data, error } = await client.GET('/logs/{id}', {
       params: {
         path: { id },
@@ -75,6 +73,26 @@ export const api = {
     });
     if (error) throw new Error(String(error));
     if (!data) throw new Error('Log details data missing');
+    
+    // Extract traces if present and format them properly
+    if (data.traces && data.traces.length > 0) {
+      return {
+      ...data,
+        traces: data.traces.map((trace: any) => ({
+          ...trace,
+          // Ensure stream chunks are properly typed as strings
+          providerStreamChunks: trace.providerStreamChunks?.map((item: any) => ({
+            timestamp: item.timestamp,
+            chunk: typeof item.chunk === 'string' ? item.chunk : JSON.stringify(item.chunk),
+          })) || [],
+          clientStreamChunks: trace.clientStreamChunks?.map((item: any) => ({
+            timestamp: item.timestamp,
+            chunk: typeof item.chunk === 'string' ? item.chunk : JSON.stringify(item.chunk),
+          })) || [],
+        }))
+      };
+    }
+    
     return data;
   },
 };
