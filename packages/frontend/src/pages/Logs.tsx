@@ -55,6 +55,7 @@ interface UsageLog {
   };
   success?: boolean;
   pending?: boolean; // True for in-flight requests
+  updated?: boolean; // True when this is an update to an existing log entry
   debug?: string;
   error?: string;
   isNew?: boolean; // For animation tracking
