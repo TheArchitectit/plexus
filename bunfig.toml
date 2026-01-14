@@ -3,4 +3,7 @@ plugins = ["bun-plugin-tailwind"]
 
 [test]
 # Preload the setup file to mock common modules
-preload = ["./packages/backend/tests/setup.ts"]
+preload = ["./server/tests/setup.ts"]
+
+[serve.static]
+env = "PUBLIC_*"

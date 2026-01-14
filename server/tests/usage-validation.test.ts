@@ -1,8 +1,8 @@
 import { test, expect, mock } from "bun:test";
-import { Dispatcher } from "../src/services/dispatcher";
-import { UsageLogger } from "../src/services/usage-logger";
-import type { PlexusConfig } from "../src/types/config";
-import type { ServerContext } from "../src/types/server";
+import { Dispatcher } from "../services/dispatcher";
+import { UsageLogger } from "../services/usage-logger";
+import type { PlexusConfig } from "../types/config";
+import type { ServerContext } from "../types/server";
 
 const mockConfig: any = {
   server: { port: 4000, host: "localhost" },

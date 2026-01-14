@@ -1,9 +1,9 @@
 import { test, expect, describe, mock } from "bun:test";
-import { handleMessages } from "../src/routes/messages";
-import type { PlexusConfig } from "../src/types/config";
-import { CooldownManager } from "../src/services/cooldown-manager";
-import { HealthMonitor } from "../src/services/health-monitor";
-import type { ServerContext } from "../src/types/server";
+import { handleMessages } from "../routes/messages";
+import type { PlexusConfig } from "../types/config";
+import { CooldownManager } from "../services/cooldown-manager";
+import { HealthMonitor } from "../services/health-monitor";
+import type { ServerContext } from "../types/server";
 
 const mockConfig: PlexusConfig = {
   server: { port: 4000, host: "localhost" },

@@ -28,7 +28,7 @@ import { LogQueryService } from "./services/log-query";
 import { TransformerFactory } from "./services/transformer-factory";
 
 // @ts-ignore - HTML import
-import frontendHtml from "../../frontend/src/index.html";
+import frontendHtml from "../src/index.html";
 
 function withCORS(response: Response): Response {
   const headers = new Headers(response.headers);

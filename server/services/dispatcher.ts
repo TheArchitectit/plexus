@@ -14,7 +14,7 @@ import type { CooldownReason } from "../types/health";
 import type { CostCalculator } from "./cost-calculator";
 import type { MetricsCollector } from "./metrics-collector";
 import type { DebugLogger } from "./debug-logger";
-import { ServerContext } from "src/types/server";
+import { ServerContext } from "../types/server";
 import { StreamTap } from "./streamtap";
 import type { RequestContext, ResponseInfo } from "./usage-logger";
 

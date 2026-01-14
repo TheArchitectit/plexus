@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdir, unlink } from "node:fs/promises";
 import { join } from "path";
-import { loadConfig } from "../src/config";
+import { loadConfig } from "../config";
 import { tmpdir } from "os";
 
 describe("Configuration Loading", () => {

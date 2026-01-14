@@ -1,6 +1,6 @@
 import { test, expect, beforeAll, afterAll } from "bun:test";
-import { ProviderClient } from "../src/services/provider-client";
-import type { ProviderConfig } from "../src/types/config";
+import { ProviderClient } from "../services/provider-client";
+import type { ProviderConfig } from "../types/config";
 
 // Mock provider configuration
 const mockProviderConfig: ProviderConfig = {

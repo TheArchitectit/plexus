@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test";
-import { TargetSelector } from "../src/services/selector";
-import type { TargetWithProvider } from "../src/types/routing";
-import type { ProviderConfig } from "../src/types/config";
+import { TargetSelector } from "../services/selector";
+import type { TargetWithProvider } from "../types/routing";
+import type { ProviderConfig } from "../types/config";
 
 const mockProvider1: ProviderConfig = {
   name: "provider1",

@@ -1,8 +1,8 @@
 import { test, expect, describe } from "bun:test";
-import { TransformerFactory, transformerFactory, ApiType, getProviderApiType } from "../src/services/transformer-factory";
-import { AnthropicTransformer } from "../src/transformers/anthropic";
-import { OpenAITransformer } from "../src/transformers/openai";
-import { GeminiTransformer } from "../src/transformers/gemini";
+import { TransformerFactory, transformerFactory, ApiType, getProviderApiType } from "../services/transformer-factory";
+import { AnthropicTransformer } from "../transformers/anthropic";
+import { OpenAITransformer } from "../transformers/openai";
+import { GeminiTransformer } from "../transformers/gemini";
 
 describe("TransformerFactory", () => {
   describe("getTransformer", () => {

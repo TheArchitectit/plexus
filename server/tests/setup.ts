@@ -7,7 +7,7 @@ import { mock } from "bun:test";
  * IMPORTANT: This mock MUST implement the entire Logger interface
  * to prevent crashes in other tests (per AGENTS.md Section 6.1)
  */
-mock.module("../src/utils/logger", () => ({
+mock.module("../utils/logger", () => ({
   logger: {
     configure: () => {},
     setContext: () => {},

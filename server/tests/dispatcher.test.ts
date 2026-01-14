@@ -1,9 +1,9 @@
 import { test, expect } from "bun:test";
-import { Dispatcher } from "../src/services/dispatcher";
-import { PlexusErrorResponse } from "../src/types/errors";
-import type { PlexusConfig } from "../src/types/config";
-import type { ServerContext } from "../src/types/server";
-import { Router } from "../src/services/router";
+import { Dispatcher } from "../services/dispatcher";
+import { PlexusErrorResponse } from "../types/errors";
+import type { PlexusConfig } from "../types/config";
+import type { ServerContext } from "../types/server";
+import { Router } from "../services/router";
 import { spyOn } from "bun:test";
 
 const mockConfig: any = {

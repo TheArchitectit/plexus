@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test";
-import { Router } from "../src/services/router";
-import type { PlexusConfig } from "../src/types/config";
+import { Router } from "../services/router";
+import type { PlexusConfig } from "../types/config";
 
 const mockConfig: any = {
   server: { port: 4000, host: "localhost" },

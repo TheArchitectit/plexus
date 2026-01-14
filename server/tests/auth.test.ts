@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test";
-import { validateAuthHeader } from "../src/middleware/auth";
-import { PlexusErrorResponse } from "../src/types/errors";
-import type { ApiKeyConfig } from "../src/types/config";
+import { validateAuthHeader } from "../middleware/auth";
+import { PlexusErrorResponse } from "../types/errors";
+import type { ApiKeyConfig } from "../types/config";
 
 const mockApiKeys: ApiKeyConfig[] = [
   { name: "default", secret: "valid-key-123", enabled: true },

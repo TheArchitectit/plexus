@@ -24,15 +24,23 @@
     
     // Language
     "target": "ESNext",
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    "jsxImportSource": "react",
     
     // Skip Checking
     "skipLibCheck": true,
 
     // Bun
-    "types": ["bun-types", "uuid"]
+    "types": ["bun-types", "uuid"],
+    
+    // Paths
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "server/*": ["./server/*"]
+    }
   },
-  "include": ["packages/**/src/**/*", "packages/**/tests/**/*"],
-  "exclude": ["node_modules","new_translations"]
+  "include": ["src/**/*", "server/**/*", "public/**/*"],
+  "exclude": ["node_modules", "new_translations", "dist", "packages"]
 }
