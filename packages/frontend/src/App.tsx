@@ -5,9 +5,19 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ProtectedRoute } from './contexts/ProtectedRoute';
 import { MainLayout } from './components/layout/MainLayout';
+import { Toaster } from 'sonner';
 import { LoginPage } from './pages/Login';
 import { DashboardPage } from './pages/Dashboard';
-import { UsagePage, LogsPage, ProvidersPage, ModelsPage, KeysPage, ConfigPage, DebugPage, ErrorsPage, NotFoundPage } from './pages/OtherPages';
+import { UsagePage } from './pages/Usage';
+import { LogsPage } from './pages/Logs';
+import { ProvidersPage } from './pages/Providers';
+import { ModelsPage } from './pages/Models';
+import { KeysPage } from './pages/Keys';
+import { ConfigPage } from './pages/Config';
+import { SystemPage } from './pages/System';
+import { DebugPage } from './pages/Debug';
+import { ErrorsPage } from './pages/Errors';
+import { NotFoundPage } from './pages/NotFound';
 
 function App() {
   return (
@@ -15,6 +25,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <SidebarProvider>
+            <Toaster />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route
@@ -83,6 +94,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <ConfigPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/system"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SystemPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

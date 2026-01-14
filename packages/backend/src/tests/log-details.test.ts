@@ -65,9 +65,9 @@ describe("Log Details Integration", () => {
 
   test("getLogDetails finds entry by ID", async () => {
     const details = await logQueryService.getLogDetails("test-req-123");
-    
+
     expect(details).not.toBeNull();
-    expect(details?.usage.id).toBe("test-req-123");
+    expect(details?.usage?.id).toBe("test-req-123");
     expect(details?.traces).toHaveLength(1);
     expect(details!.traces![0]!.id).toBe("test-req-123");
   });

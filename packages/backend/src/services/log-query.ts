@@ -91,14 +91,28 @@ export class LogQueryService {
   async getLogDetails(requestId: string): Promise<LogDetailResponse | null> {
     // 1. Find usage log
     const usage = await this.usageStore.getById(requestId);
-    if (!usage) return null;
 
     // 2. Find traces
     const trace = await this.debugStore.getById(requestId);
 
-    // 3. Find errors
-    // ErrorStore also strictly date based. We'd have to scan.
-    // We can assume if it failed, it's in the same date as usage.
+    // 3. Find error log
+    const error = await this.errorStore.getById(requestId);
+
+    // Return null if nothing found
+    if (!usage && !error && !trace) {
+      return null;
+    }
+
+    // If no usage but error exists, return error-only response
+    if (!usage) {
+      return {
+        usage: null,
+        errors: error ? [error] : [],
+        traces: trace ? [trace] : []
+      };
+    }
+
+    // Find related errors (ErrorStore is date-partitioned)
     const date = usage.timestamp.split('T')[0];
     const errorsOfDay = await this.errorStore.query(date, date);
     const relatedErrors = errorsOfDay.filter(e => e.id === requestId);

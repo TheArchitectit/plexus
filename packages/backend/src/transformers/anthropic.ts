@@ -510,14 +510,14 @@ export class AnthropicTransformer implements Transformer {
                     };
                   } else if (data.delta.type === "thinking_delta") {
                     unifiedChunk = {
-                      delta: { 
+                      delta: {
                         reasoning_content: data.delta.thinking,
                         thinking: { content: data.delta.thinking }
                       },
                     };
                   } else if (data.delta.type === "signature_delta") {
                     unifiedChunk = {
-                      delta: { 
+                      delta: {
                         thinking: { signature: data.delta.signature }
                       },
                     };
@@ -587,6 +587,7 @@ export class AnthropicTransformer implements Transformer {
           typeof chunk === "string"
             ? chunk
             : decoder.decode(chunk, { stream: true });
+
         parser.feed(text);
       },
     });
@@ -608,7 +609,7 @@ export class AnthropicTransformer implements Transformer {
     let nextBlockIndex = 0;
     let activeBlockType: "text" | "thinking" | "tool_use" | null = null;
     let activeBlockIndex: number | null = null;
-    
+
     // Track usage and finish reason across chunks
     let lastUsage: UnifiedUsage | null = null;
     let pendingFinishReason: string | null = null;

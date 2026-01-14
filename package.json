@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "dev": "bun --watch packages/backend/src/index.ts",
+    "debug": "bun --inspect --watch packages/backend/src/index.ts",
     "dev:frontend": "cd packages/frontend && bun src/index.html",
     "test": "bun test",
     "test:backend": "bun test packages/backend",

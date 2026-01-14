@@ -1,93 +1,47 @@
 'use client';
 
-import React, { forwardRef, useEffect, useRef, useState } from 'react';
-import * as monaco from 'monaco-editor';
+import React, { forwardRef } from 'react';
+import Editor from '@monaco-editor/react';
 import { cn } from '@/lib/utils';
 
 interface MonacoEditorProps {
   value: string;
-  onChange?: (value: string) => void;
+  onChange?: (value: string | undefined) => void;
   language?: string;
   theme?: string;
-  options?: monaco.editor.IStandaloneEditorConstructionOptions;
+  options?: any;
   height?: string;
   className?: string;
 }
 
-const MonacoEditor = forwardRef<monaco.editor.IStandaloneCodeEditor, MonacoEditorProps>(
+const MonacoEditor = forwardRef<any, MonacoEditorProps>(
   ({ value, onChange, language = 'yaml', theme = 'vs-dark', options, height = '500px', className }, ref) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-    const [isLoaded, setIsLoaded] = useState(false);
-
-    useEffect(() => {
-      let editor: monaco.editor.IStandaloneCodeEditor | null = null;
-
-      const initEditor = async () => {
-        if (containerRef.current && !editorRef.current) {
-          editor = monaco.editor.create(containerRef.current, {
-            value,
-            language,
-            theme,
+    return (
+      <div className={cn('border border-border rounded-md overflow-hidden', className)} style={{ height }}>
+        <Editor
+          height="100%"
+          defaultLanguage={language}
+          language={language}
+          theme={theme}
+          value={value}
+          onChange={onChange}
+          options={{
+            readOnly: options?.readOnly ?? false,
             minimap: { enabled: false },
             automaticLayout: true,
             scrollBeyondLastLine: false,
             fontSize: 14,
+            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
             lineNumbers: 'on',
             rulers: [80],
+            folding: true,
             wordWrap: 'on',
             padding: { top: 16, bottom: 16 },
             ...options,
-          });
-
-          editorRef.current = editor;
-          setIsLoaded(true);
-
-          if (ref) {
-            if (typeof ref === 'function') {
-              ref(editor);
-            } else {
-              ref.current = editor;
-            }
-          }
-
-          editor.onDidChangeModelContent(() => {
-            const newValue = editor?.getValue() || '';
-            if (onChange && newValue !== value) {
-              onChange(newValue);
-            }
-          });
-        }
-      };
-
-      initEditor();
-
-      return () => {
-        if (editorRef.current) {
-          editorRef.current.dispose();
-          editorRef.current = null;
-        }
-      };
-      }, []);
-
-    useEffect(() => {
-      if (editorRef.current && value !== editorRef.current.getValue()) {
-        editorRef.current.setValue(value);
-      }
-    }, [value]);
-
-    useEffect(() => {
-      if (editorRef.current) {
-        editorRef.current.updateOptions({ theme });
-      }
-    }, [theme]);
-
-    return (
-      <div
-        ref={containerRef}
-        className={cn('border border-border rounded-md overflow-hidden', className)}
-        style={{ height }}
-      />
+          }}
+          loading="Loading editor..."
+        />
+      </div>
     );
   }
 );

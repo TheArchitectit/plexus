@@ -184,7 +184,9 @@ export class OpenAITransformer implements Transformer {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            parser.feed(decoder.decode(value, { stream: true }));
+            const chunkText = decoder.decode(value, { stream: true });
+
+            parser.feed(chunkText);
           }
         } finally {
           reader.releaseLock();
@@ -225,6 +227,7 @@ export class OpenAITransformer implements Transformer {
             };
 
             const sseMessage = encode({ data: JSON.stringify(openAIChunk) });
+
             controller.enqueue(encoder.encode(sseMessage));
           }
         } finally {

@@ -78,7 +78,7 @@ function validateModelAliases(config: PlexusConfig): void {
       }
 
       if (!provider.enabled) {
-        logger.warn("Alias references disabled provider", {
+        logger.silly("Alias references disabled provider", {
           alias: modelAlias.alias,
           provider: target.provider,
         });

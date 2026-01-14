@@ -94,7 +94,8 @@ describe("UsageLogger", () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
-          cachedTokens: 10,
+          cacheReadTokens: 10,
+          cacheCreationTokens: 0,
           reasoningTokens: 0,
         },
       };
@@ -107,7 +108,8 @@ describe("UsageLogger", () => {
         provider: "openai",
         inputTokens: 100,
         outputTokens: 50,
-        cachedTokens: 10,
+        cacheReadTokens: 10,
+        cacheCreationTokens: 0,
         reasoningTokens: 0,
       });
       expect(recordRequestSpy).toHaveBeenCalled();
@@ -136,7 +138,8 @@ describe("UsageLogger", () => {
         usage: {
           inputTokens: 100,
           outputTokens: 200,
-          cachedTokens: 0,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
           reasoningTokens: 0,
         },
       };
@@ -170,7 +173,8 @@ describe("UsageLogger", () => {
         usage: {
           inputTokens: 1000,
           outputTokens: 500,
-          cachedTokens: 0,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
           reasoningTokens: 0,
         },
       };

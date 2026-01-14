@@ -15,9 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import MonacoEditor from '@/components/ui/monaco-editor';
+import { Tag, TagInput } from 'emblor';
 import { api } from '@/lib/api';
 import { parse, stringify } from 'yaml';
-import { Plus, Trash2, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useTheme } from '@/components/theme-provider';
+import chatIcon from '@/assets/chat.svg';
+import messagesIcon from '@/assets/messages.svg';
+import geminiIcon from '@/assets/gemini.svg';
 
 interface Provider {
   name: string;
@@ -50,6 +56,8 @@ export const ProvidersPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [showApikey, setShowApiKey] = useState(false);
+  const [activeTagIndex, setActiveTagIndex] = useState<number | null>(null);
+  const { theme } = useTheme();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -68,7 +76,7 @@ export const ProvidersPage: React.FC = () => {
       type: 'bearer' as 'bearer' | 'x-api-key',
       apiKey: '',
     },
-    models: '',
+    models: [] as Tag[],
     discount: 1.0,
     customHeaders: '',
     extraBody: '',
@@ -99,7 +107,7 @@ export const ProvidersPage: React.FC = () => {
       apiTypes: { chat: false, messages: false, gemini: false },
       baseUrls: { chat: '', messages: '', gemini: '' },
       auth: { type: 'bearer', apiKey: '' },
-      models: '',
+      models: [],
       discount: 1.0,
       customHeaders: '',
       extraBody: '',
@@ -126,10 +134,10 @@ export const ProvidersPage: React.FC = () => {
         type: provider.auth.type,
         apiKey: provider.auth.apiKey,
       },
-      models: provider.models.join(', '),
+      models: provider.models.map(model => ({ id: model, text: model })),
       discount: provider.discount || 1.0,
-      customHeaders: provider.customHeaders ? JSON.stringify(provider.customHeaders, null, 2) : '',
-      extraBody: provider.extraBody ? JSON.stringify(provider.extraBody, null, 2) : '',
+      customHeaders: provider.customHeaders ? stringify(provider.customHeaders) : '',
+      extraBody: provider.extraBody ? stringify(provider.extraBody) : '',
     });
     setShowModal(true);
   };
@@ -173,24 +181,24 @@ export const ProvidersPage: React.FC = () => {
           type: formData.auth.type,
           apiKey: formData.auth.apiKey,
         },
-        models: formData.models.split(',').map(m => m.trim()).filter(m => m),
+        models: formData.models.map(tag => tag.text),
         discount: formData.discount !== 1.0 ? formData.discount : undefined,
       };
 
       if (formData.customHeaders) {
         try {
-          newProvider.customHeaders = JSON.parse(formData.customHeaders);
+          newProvider.customHeaders = parse(formData.customHeaders) as Record<string, string>;
         } catch (e) {
-          alert('Invalid JSON for custom headers');
+          alert('Invalid YAML for custom headers');
           return;
         }
       }
 
       if (formData.extraBody) {
         try {
-          newProvider.extraBody = JSON.parse(formData.extraBody);
+          newProvider.extraBody = parse(formData.extraBody) as Record<string, string | number | boolean | unknown>;
         } catch (e) {
-          alert('Invalid JSON for extra body');
+          alert('Invalid YAML for extra body');
           return;
         }
       }
@@ -276,7 +284,7 @@ export const ProvidersPage: React.FC = () => {
                           size="icon"
                           onClick={() => handleOpenEdit(provider)}
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <Settings2 className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -306,11 +314,9 @@ export const ProvidersPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="font-semibold text-sm">Basic Information</h3>
-
-              <div className="space-y-2">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 space-y-2">
                 <Label htmlFor="provider-name">Provider Name</Label>
                 <Input
                   id="provider-name"
@@ -320,159 +326,162 @@ export const ProvidersPage: React.FC = () => {
                   disabled={!!editingProvider}
                 />
               </div>
-
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mt-6">
                 <Switch
                   id="provider-enabled"
                   checked={formData.enabled}
                   onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })}
                 />
-                <Label htmlFor="provider-enabled">Enabled</Label>
+                <Label htmlFor="provider-enabled" className="cursor-pointer">Enabled</Label>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h3 className="font-semibold text-sm">API Support</h3>
 
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <Switch
-                    id="api-chat"
-                    checked={formData.apiTypes.chat}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        apiTypes: { ...formData.apiTypes, chat: checked },
-                      })
-                    }
-                  />
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="api-chat">OpenAI Chat API</Label>
-                    {formData.apiTypes.chat && (
-                      <Input
-                        placeholder="https://api.openai.com/v1/chat/completions"
-                        value={formData.baseUrls.chat}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            baseUrls: { ...formData.baseUrls, chat: e.target.value },
-                          })
-                        }
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Switch
-                    id="api-messages"
-                    checked={formData.apiTypes.messages}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        apiTypes: { ...formData.apiTypes, messages: checked },
-                      })
-                    }
-                  />
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="api-messages">Anthropic Messages API</Label>
-                    {formData.apiTypes.messages && (
-                      <Input
-                        placeholder="https://api.anthropic.com/v1/messages"
-                        value={formData.baseUrls.messages}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            baseUrls: { ...formData.baseUrls, messages: e.target.value },
-                          })
-                        }
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <Switch
-                    id="api-gemini"
-                    checked={formData.apiTypes.gemini}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        apiTypes: { ...formData.apiTypes, gemini: checked },
-                      })
-                    }
-                  />
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="api-gemini">Gemini API</Label>
-                    {formData.apiTypes.gemini && (
-                      <Input
-                        placeholder="https://generativelanguage.googleapis.com/v1beta/models"
-                        value={formData.baseUrls.gemini}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            baseUrls: { ...formData.baseUrls, gemini: e.target.value },
-                          })
-                        }
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="auth-type">Authentication Type</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={formData.auth.type === 'bearer' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, auth: { ...formData.auth, type: 'bearer' } })}
-                >
-                  Bearer Token
-                </Button>
-                <Button
-                  type="button"
-                  variant={formData.auth.type === 'x-api-key' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, auth: { ...formData.auth, type: 'x-api-key' } })}
-                >
-                  x-api-key Header
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="api-key">API Key</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="api-key"
-                  type={showApikey ? 'text' : 'password'}
-                  value={formData.auth.apiKey}
-                  onChange={(e) =>
-                    setFormData({ ...formData, auth: { ...formData.auth, apiKey: e.target.value } })
+              <div className="flex items-center gap-3">
+                <Label htmlFor="api-chat" className="text-xs w-[130px] flex items-center gap-1.5">
+                  <img src={chatIcon} alt="Chat" className="w-4 h-4" style={{ filter: theme === 'light' ? 'invert(1)' : 'none' }} />
+                  Chat
+                </Label>
+                <Switch
+                  id="api-chat"
+                  checked={formData.apiTypes.chat}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      apiTypes: { ...formData.apiTypes, chat: checked },
+                    })
                   }
-                  placeholder="Enter API key or env var like {env:OPENAI_API_KEY}"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowApiKey(!showApikey)}
-                >
-                  {showApikey ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
+                <Input
+                  placeholder="https://api.openai.com/v1/chat/completions"
+                  value={formData.baseUrls.chat}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      baseUrls: { ...formData.baseUrls, chat: e.target.value },
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Label htmlFor="api-messages" className="text-xs w-[130px] flex items-center gap-1.5">
+                  <img src={messagesIcon} alt="Messages" className="w-4 h-4" />
+                  Messages
+                </Label>
+                <Switch
+                  id="api-messages"
+                  checked={formData.apiTypes.messages}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      apiTypes: { ...formData.apiTypes, messages: checked },
+                    })
+                  }
+                />
+                <Input
+                  placeholder="https://api.anthropic.com/v1/messages"
+                  value={formData.baseUrls.messages}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      baseUrls: { ...formData.baseUrls, messages: e.target.value },
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Label htmlFor="api-gemini" className="text-xs w-[130px] flex items-center gap-1.5">
+                  <img src={geminiIcon} alt="Gemini" className="w-4 h-4" />
+                  Gemini
+                </Label>
+                <Switch
+                  id="api-gemini"
+                  checked={formData.apiTypes.gemini}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      apiTypes: { ...formData.apiTypes, gemini: checked },
+                    })
+                  }
+                />
+                <Input
+                  placeholder="https://generativelanguage.googleapis.com/v1beta/models"
+                  value={formData.baseUrls.gemini}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      baseUrls: { ...formData.baseUrls, gemini: e.target.value },
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="auth-type">Auth Type</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={formData.auth.type === 'bearer' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFormData({ ...formData, auth: { ...formData.auth, type: 'bearer' } })}
+                  >
+                    Bearer
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={formData.auth.type === 'x-api-key' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFormData({ ...formData, auth: { ...formData.auth, type: 'x-api-key' } })}
+                  >
+                    x-api-key
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="api-key">API Key</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="api-key"
+                    type={showApikey ? 'text' : 'password'}
+                    value={formData.auth.apiKey}
+                    onChange={(e) =>
+                      setFormData({ ...formData, auth: { ...formData.auth, apiKey: e.target.value } })
+                    }
+                    placeholder="Enter key or {env:VAR}"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowApiKey(!showApikey)}
+                  >
+                    {showApikey ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="models">Models (comma-separated)</Label>
-              <Input
-                id="models"
-                value={formData.models}
-                onChange={(e) => setFormData({ ...formData, models: e.target.value })}
+              <Label htmlFor="models">Models</Label>
+              <TagInput
                 placeholder="e.g., gpt-4o, gpt-4o-mini, o1-preview"
+                tags={formData.models}
+                setTags={(newTags) => setFormData({ ...formData, models: newTags as Tag[] })}
+                activeTagIndex={activeTagIndex}
+                setActiveTagIndex={setActiveTagIndex}
+                inputFieldPosition="bottom"
+                styleClasses={{
+                  tag: {
+                    body: "rounded-full h-8 text-xs",
+                  },
+                  input: "h-8",
+                }}
               />
             </div>
 
@@ -499,24 +508,32 @@ export const ProvidersPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="custom-headers">Custom Headers (JSON)</Label>
-                    <textarea
-                      id="custom-headers"
-                      className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    <Label htmlFor="custom-headers">Custom Headers (YAML)</Label>
+                    <MonacoEditor
                       value={formData.customHeaders}
-                      onChange={(e) => setFormData({ ...formData, customHeaders: e.target.value })}
-                      placeholder='{\n  "OpenAI-Organization": "org-123"\n}'
+                      onChange={(value) => setFormData({ ...formData, customHeaders: value || '' })}
+                      language="yaml"
+                      height="150px"
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 12,
+                        lineNumbers: 'off',
+                      }}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="extra-body">Extra Body Fields (JSON)</Label>
-                    <textarea
-                      id="extra-body"
-                      className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    <Label htmlFor="extra-body">Extra Body Fields (YAML)</Label>
+                    <MonacoEditor
                       value={formData.extraBody}
-                      onChange={(e) => setFormData({ ...formData, extraBody: e.target.value })}
-                      placeholder='{\n  "anthropic_version": "2023-06-01"\n}'
+                      onChange={(value) => setFormData({ ...formData, extraBody: value || '' })}
+                      language="yaml"
+                      height="150px"
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 12,
+                        lineNumbers: 'off',
+                      }}
                     />
                   </div>
                 </AccordionContent>

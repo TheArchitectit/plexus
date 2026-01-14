@@ -58,14 +58,15 @@ export const UsagePage: React.FC = () => {
 
       const logs = logsData.entries as unknown as Array<{
         timestamp: string;
-        requestedModel?: string;
-        provider?: string;
+        actualModel?: string;
+        actualProvider?: string;
         apiKey?: string;
         usage?: {
-          promptTokens?: number;
-          completionTokens?: number;
+          inputTokens?: number;
+          outputTokens?: number;
           reasoningTokens?: number;
-          cachedTokens?: number;
+          cacheReadTokens?: number;
+          cacheCreationTokens?: number;
         };
       }>;
 
@@ -106,12 +107,14 @@ export const UsagePage: React.FC = () => {
             requestsMap.set(key, (requestsMap.get(key) || 0) + 1);
 
             const current = tokensMap.get(key);
+            const cacheReadTokens = log.usage?.cacheReadTokens ?? 0;
+            const cacheCreationTokens = log.usage?.cacheCreationTokens ?? 0;
             tokensMap.set(key, {
               timestamp: key,
-              inputTokens: (current?.inputTokens ?? 0) + (log.usage?.promptTokens ?? 0),
-              outputTokens: (current?.outputTokens ?? 0) + (log.usage?.completionTokens ?? 0),
+              inputTokens: (current?.inputTokens ?? 0) + (log.usage?.inputTokens ?? 0),
+              outputTokens: (current?.outputTokens ?? 0) + (log.usage?.outputTokens ?? 0),
               reasoningTokens: (current?.reasoningTokens ?? 0) + (log.usage?.reasoningTokens ?? 0),
-              cachedTokens: (current?.cachedTokens ?? 0) + (log.usage?.cachedTokens ?? 0)
+              cachedTokens: (current?.cachedTokens ?? 0) + cacheReadTokens + cacheCreationTokens
             });
           });
 
@@ -131,7 +134,7 @@ export const UsagePage: React.FC = () => {
         return { requests, tokens };
       };
 
-      const processDistributionData = (keyField: 'requestedModel' | 'provider' | 'apiKey') => {
+      const processDistributionData = (keyField: 'actualModel' | 'actualProvider' | 'apiKey') => {
         const map = new Map<string, { requests: number; tokens: number }>();
 
         filtered.forEach(log => {
@@ -141,8 +144,10 @@ export const UsagePage: React.FC = () => {
           }
           const data = map.get(key)!;
           data.requests += 1;
-          data.tokens += (log.usage?.promptTokens || 0) + (log.usage?.completionTokens || 0) +
-            (log.usage?.reasoningTokens || 0) + (log.usage?.cachedTokens || 0);
+          const cacheReadTokens = log.usage?.cacheReadTokens ?? 0;
+          const cacheCreationTokens = log.usage?.cacheCreationTokens ?? 0;
+          data.tokens += (log.usage?.inputTokens || 0) + (log.usage?.outputTokens || 0) +
+            (log.usage?.reasoningTokens || 0) + cacheReadTokens + cacheCreationTokens;
         });
 
         return Array.from(map.entries()).map(([name, data]) => ({
@@ -155,10 +160,10 @@ export const UsagePage: React.FC = () => {
       const timeData = processTimeData();
       setRequestsData(timeData.requests);
       setTokensData(timeData.tokens);
-      setModelRequestsData(processDistributionData('requestedModel'));
-      setModelTokensData(processDistributionData('requestedModel'));
-      setProviderRequestsData(processDistributionData('provider'));
-      setProviderTokensData(processDistributionData('provider'));
+      setModelRequestsData(processDistributionData('actualModel'));
+      setModelTokensData(processDistributionData('actualModel'));
+      setProviderRequestsData(processDistributionData('actualProvider'));
+      setProviderTokensData(processDistributionData('actualProvider'));
       setKeyRequestsData(processDistributionData('apiKey'));
       setKeyTokensData(processDistributionData('apiKey'));
     } catch (error) {
@@ -411,36 +416,6 @@ export const UsagePage: React.FC = () => {
           </Card>
         </div>
       )}
-    </div>
-  );
-};
-
-export { LogsPage } from './Logs';
-
-export { ProvidersPage } from './Providers';
-
-export { ModelsPage } from './Models';
-
-export { KeysPage } from './Keys';
-
-export { ConfigPage } from './Config';
-
-export { DebugPage } from './Debug';
-
-export { ErrorsPage } from './Errors';
-
-export const NotFoundPage: React.FC = () => {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold mb-6">404 - Page Not Found</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Not Found</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">The page you are looking for does not exist.</p>
-        </CardContent>
-      </Card>
     </div>
   );
 };

@@ -70,6 +70,10 @@ export function LogsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [logToDelete, setLogToDelete] = useState<string | null>(null);
+  const [debugDialogOpen, setDebugDialogOpen] = useState(false);
+  const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+  const [logDetails, setLogDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -120,6 +124,23 @@ export function LogsPage() {
       setApiKeys(keyNames);
     } catch (error) {
       console.error('Failed to fetch config:', error);
+    }
+  };
+
+  const handleShowDebug = async (id?: string) => {
+    if (!id) return;
+    console.log('[Debug] Opening debug dialog for log:', id);
+    setSelectedLogId(id);
+    setDetailsLoading(true);
+    setDebugDialogOpen(true);
+    try {
+      const details = await api.getLogDetails(id);
+      console.log('[Debug] Received details:', details);
+      setLogDetails(details);
+    } catch (error) {
+      console.error('[Debug] Failed to fetch log details:', error);
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
@@ -236,6 +257,7 @@ export function LogsPage() {
   }, []);
 
   return (
+    <>
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -393,11 +415,17 @@ export function LogsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {log.debug && (
-                        <Button variant="ghost" size="sm">
-                          <Bug className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (log.id) {
+                            handleShowDebug(log.id);
+                          }
+                        }}
+                      >
+                        <Bug className="h-4 w-4" />
+                      </Button>
                       {log.error && (
                         <Button variant="ghost" size="sm">
                           <AlertTriangle className="h-4 w-4" />
@@ -476,5 +504,116 @@ export function LogsPage() {
         </div>
       </div>
     </div>
+
+    <Dialog open={debugDialogOpen} onOpenChange={setDebugDialogOpen}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Debug Trace Details</DialogTitle>
+          <DialogDescription>
+            Request ID: {selectedLogId}
+          </DialogDescription>
+        </DialogHeader>
+        {detailsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            Loading debug traces...
+          </div>
+        ) : !logDetails ? (
+          <div className="flex items-center justify-center py-8">
+            No debug traces available
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {logDetails.usage && (
+              <div className="bg-muted p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">Usage Info</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><strong>API Type:</strong> {logDetails.usage.apiType}</div>
+                  <div><strong>Model:</strong> {logDetails.usage.actualModel}</div>
+                  <div><strong>Provider:</strong> {logDetails.usage.actualProvider}</div>
+                  <div><strong>Alias:</strong> {logDetails.usage.aliasUsed}</div>
+                  <div><strong>Duration:</strong> {formatLatency(logDetails.usage.metrics?.durationMs)}</div>
+                  <div><strong>TTFT:</strong> {formatLatency(logDetails.usage.metrics?.ttftMs)}</div>
+                  <div><strong>Tokens/sec:</strong> {logDetails.usage.metrics?.tokensPerSecond?.toFixed(2)}</div>
+                  <div><strong>Total Cost:</strong> {formatCost(logDetails.usage.cost?.totalCost)}</div>
+                  <div><strong>Input Tokens:</strong> {logDetails.usage.usage?.inputTokens}</div>
+                  <div><strong>Output Tokens:</strong> {logDetails.usage.usage?.outputTokens}</div>
+                  <div><strong>Total Tokens:</strong> {logDetails.usage.usage?.totalTokens}</div>
+                  <div><strong>Streaming:</strong> {logDetails.usage.streaming ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
+            )}
+
+            {logDetails.traces && logDetails.traces.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="font-semibold">Request/Response Traces</h3>
+                {logDetails.traces.map((trace: any, index: number) => (
+                  <div key={index} className="bg-muted p-4 rounded-lg space-y-3">
+                    <div className="flex justify-between items-center text-sm text-muted-foreground">
+                      <span>Trace #{index + 1}</span>
+                      <span>{formatTimestamp(trace.timestamp)}</span>
+                    </div>
+
+                    {trace.clientRequest && (
+                      <div>
+                        <h4 className="font-medium text-sm mb-2 text-green-700">Client Request</h4>
+                        <pre className="bg-background p-3 rounded text-xs overflow-auto max-h-48">
+                          {JSON.stringify(trace.clientRequest, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+
+                    {trace.unifiedRequest && (
+                      <div>
+                        <h4 className="font-medium text-sm mb-2 text-blue-700">Unified Request</h4>
+                        <pre className="bg-background p-3 rounded text-xs overflow-auto max-h-48">
+                          {JSON.stringify(trace.unifiedRequest, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+
+                    {trace.providerRequest && (
+                      <div>
+                        <h4 className="font-medium text-sm mb-2 text-purple-700">Provider Request</h4>
+                        <pre className="bg-background p-3 rounded text-xs overflow-auto max-h-48">
+                          {JSON.stringify(trace.providerRequest, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+
+                    {trace.clientResponse && (
+                      <div>
+                        <h4 className="font-medium text-sm mb-2 text-orange-700">Client Response</h4>
+                        <pre className="bg-background p-3 rounded text-xs overflow-auto max-h-48">
+                          {JSON.stringify(trace.clientResponse, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {logDetails.errors && logDetails.errors.length > 0 && (
+              <div className="bg-destructive/10 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2 text-destructive">Errors</h3>
+                {logDetails.errors.map((error: any, index: number) => (
+                  <div key={index} className="text-sm">
+                    <pre className="bg-background p-2 rounded text-xs overflow-auto">
+                      {JSON.stringify(error, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDebugDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

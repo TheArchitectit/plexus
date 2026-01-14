@@ -16,6 +16,7 @@ import {
   PanelLeftOpen,
   Moon,
   Sun,
+  Cpu,
 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+// @ts-ignore: Ignore import error for image
 import plexusLogo from '@/assets/plexus_logo_transparent.png';
 
 interface NavItemProps {
@@ -176,6 +178,7 @@ export const Sidebar: React.FC = () => {
           <NavItem to="/providers" icon={Server} label="Providers" isCollapsed={isCollapsed} />
           <NavItem to="/models" icon={Box} label="Models" isCollapsed={isCollapsed} />
           <NavItem to="/keys" icon={Key} label="Keys" isCollapsed={isCollapsed} />
+          <NavItem to="/system" icon={Cpu} label="System" isCollapsed={isCollapsed} />
           <NavItem to="/config" icon={Settings} label="Config" isCollapsed={isCollapsed} />
         </div>
 

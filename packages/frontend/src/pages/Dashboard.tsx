@@ -16,10 +16,11 @@ export const DashboardPage: React.FC = () => {
   const [timeAgo, setTimeAgo] = useState<string>('Just now');
   const [activityRange, setActivityRange] = useState<TimeRange>('day');
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const loadData = async () => {
     try {
-      setLoading(true);
+      if (isInitialLoad) setLoading(true);
       const [stateData, logsData] = await Promise.all([
         api.getState(),
         api.queryLogs({ type: 'usage', limit: 100 })
@@ -95,6 +96,7 @@ export const DashboardPage: React.FC = () => {
       console.error('Failed to load dashboard data:', error);
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   };
 

@@ -10,17 +10,39 @@ import { Copy, Trash2, Clock } from 'lucide-react';
 interface DebugLog {
   id: string;
   timestamp: string;
-  apiKey: string;
-  sourceIp: string;
-  requestData?: Record<string, unknown>;
-  transformedRequest?: Record<string, unknown>;
-  responseData?: Record<string, unknown>;
-  transformedResponse?: Record<string, unknown>;
-  snapshots?: Record<string, unknown>[];
+  clientRequest?: {
+    apiType: string;
+    body: Record<string, unknown>;
+    headers: Record<string, string>;
+  };
+  unifiedRequest?: Record<string, unknown>;
+  providerRequest?: {
+    apiType: string;
+    body: Record<string, unknown>;
+    headers: Record<string, string>;
+  };
+  providerResponse?: {
+    status: number;
+    headers: Record<string, string>;
+    body: Record<string, unknown>;
+  };
+  clientResponse?: {
+    status: number;
+    body: Record<string, unknown>;
+  };
+  streamSnapshots?: Array<{
+    timestamp: string;
+    chunk: Record<string, unknown>;
+  }>;
+}
+
+interface DebugLogListItem {
+  id: string;
+  timestamp: string;
 }
 
 export function DebugPage() {
-  const [logs, setLogs] = useState<DebugLog[]>([]);
+  const [logs, setLogs] = useState<DebugLogListItem[]>([]);
   const [selectedLog, setSelectedLog] = useState<DebugLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -31,7 +53,10 @@ export function DebugPage() {
       const response = await api.queryLogs({ type: 'trace', limit: 50 });
 
       if (response.entries && response.entries.length > 0) {
-        const typedLogs = response.entries as unknown as DebugLog[];
+        const typedLogs = response.entries.map((log: any) => ({
+          id: log.id,
+          timestamp: log.timestamp,
+        })) as unknown as DebugLogListItem[];
         setLogs(typedLogs);
       } else {
         setLogs([]);
@@ -49,6 +74,8 @@ export function DebugPage() {
       if (response.traces && response.traces.length > 0) {
         const trace = response.traces[0] as unknown as DebugLog;
         setSelectedLog(trace);
+      } else {
+        setSelectedLog(null);
       }
     } catch (error) {
       console.error('Failed to fetch log details:', error);
@@ -128,13 +155,12 @@ export function DebugPage() {
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1 min-w-0">
                         <p className="font-mono text-sm truncate">{log.id}</p>
-                        <p className="text-xs text-muted-foreground">{log.apiKey}</p>
+                        <p className="text-xs text-muted-foreground">Debug trace</p>
                       </div>
                       <Badge variant="outline" className="shrink-0">
                         {new Date(log.timestamp).toLocaleTimeString()}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{log.sourceIp}</p>
                   </div>
                 ))}
               </div>
@@ -165,11 +191,11 @@ export function DebugPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">
-                <Accordion type="multiple" defaultValue={["request", "response"]} className="w-full">
-                  {selectedLog.requestData && (
-                    <AccordionItem value="request">
+                <Accordion type="multiple" defaultValue={["client-request", "unified-request"]} className="w-full">
+                  {selectedLog.clientRequest && (
+                    <AccordionItem value="client-request">
                       <AccordionTrigger className="hover:no-underline">
-                        Raw Request
+                        Client Request
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-2">
@@ -177,14 +203,14 @@ export function DebugPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => copyToClipboard(formatContent(selectedLog.requestData))}
+                              onClick={() => copyToClipboard(formatContent(selectedLog.clientRequest))}
                             >
                               <Copy className="h-4 w-4 mr-2" />
                               Copy
                             </Button>
                           </div>
                           <MonacoEditor
-                            value={formatContent(selectedLog.requestData)}
+                            value={formatContent(selectedLog.clientRequest)}
                             language="json"
                             height="300px"
                             className="rounded-md"
@@ -195,10 +221,10 @@ export function DebugPage() {
                     </AccordionItem>
                   )}
 
-                  {selectedLog.transformedRequest && (
-                    <AccordionItem value="transformed-request">
+                  {selectedLog.unifiedRequest && (
+                    <AccordionItem value="unified-request">
                       <AccordionTrigger className="hover:no-underline">
-                        Transformed Request
+                        Unified Request
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-2">
@@ -206,14 +232,14 @@ export function DebugPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => copyToClipboard(formatContent(selectedLog.transformedRequest))}
+                              onClick={() => copyToClipboard(formatContent(selectedLog.unifiedRequest))}
                             >
                               <Copy className="h-4 w-4 mr-2" />
                               Copy
                             </Button>
                           </div>
                           <MonacoEditor
-                            value={formatContent(selectedLog.transformedRequest)}
+                            value={formatContent(selectedLog.unifiedRequest)}
                             language="json"
                             height="300px"
                             className="rounded-md"
@@ -224,10 +250,10 @@ export function DebugPage() {
                     </AccordionItem>
                   )}
 
-                  {selectedLog.responseData && (
-                    <AccordionItem value="response">
+                  {selectedLog.providerRequest && (
+                    <AccordionItem value="provider-request">
                       <AccordionTrigger className="hover:no-underline">
-                        Raw Response
+                        Provider Request
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-2">
@@ -235,14 +261,14 @@ export function DebugPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => copyToClipboard(formatContent(selectedLog.responseData))}
+                              onClick={() => copyToClipboard(formatContent(selectedLog.providerRequest))}
                             >
                               <Copy className="h-4 w-4 mr-2" />
                               Copy
                             </Button>
                           </div>
                           <MonacoEditor
-                            value={formatContent(selectedLog.responseData)}
+                            value={formatContent(selectedLog.providerRequest)}
                             language="json"
                             height="300px"
                             className="rounded-md"
@@ -253,10 +279,10 @@ export function DebugPage() {
                     </AccordionItem>
                   )}
 
-                  {selectedLog.transformedResponse && (
-                    <AccordionItem value="transformed-response">
+                  {selectedLog.providerResponse && (
+                    <AccordionItem value="provider-response">
                       <AccordionTrigger className="hover:no-underline">
-                        Transformed Response
+                        Provider Response
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-2">
@@ -264,14 +290,14 @@ export function DebugPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => copyToClipboard(formatContent(selectedLog.transformedResponse))}
+                              onClick={() => copyToClipboard(formatContent(selectedLog.providerResponse))}
                             >
                               <Copy className="h-4 w-4 mr-2" />
                               Copy
                             </Button>
                           </div>
                           <MonacoEditor
-                            value={formatContent(selectedLog.transformedResponse)}
+                            value={formatContent(selectedLog.providerResponse)}
                             language="json"
                             height="300px"
                             className="rounded-md"
@@ -282,14 +308,43 @@ export function DebugPage() {
                     </AccordionItem>
                   )}
 
-                  {selectedLog.snapshots && selectedLog.snapshots.length > 0 && (
-                    <AccordionItem value="snapshots">
+                  {selectedLog.clientResponse && (
+                    <AccordionItem value="client-response">
                       <AccordionTrigger className="hover:no-underline">
-                        Snapshots ({selectedLog.snapshots.length})
+                        Client Response
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2">
+                          <div className="flex justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(formatContent(selectedLog.clientResponse))}
+                            >
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy
+                            </Button>
+                          </div>
+                          <MonacoEditor
+                            value={formatContent(selectedLog.clientResponse)}
+                            language="json"
+                            height="300px"
+                            className="rounded-md"
+                            options={{ readOnly: true }}
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
+                  {selectedLog.streamSnapshots && selectedLog.streamSnapshots.length > 0 && (
+                    <AccordionItem value="stream-snapshots">
+                      <AccordionTrigger className="hover:no-underline">
+                        Stream Snapshots ({selectedLog.streamSnapshots.length})
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-4">
-                          {selectedLog.snapshots.map((snapshot, index) => (
+                          {selectedLog.streamSnapshots.map((snapshot, index) => (
                             <div key={index} className="space-y-2">
                               <p className="text-sm font-medium">Snapshot {index + 1}</p>
                               <MonacoEditor

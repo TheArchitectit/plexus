@@ -137,7 +137,8 @@ export class UsageStore {
       tokens: {
         input: 0,
         output: 0,
-        cached: 0,
+        cachedRead: 0,
+        cacheCreation: 0,
         reasoning: 0,
         total: 0,
       },
@@ -158,7 +159,8 @@ export class UsageStore {
     for (const entry of entries) {
       summary.tokens.input += entry.usage.inputTokens;
       summary.tokens.output += entry.usage.outputTokens;
-      summary.tokens.cached += entry.usage.cachedTokens;
+      summary.tokens.cachedRead += entry.usage.cacheReadTokens;
+      summary.tokens.cacheCreation += entry.usage.cacheCreationTokens;
       summary.tokens.reasoning += entry.usage.reasoningTokens;
       summary.tokens.total += entry.usage.totalTokens;
 

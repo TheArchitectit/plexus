@@ -8,8 +8,8 @@ import type { CooldownManager } from "./cooldown-manager";
 import type { CooldownReason } from "../types/health";
 import type { CostCalculator } from "./cost-calculator";
 import type { MetricsCollector } from "./metrics-collector";
-import type { UsageLogger, RequestContext, ResponseInfo } from "./usage-logger";
 import type { DebugLogger } from "./debug-logger";
+import { ServerContext } from "src/types/server";
 
 /**
  * Dispatcher service for routing requests to appropriate providers
@@ -17,26 +17,13 @@ import type { DebugLogger } from "./debug-logger";
  */
 export class Dispatcher {
   private router: Router;
-  private cooldownManager?: CooldownManager;
-  private usageLogger?: UsageLogger;
-  private metricsCollector?: MetricsCollector;
-  private costCalculator?: CostCalculator;
-  private debugLogger?: DebugLogger;
+  private context: ServerContext;
 
   constructor(
-    private config: PlexusConfig,
-    cooldownManager?: CooldownManager,
-    costCalculator?: CostCalculator,
-    metricsCollector?: MetricsCollector,
-    usageLogger?: UsageLogger,
-    debugLogger?: DebugLogger
+    context: ServerContext
   ) {
-    this.router = new Router(config, cooldownManager, costCalculator, metricsCollector);
-    this.cooldownManager = cooldownManager;
-    this.usageLogger = usageLogger;
-    this.metricsCollector = metricsCollector;
-    this.costCalculator = costCalculator;
-    this.debugLogger = debugLogger;
+    this.context = context;
+    this.router = new Router(context.config, context.cooldownManager, context.costCalculator, context.metricsCollector);
   }
 
   /**
@@ -44,9 +31,9 @@ export class Dispatcher {
    * @param config - New configuration
    */
   updateConfig(config: PlexusConfig): void {
-    this.config = config;
+    this.context.config = config;
     this.router.updateConfig(config);
-    this.cooldownManager?.updateConfig(config);
+    this.context.cooldownManager?.updateConfig(config);
   }
 
   /**
@@ -75,23 +62,7 @@ export class Dispatcher {
   ): Promise<Response> {
     const requestLogger = logger.child({ requestId, clientApiType });
 
-    // Create request context for observability (Phase 7)
-    const requestContext: RequestContext | undefined = this.usageLogger
-      ? {
-          id: requestId,
-          startTime: Date.now(),
-          clientIp,
-          apiKeyName,
-          clientApiType,
-        }
-      : undefined;
-
     try {
-      // Start debug trace (Phase 7)
-      if (this.debugLogger?.enabled) {
-        this.debugLogger.startTrace(requestId, clientApiType, request);
-      }
-
       // Step 1: Resolve model using router
       const resolution = this.router.resolve(request.model);
 
@@ -111,21 +82,8 @@ export class Dispatcher {
 
       const { provider, model, aliasUsed } = resolution.target;
 
-      // Update request context with routing info (Phase 7)
-      if (requestContext) {
-        requestContext.aliasUsed = aliasUsed;
-        requestContext.actualProvider = provider.name;
-        requestContext.actualModel = model;
-      }
-
       // Step 2: Determine provider's native API type
       const providerApiType = getProviderApiType(provider.apiTypes || ["chat"], clientApiType);
-
-      // Update request context with API type info (Phase 7)
-      if (requestContext) {
-        requestContext.targetApiType = providerApiType;
-        requestContext.passthrough = !TransformerFactory.needsTransformation(clientApiType, providerApiType);
-      }
 
       requestLogger.debug("Dispatching request", {
         requestedModel: request.model,
@@ -146,11 +104,6 @@ export class Dispatcher {
       // Override model with resolved model name
       unifiedRequest.model = model;
 
-      // Capture unified request (Phase 7)
-      if (this.debugLogger?.enabled) {
-        this.debugLogger.captureUnifiedRequest(requestId, unifiedRequest);
-      }
-
       requestLogger.debug("Request transformed to unified format", {
         messageCount: unifiedRequest.messages?.length,
       });
@@ -166,15 +119,21 @@ export class Dispatcher {
         Object.assign(providerRequest, provider.extraBody);
       }
 
-      // Capture provider request (Phase 7)
-      if (this.debugLogger?.enabled) {
-        this.debugLogger.captureProviderRequest(requestId, providerApiType, providerRequest);
-      }
+       requestLogger.debug("Request transformed to provider format", {
+     provider: provider.name,
+         apiType: providerApiType,
+       });
 
-      requestLogger.debug("Request transformed to provider format", {
-        provider: provider.name,
-        apiType: providerApiType,
-      });
+       requestLogger.silly("About to capture provider request", {
+         requestId,
+         providerApiType,
+       });
+
+       this.context.debugLogger?.captureProviderRequest(
+         requestId,
+         providerApiType,
+         providerRequest
+       );
 
       // Step 5: Get the appropriate endpoint URL
       const endpointUrl = this.getEndpointUrl(provider, providerApiType);
@@ -205,10 +164,6 @@ export class Dispatcher {
       // Step 7: Check if this is a streaming response
       const isStreaming = providerResponse.headers.get("Content-Type")?.includes("text/event-stream");
 
-      if (requestContext) {
-        requestContext.streaming = isStreaming;
-      }
-
       if (isStreaming) {
         requestLogger.debug("Streaming response detected", {
           providerApiType,
@@ -224,16 +179,8 @@ export class Dispatcher {
           clientApiType
         );
 
-        // Intercept the stream to extract usage from final snapshot (Phase 7)
-        const { stream, usagePromise } = this.interceptStreamForUsage(
-          transformedResponse.body,
-          clientApiType,
-          requestContext,
-          requestLogger
-        );
-
         // Return streaming response with proper SSE headers
-        return new Response(stream, {
+        return new Response(transformedResponse.body, {
           status: transformedResponse.status,
           headers: {
             "Content-Type": "text/event-stream",
@@ -244,6 +191,17 @@ export class Dispatcher {
         });
       }
 
+       requestLogger.silly("About to capture provider response", {
+       requestId,
+        status: providerResponse.status,
+      });
+
+       this.context.debugLogger?.captureProviderResponse(
+         requestId,
+         providerResponse.status,
+         Object.fromEntries(providerResponse.headers),
+         await providerResponse.clone().json()
+       );
       // Step 7: Transform non-streaming response back to client's expected format
       const transformedResponse = await transformerFactory.transformResponse(
         providerResponse,
@@ -251,101 +209,34 @@ export class Dispatcher {
         clientApiType
       );
 
-      requestLogger.debug("Response transformed to client format", {
-        clientApiType,
+       requestLogger.debug("Response transformed to client format", {
+       clientApiType,
+    });
+
+       requestLogger.silly("About to capture client response", {
+       requestId,
+        status: providerResponse.status,
       });
 
-      // Log usage for non-streaming requests (Phase 7)
-      if (this.usageLogger && requestContext) {
-        try {
-          // Parse response to extract usage information
-          const responseBody = await transformedResponse.json() as any;
-          
-          // Capture provider and client responses for debug (Phase 7)
-          if (this.debugLogger?.enabled) {
-            // For non-streaming, we already have the full response body
-            this.debugLogger.captureProviderResponse(
-              requestId,
-              providerResponse.status,
-              Object.fromEntries(providerResponse.headers.entries()),
-              responseBody
-            );
-            this.debugLogger.captureClientResponse(
-              requestId,
-              transformedResponse.status,
-              responseBody
-            );
-            await this.debugLogger.completeTrace(requestId);
-          }
+       this.context.debugLogger?.captureClientResponse(
+         requestId,
+         providerResponse.status,
+         await transformedResponse.clone().json()
+       );
 
-          let usageInfo: {
-              inputTokens: number;
-              outputTokens: number;
-              cacheReadTokens: number;
-              cacheCreationTokens: number;
-              reasoningTokens: number;
-          } | undefined;
-
-          const clientTransformer = transformerFactory.getTransformer(clientApiType);
-          const rawUsage = responseBody.usage || responseBody.usageMetadata;
-          
-          if (rawUsage) {
-             const unifiedUsage = clientTransformer.parseUsage(rawUsage);
-             usageInfo = {
-                 inputTokens: unifiedUsage.input_tokens,
-                 outputTokens: unifiedUsage.output_tokens,
-                 cacheReadTokens: unifiedUsage.cache_read_tokens || 0,
-                 cacheCreationTokens: unifiedUsage.cache_creation_tokens || 0,
-                 reasoningTokens: unifiedUsage.reasoning_tokens || 0
-             };
-          }
-
-          const responseInfo: ResponseInfo = {
-            success: true,
-            streaming: false,
-            usage: usageInfo,
-          };
-
-          await this.usageLogger.logRequest(requestContext, responseInfo);
-
-          // Return a new Response with the parsed body
-          return Response.json(responseBody, {
-            status: transformedResponse.status,
-            headers: transformedResponse.headers,
-          });
-        } catch (error) {
-          requestLogger.warn("Failed to log usage", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          // Return original response if logging fails
-          return transformedResponse;
-        }
-      }
-
+      this.context.debugLogger?.completeTrace(requestId);
       return transformedResponse;
     } catch (error) {
       requestLogger.error("Dispatcher error", {
         error: error instanceof Error ? error.message : String(error),
       });
 
-      // Log error (Phase 7)
-      if (this.usageLogger && requestContext) {
-        const responseInfo: ResponseInfo = {
-          success: false,
-          streaming: false,
-          errorType: error instanceof PlexusErrorResponse ? error.type : "api_error",
-          errorMessage: error instanceof Error ? error.message : String(error),
-          httpStatus: error instanceof PlexusErrorResponse ? error.status : 500,
-        };
-        await this.usageLogger.logRequest(requestContext, responseInfo);
-      }
-
       // Check if this is a network/connection error
       if (error instanceof Error && this.isConnectionError(error)) {
         // Get provider name from resolution if available
         const resolution = this.router.resolve(request.model);
-        if (resolution.success && this.cooldownManager) {
-          this.cooldownManager.setCooldown({
+        if (resolution.success && this.context.cooldownManager) {
+          this.context.cooldownManager.setCooldown({
             provider: resolution.target.provider.name,
             reason: "connection_error",
             message: error.message,
@@ -407,7 +298,7 @@ export class Dispatcher {
    * Handles provider errors by triggering appropriate cooldowns
    */
   private handleProviderError(providerName: string, response: Response): void {
-    if (!this.cooldownManager) {
+    if (!this.context.cooldownManager) {
       return;
     }
 
@@ -437,7 +328,7 @@ export class Dispatcher {
     const retryAfterInfo = ProviderClient.parseRetryAfter(response);
 
     // Set cooldown
-    this.cooldownManager.setCooldown({
+    this.context.cooldownManager.setCooldown({
       provider: providerName,
       reason,
       httpStatus: status,
@@ -464,142 +355,4 @@ export class Dispatcher {
     return connectionErrors.some((term) => errorMessage.includes(term));
   }
 
-  /**
-   * Intercept streaming response to extract usage from final snapshot
-   * Returns a pass-through stream and a promise that resolves with usage info
-   */
-  private interceptStreamForUsage(
-    originalBody: ReadableStream<Uint8Array> | null,
-    clientApiType: ApiType,
-    requestContext: RequestContext | undefined,
-    requestLogger: any
-  ): { stream: ReadableStream<Uint8Array>; usagePromise: Promise<void> } {
-    if (!originalBody || !this.usageLogger || !requestContext) {
-      // No interception needed
-      return {
-        stream: originalBody || new ReadableStream(),
-        usagePromise: Promise.resolve(),
-      };
-    }
-
-    const reader = originalBody.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let firstTokenSent = false;
-    let finalSnapshot: any = null;
-    let chunkCount = 0;
-
-    const usageLogger = this.usageLogger;
-    const debugLogger = this.debugLogger;
-    const context = requestContext;
-
-    const usagePromise = (async () => {
-      try {
-        // We'll extract usage after the stream completes
-        // This is done in the stream's finally block
-      } catch (error) {
-        requestLogger.warn("Failed to extract streaming usage", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    })();
-
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) {
-              // Stream complete - extract usage from final snapshot
-              if (finalSnapshot && context) {
-                try {
-                  let usageInfo: {
-                      inputTokens: number;
-                      outputTokens: number;
-                      cacheReadTokens: number;
-                      cacheCreationTokens: number;
-                      reasoningTokens: number;
-                  } | undefined;
-                  
-                  const rawUsage = finalSnapshot.usage || finalSnapshot.usageMetadata;
-                  if (rawUsage) {
-                      const clientTransformer = transformerFactory.getTransformer(clientApiType);
-                      const unifiedUsage = clientTransformer.parseUsage(rawUsage);
-                      usageInfo = {
-                         inputTokens: unifiedUsage.input_tokens,
-                         outputTokens: unifiedUsage.output_tokens,
-                         cacheReadTokens: unifiedUsage.cache_read_tokens || 0,
-                         cacheCreationTokens: unifiedUsage.cache_creation_tokens || 0,
-                         reasoningTokens: unifiedUsage.reasoning_tokens || 0
-                      };
-                  }
-
-                  const responseInfo: ResponseInfo = {
-                    success: true,
-                    streaming: true,
-                    usage: usageInfo,
-                  };
-
-                  await usageLogger.logRequest(context, responseInfo);
-                } catch (error) {
-                  requestLogger.warn("Failed to log streaming usage", {
-                    error: error instanceof Error ? error.message : String(error),
-                  });
-                }
-              }
-
-              // Complete debug trace for streaming (Phase 7)
-              if (debugLogger?.enabled && finalSnapshot) {
-                debugLogger.captureClientResponse(context.id, 200, finalSnapshot);
-                await debugLogger.completeTrace(context.id);
-              }
-
-              controller.close();
-              break;
-            }
-
-            // Mark first token time for TTFT
-            if (!firstTokenSent && context) {
-              usageLogger.markFirstToken(context);
-              firstTokenSent = true;
-            }
-
-            // Pass through the chunk
-            controller.enqueue(value);
-
-            // Parse chunk to look for usage
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-            for (const line of lines) {
-              const trimmedLine = line.trim();
-              if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
-
-              if (trimmedLine === "data: [DONE]") continue;
-
-              try {
-                const data = JSON.parse(trimmedLine.slice(6));
-                
-                // Track latest usage
-                if (data.usage || data.usageMetadata) {
-                  finalSnapshot = data;
-                }
-              } catch (e) {
-                // Ignore parse errors from partial chunks or non-JSON data
-              }
-            }
-          }
-        } catch (error) {
-          requestLogger.error("Stream interception error", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          controller.error(error);
-        }
-      },
-    });
-
-    return { stream, usagePromise };
-  }
 }

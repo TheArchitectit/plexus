@@ -3,9 +3,7 @@ import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import MonacoEditor from '@/components/ui/monaco-editor';
-import { Trash2, AlertTriangle, Clock, FileText } from 'lucide-react';
+import { Trash2, AlertTriangle } from 'lucide-react';
 
 interface ErrorLog {
   id: string;
@@ -14,6 +12,17 @@ interface ErrorLog {
   stack?: string;
   details?: Record<string, unknown>;
   type?: string;
+  errorType?: string;
+  errorMessage?: string;
+  httpStatus?: number;
+  clientIp?: string;
+  apiKey?: string;
+  apiType?: string;
+  requestedModel?: string;
+  provider?: string;
+  model?: string;
+  requestBody?: unknown;
+  providerResponse?: unknown;
 }
 
 export function ErrorsPage() {
@@ -45,7 +54,26 @@ export function ErrorsPage() {
     try {
       const response = await api.getLogDetails(id);
       if (response.errors && response.errors.length > 0) {
-        const error = response.errors[0] as unknown as ErrorLog;
+        const apiError = response.errors[0];
+        if (!apiError) return;
+
+        const error: ErrorLog = {
+          id: (apiError.id as unknown) as string,
+          timestamp: (apiError.timestamp as unknown) as string,
+          message: apiError.errorMessage || '',
+          stack: apiError.stackTrace,
+          type: apiError.errorType,
+          errorType: apiError.errorType,
+          errorMessage: apiError.errorMessage,
+          httpStatus: apiError.httpStatus,
+          clientIp: apiError.clientIp,
+          apiKey: apiError.apiKey,
+          apiType: apiError.apiType,
+          requestedModel: apiError.requestedModel,
+          provider: apiError.provider,
+          model: apiError.model,
+          details: apiError as unknown as Record<string, unknown>
+        };
         setSelectedError(error);
       }
     } catch (error) {
@@ -162,18 +190,23 @@ export function ErrorsPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-mono text-sm truncate">{error.id}</p>
                         <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                          {error.message}
+                          {error.errorMessage || error.message}
                         </p>
                       </div>
                       <Badge variant="outline" className="shrink-0">
                         {new Date(error.timestamp).toLocaleTimeString()}
                       </Badge>
                     </div>
-                    {error.type && (
+                    {error.httpStatus && (
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {error.type}
+                        <Badge variant="destructive" className="text-xs">
+                          {error.httpStatus}
                         </Badge>
+                        {error.errorType && (
+                          <Badge variant="secondary" className="text-xs">
+                            {error.errorType}
+                          </Badge>
+                        )}
                       </div>
                     )}
                   </div>
@@ -187,17 +220,20 @@ export function ErrorsPage() {
           {selectedError ? (
             <>
               <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h2 className="font-semibold">{selectedError.id}</h2>
-                    {selectedError.type && (
-                      <Badge variant="outline">{selectedError.type}</Badge>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h2 className="font-semibold">{selectedError.id}</h2>
+                      {selectedError.httpStatus && (
+                        <Badge variant="destructive">{selectedError.httpStatus}</Badge>
+                      )}
+                      {selectedError.errorType && (
+                        <Badge variant="outline">{selectedError.errorType}</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(selectedError.timestamp).toLocaleString()}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(selectedError.timestamp).toLocaleString()}
-                  </p>
-                </div>
                 <div className="flex gap-2">
                   <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                     <DialogTrigger asChild>
@@ -227,80 +263,143 @@ export function ErrorsPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">
-                <Accordion type="multiple" defaultValue={["message", "stack"]} className="w-full">
-                  <AccordionItem value="message">
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Error Message
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="p-4 bg-muted rounded-md font-mono text-sm whitespace-pre-wrap">
-                        {selectedError.message}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                {selectedError.httpStatus && (
+                  <Badge variant="destructive" className="mb-4">
+                    {selectedError.httpStatus.toString()}
+                  </Badge>
+                )}
 
-                  {selectedError.stack && (
-                    <AccordionItem value="stack">
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          Stack Trace
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2">
-                          <div className="flex justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(selectedError.stack || '')}
-                            >
-                              Copy
-                            </Button>
-                          </div>
-                          <MonacoEditor
-                            value={selectedError.stack || ''}
-                            language="javascript"
-                            height="300px"
-                            className="rounded-md"
-                            options={{ readOnly: true }}
-                          />
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
+                <div className="mb-6 p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
+                  <h3 className="text-lg font-semibold text-destructive mb-2">{selectedError.errorType || 'Error'}</h3>
+                  <p className="font-mono text-sm">{selectedError.errorMessage || selectedError.message}</p>
+                </div>
 
-                  {selectedError.details && (
-                    <AccordionItem value="details">
-                      <AccordionTrigger className="hover:no-underline">
-                        Additional Details
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2">
-                          <div className="flex justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(formatContent(selectedError.details))}
-                            >
-                              Copy
-                            </Button>
-                          </div>
-                          <MonacoEditor
-                            value={formatContent(selectedError.details)}
-                            language="json"
-                            height="200px"
-                            className="rounded-md"
-                            options={{ readOnly: true }}
-                          />
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-                </Accordion>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Requested Model</p>
+                    <Badge variant="outline" className="font-mono">
+                      {selectedError.requestedModel || 'N/A'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Model</p>
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      {selectedError.model || 'N/A'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Provider</p>
+                    <Badge variant="outline">
+                      {selectedError.provider || 'N/A'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">API Type</p>
+                    <Badge variant="secondary">
+                      {selectedError.apiType || 'N/A'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Client IP</p>
+                    <code className="px-2 py-1 bg-muted rounded text-sm">
+                      {selectedError.clientIp || 'N/A'}
+                    </code>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">API Key</p>
+                    <code className="px-2 py-1 bg-muted rounded text-sm">
+                      {selectedError.apiKey || 'N/A'}
+                    </code>
+                  </div>
+                </div>
+
+                {selectedError.stack && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold">Stack Trace</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(selectedError.stack || '')}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <pre className="p-4 bg-muted rounded-lg font-mono text-sm whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+                      {selectedError.stack}
+                    </pre>
+                  </div>
+                )}
+
+                {(selectedError as any).requestBody && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold">Request Body</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(formatContent((selectedError as any).requestBody))}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <pre className="p-4 bg-muted rounded-lg font-mono text-sm max-h-[400px] overflow-y-auto whitespace-pre-wrap">
+                      {formatContent((selectedError as any).requestBody)}
+                    </pre>
+                  </div>
+                )}
+
+                {(selectedError as any).providerResponse && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold">Provider Response</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(formatContent((selectedError as any).providerResponse))}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <pre className="p-4 bg-muted rounded-lg font-mono text-sm max-h-[400px] overflow-y-auto whitespace-pre-wrap">
+                      {formatContent((selectedError as any).providerResponse)}
+                    </pre>
+                  </div>
+                )}
+
+                {selectedError.details && !(selectedError as any).requestBody && !(selectedError as any).providerResponse && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold">Additional Details</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(formatContent(selectedError.details))}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <pre className="p-4 bg-muted rounded-lg font-mono text-sm max-h-[400px] overflow-y-auto whitespace-pre-wrap">
+                      {formatContent(selectedError.details)}
+                    </pre>
+                  </div>
+                )}
+
+                <div className="mt-6 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Request ID</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs">{selectedError.id}</code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(selectedError.id)}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           ) : (

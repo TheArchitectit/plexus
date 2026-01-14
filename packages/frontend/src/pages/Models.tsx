@@ -14,7 +14,9 @@ import {
 } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { parse, stringify } from 'yaml';
-import { Plus, Trash2, Search, X } from 'lucide-react';
+import { Settings2, Trash2, Search, X, Copy, Weight } from 'lucide-react';
+import { toast } from 'sonner';
+import { Tag, TagInput } from 'emblor';
 
 interface ModelTarget {
   provider: string;
@@ -28,7 +30,6 @@ interface ModelAlias {
   additionalAliases?: string[];
   targets: ModelTarget[];
   selector: 'random' | 'in_order' | 'cost' | 'latency' | 'performance';
-  apiMatch?: boolean;
 }
 
 interface ConfigData {
@@ -45,13 +46,13 @@ export const ModelsPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingAlias, setEditingAlias] = useState<ModelAlias | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTagIndex, setActiveTagIndex] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     alias: '',
     description: '',
     selector: 'random' as SelectorStrategy,
-    apiMatch: false,
-    additionalAliases: [] as string[],
+    additionalAliases: [] as Tag[],
     targets: [{ provider: '', model: '', weight: 100 }] as Array<{ provider: string; model: string; weight: number }>,
   });
 
@@ -79,8 +80,7 @@ export const ModelsPage: React.FC = () => {
       alias: '',
       description: '',
       selector: 'random',
-      apiMatch: false,
-      additionalAliases: [],
+      additionalAliases: [] as Tag[],
       targets: [{ provider: '', model: '', weight: 100 }],
     });
     setShowModal(true);
@@ -92,8 +92,7 @@ export const ModelsPage: React.FC = () => {
       alias: alias.alias,
       description: alias.description || '',
       selector: alias.selector,
-      apiMatch: alias.apiMatch || false,
-      additionalAliases: alias.additionalAliases || [],
+      additionalAliases: (alias.additionalAliases || []).map(a => ({ id: a, text: a })),
       targets: alias.targets.map(t => ({ provider: t.provider, model: t.model, weight: t.weight || 100 })),
     });
     setShowModal(true);
@@ -124,14 +123,13 @@ export const ModelsPage: React.FC = () => {
         alias: formData.alias,
         selector: formData.selector,
         targets: formData.targets.filter(t => t.provider && t.model),
-        apiMatch: formData.apiMatch,
       };
 
       if (formData.description) {
         newAlias.description = formData.description;
       }
       if (formData.additionalAliases.length > 0) {
-        newAlias.additionalAliases = formData.additionalAliases;
+        newAlias.additionalAliases = formData.additionalAliases.map(tag => tag.text);
       }
       if (formData.targets.some(t => t.weight && t.weight !== 100)) {
         newAlias.targets = formData.targets.map(t => ({
@@ -159,20 +157,6 @@ export const ModelsPage: React.FC = () => {
       console.error('Failed to save alias:', error);
       alert('Failed to save alias');
     }
-  };
-
-  const addAdditionalAlias = () => {
-    setFormData({
-      ...formData,
-      additionalAliases: [...formData.additionalAliases, ''],
-    });
-  };
-
-  const removeAdditionalAlias = (index: number) => {
-    setFormData({
-      ...formData,
-      additionalAliases: formData.additionalAliases.filter((_, i) => i !== index),
-    });
   };
 
   const addTarget = () => {
@@ -203,6 +187,34 @@ export const ModelsPage: React.FC = () => {
     return provider?.models || [];
   };
 
+  const getSelectorStrategyLabel = (strategy: SelectorStrategy): string => {
+    const labels: Record<SelectorStrategy, string> = {
+      random: 'Random (weighted)',
+      in_order: 'In Order (failover)',
+      cost: 'Lowest Cost',
+      latency: 'Fastest',
+      performance: 'Best Performance',
+    };
+    return labels[strategy];
+  };
+
+  const Tag = ({ text }: { text: string }) => {
+    const handleClick = () => {
+      navigator.clipboard.writeText(text);
+      toast(`Copied: ${text}`);
+    };
+
+    return (
+      <button
+        onClick={handleClick}
+        className="inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors border-border bg-background text-foreground whitespace-nowrap cursor-pointer hover:bg-gray-200"
+      >
+        {text}
+        <Copy className="h-3 w-3" />
+      </button>
+    );
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -213,7 +225,7 @@ export const ModelsPage: React.FC = () => {
           </p>
         </div>
         <Button onClick={handleOpenAdd}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Settings2 className="h-4 w-4 mr-2" />
           Add Alias
         </Button>
       </div>
@@ -256,31 +268,27 @@ export const ModelsPage: React.FC = () => {
               <TableBody>
                 {filteredAliases.map((alias) => (
                   <TableRow key={alias.alias}>
-                    <TableCell className="font-medium">{alias.alias}</TableCell>
+                    <TableCell className="font-medium">
+                      <Tag text={alias.alias} />
+                    </TableCell>
                     <TableCell>
                       {alias.additionalAliases && alias.additionalAliases.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {alias.additionalAliases.map((a, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-0.5 bg-secondary rounded text-xs"
-                            >
-                              {a}
-                            </span>
+                            <Tag key={i} text={a} />
                           ))}
                         </div>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell>{alias.selector}</TableCell>
+                    <TableCell>{getSelectorStrategyLabel(alias.selector)}</TableCell>
                     <TableCell>
-                      {alias.targets.map((t, i) => (
-                        <div key={i} className="text-sm">
-                          {t.provider}/{t.model}
-                          {t.weight && t.weight !== 100 && ` (${t.weight}%)`}
-                        </div>
-                      ))}
+                      <div className="flex flex-wrap gap-1">
+                        {alias.targets.map((t, i) => (
+                          <Tag key={i} text={`${t.provider}/${t.model}${t.weight && t.weight !== 100 ? ` (${t.weight}%)` : ''}`} />
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -289,7 +297,7 @@ export const ModelsPage: React.FC = () => {
                           size="icon"
                           onClick={() => handleOpenEdit(alias)}
                         >
-                          <Plus className="h-4 w-4" />
+                          <Settings2 className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -359,54 +367,24 @@ export const ModelsPage: React.FC = () => {
                   <option value="performance">Best Performance</option>
                 </select>
               </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="api-match"
-                  checked={formData.apiMatch}
-                  onChange={(e) => setFormData({ ...formData, apiMatch: e.target.checked })}
-                  className="rounded border-input"
-                />
-                <Label htmlFor="api-match">Match Client API Type</Label>
-              </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Additional Aliases</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addAdditionalAlias}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add
-                </Button>
-              </div>
-
-              {formData.additionalAliases.map((alias, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    value={alias}
-                    onChange={(e) => {
-                      const newAliases = [...formData.additionalAliases];
-                      newAliases[index] = e.target.value;
-                      setFormData({ ...formData, additionalAliases: newAliases });
-                    }}
-                    placeholder="e.g., intelligent"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => removeAdditionalAlias(index)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+            <div className="space-y-2">
+              <Label htmlFor="additional-aliases">Additional Aliases</Label>
+              <TagInput
+                placeholder="e.g., intelligent, smart, ai"
+                tags={formData.additionalAliases}
+                setTags={(newTags) => setFormData({ ...formData, additionalAliases: newTags as Tag[] })}
+                activeTagIndex={activeTagIndex}
+                setActiveTagIndex={setActiveTagIndex}
+                inputFieldPosition="bottom"
+                styleClasses={{
+                  tag: {
+                    body: "rounded-full h-9",
+                  },
+                  input: "h-9",
+                }}
+              />
             </div>
 
             <div className="space-y-4">
@@ -418,63 +396,60 @@ export const ModelsPage: React.FC = () => {
                   size="sm"
                   onClick={addTarget}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Settings2 className="h-4 w-4 mr-1" />
                   Add Target
                 </Button>
               </div>
 
               {formData.targets.map((target, index) => (
-                <div key={index} className="space-y-2 p-4 border rounded-md">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label>Provider</Label>
-                      <select
-                        className="w-full rounded-md border border-input bg-background px-3 py-2"
-                        value={target.provider}
-                        onChange={(e) => {
-                          const newTargets = [...formData.targets];
-                          newTargets[index] = { ...target, provider: e.target.value, model: '' };
-                          setFormData({ ...formData, targets: newTargets });
-                        }}
-                      >
-                        <option value="">Select provider...</option>
-                        {providers.map((p) => (
-                          <option key={p.name} value={p.name}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label>Model</Label>
-                      <select
-                        className="w-full rounded-md border border-input bg-background px-3 py-2"
-                        value={target.model}
-                        onChange={(e) => {
-                          const newTargets = [...formData.targets];
-                          newTargets[index] = { ...target, model: e.target.value };
-                          setFormData({ ...formData, targets: newTargets });
-                        }}
-                        disabled={!target.provider}
-                      >
-                        <option value="">Select model...</option>
-                        {getProviderModels(target.provider).map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                <div key={index} className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      value={target.provider}
+                      onChange={(e) => {
+                        const newTargets = [...formData.targets];
+                        newTargets[index] = { ...target, provider: e.target.value, model: '' };
+                        setFormData({ ...formData, targets: newTargets });
+                      }}
+                    >
+                      <option value="">Provider...</option>
+                      {providers.map((p) => (
+                        <option key={p.name} value={p.name}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 space-y-1">
-                      <Label>Weight (random selector)</Label>
+                  <div className="flex-1">
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      value={target.model}
+                      onChange={(e) => {
+                        const newTargets = [...formData.targets];
+                        newTargets[index] = { ...target, model: e.target.value };
+                        setFormData({ ...formData, targets: newTargets });
+                      }}
+                      disabled={!target.provider}
+                    >
+                      <option value="">Model...</option>
+                      {getProviderModels(target.provider).map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {formData.selector === 'random' && (
+                    <div className="flex items-center gap-2">
+                      <Weight className="h-4 w-4 text-muted-foreground" />
                       <Input
                         type="number"
                         min="0"
                         step="1"
+                        className="w-12"
                         value={target.weight}
                         onChange={(e) => {
                           const newTargets = [...formData.targets];
@@ -483,11 +458,15 @@ export const ModelsPage: React.FC = () => {
                         }}
                       />
                     </div>
+                  )}
 
+                  <div className="flex items-center gap-1">
+                    <div className="h-6 w-[1px] bg-border" />
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="icon"
+                      className="hover:bg-destructive hover:text-destructive-foreground"
                       onClick={() => removeTarget(index)}
                     >
                       <Trash2 className="h-4 w-4" />

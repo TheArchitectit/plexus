@@ -197,6 +197,11 @@ export interface UnifiedChatStreamChunk {
     usage?: UnifiedUsage;
 }
 
+export interface StreamTransformOptions {
+  debugLogger?: any;
+  requestId?: string;
+}
+
 export interface Transformer {
   name: string;
   defaultEndpoint: string;
@@ -207,6 +212,6 @@ export interface Transformer {
   formatResponse(response: UnifiedChatResponse): Promise<any>;
   parseUsage(input: any): UnifiedUsage;
   formatUsage(usage: UnifiedUsage): any;
-  transformStream?(stream: ReadableStream): ReadableStream;
-  formatStream?(stream: ReadableStream): ReadableStream;
+  transformStream?(stream: ReadableStream, options?: StreamTransformOptions): ReadableStream;
+  formatStream?(stream: ReadableStream, options?: StreamTransformOptions): ReadableStream;
 }

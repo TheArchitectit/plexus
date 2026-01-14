@@ -62,36 +62,60 @@ export class DebugStore {
       // Create the directory
       await mkdir(dirPath, { recursive: true });
 
-      // Split the trace into multiple files for better visibility
-      const tasks = [
-        // Full trace for compatibility and easy loading
-        Bun.write(join(dirPath, "trace.json"), JSON.stringify(entry, null, 2)),
-        // Client request
-        Bun.write(join(dirPath, "client_request.json"), JSON.stringify(entry.clientRequest, null, 2)),
-        // Unified request
-        Bun.write(join(dirPath, "unified_request.json"), JSON.stringify(entry.unifiedRequest, null, 2)),
-        // Provider request
-        Bun.write(join(dirPath, "provider_request.json"), JSON.stringify(entry.providerRequest, null, 2)),
-      ];
+       // Split the trace into multiple files for better visibility
+       const tasks = [];
 
-      if (entry.providerResponse) {
-        tasks.push(Bun.write(join(dirPath, "provider_response.json"), JSON.stringify(entry.providerResponse, null, 2)));
-      }
+       // Full trace for compatibility and easy loading
+       const traceJson = JSON.stringify(entry, null, 2);
+    if (typeof traceJson === "string") {
+         tasks.push(Bun.write(join(dirPath, "trace.json"), traceJson));
+       }
 
-      if (entry.clientResponse) {
-        tasks.push(Bun.write(join(dirPath, "client_response.json"), JSON.stringify(entry.clientResponse, null, 2)));
-      }
+       // Client request
+       const clientRequestJson = JSON.stringify(entry.clientRequest, null, 2);
+       if (typeof clientRequestJson === "string") {
+         tasks.push(Bun.write(join(dirPath, "client_request.json"), clientRequestJson));
+       }
 
-      if (entry.streamSnapshots) {
-        tasks.push(Bun.write(join(dirPath, "stream_snapshots.json"), JSON.stringify(entry.streamSnapshots, null, 2)));
-      }
+       // Provider request
+       const providerRequestJson = JSON.stringify(entry.providerRequest, null, 2);
+       if (typeof providerRequestJson === "string") {
+         tasks.push(Bun.write(join(dirPath, "provider_request.json"), providerRequestJson));
+       }
 
-      await Promise.all(tasks);
+       if (entry.providerResponse) {
+         const providerResponseJson = JSON.stringify(entry.providerResponse, null, 2);
+         if (typeof providerResponseJson === "string") {
+         tasks.push(Bun.write(join(dirPath, "provider_response.json"), providerResponseJson));
+         }
+       }
 
-      logger.debug("Debug trace stored in directory", {
+       if (entry.clientResponse) {
+         const clientResponseJson = JSON.stringify(entry.clientResponse, null, 2);
+         if (typeof clientResponseJson === "string") {
+           tasks.push(Bun.write(join(dirPath, "client_response.json"), clientResponseJson));
+         }
+       }
+
+       if (entry.streamSnapshots) {
+         const streamSnapshotsJson = JSON.stringify(entry.streamSnapshots, null, 2);
+         if (typeof streamSnapshotsJson === "string") {
+        tasks.push(Bun.write(join(dirPath, "stream_snapshots.json"), streamSnapshotsJson));
+         }
+       }
+
+       if (tasks.length === 0) {
+         logger.warn("No trace data to write", { requestId: entry.id, dirPath });
+         return;
+    }
+
+       await Promise.all(tasks);
+
+       logger.debug("Debug trace stored in directory", {
         requestId: entry.id,
-        dirPath,
-      });
+         dirPath,
+         filesWritten: tasks.length,
+     });
     } catch (error) {
       logger.error("Failed to store debug trace", {
         requestId: entry.id,

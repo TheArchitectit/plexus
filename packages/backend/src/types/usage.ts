@@ -145,8 +145,7 @@ export interface DebugTraceEntry {
   };
 
   // Transformation steps
-  unifiedRequest: any;
-  providerRequest: {
+   providerRequest: {
     apiType: ApiType;
     body: any;
     headers: Record<string, string>;

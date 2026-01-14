@@ -66,6 +66,24 @@ export class ErrorStore {
   }
 
   /**
+   * Get a specific error log by request ID
+   * @param requestId - The unique request ID
+   * @returns The error log entry or null if not found
+   */
+  async getById(requestId: string): Promise<ErrorLogEntry | null> {
+    try {
+      const entries = await this.query();
+      return entries.find(e => e.id === requestId) || null;
+    } catch (error) {
+      logger.error("Failed to query error log by ID", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
    * Query error logs for a date range
    * @param startDate - Start date (ISO string)
    * @param endDate - End date (ISO string)

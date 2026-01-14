@@ -90,9 +90,9 @@ export interface LogsListResponse {
 }
 
 export interface LogDetailResponse {
-  usage: UsageLogEntry;
-  errors?: ErrorLogEntry[];
-  traces?: DebugTraceEntry[];       // Debug captures
+  usage: UsageLogEntry | null;
+  errors?: ErrorLogEntry[] | null;
+  traces?: DebugTraceEntry[] | null;       // Debug captures
 }
 
 export interface LogsDeleteRequest {

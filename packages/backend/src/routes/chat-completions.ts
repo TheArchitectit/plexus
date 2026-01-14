@@ -17,11 +17,9 @@ export async function handleChatCompletions(
   clientIp: string
 ): Promise<Response> {
   const requestLogger = logger.child({ requestId, endpoint: "/v1/chat/completions", clientIp });
-
+  const debugLogger = context.debugLogger!;
   try {
-    // Validate authentication
-    const auth = validateAuthHeader(req, context.config.apiKeys);
-    requestLogger.debug("Request authenticated", { apiKey: auth.apiKeyName });
+
 
     // Parse request body
     let body: unknown;
@@ -36,6 +34,13 @@ export async function handleChatCompletions(
         "invalid_json"
       );
     }
+
+    // Start debug trace and capture the incoming client request
+    debugLogger.startTrace(requestId, "chat", body, Object.fromEntries(req.headers));
+
+    // Validate authentication
+    const auth = validateAuthHeader(req, context.config.apiKeys);
+    requestLogger.debug("Request authenticated", { apiKey: auth.apiKeyName });
 
     // Validate request against OpenAI schema
     let validatedRequest;
@@ -58,12 +63,7 @@ export async function handleChatCompletions(
 
     // Create dispatcher and process request using the transformation pipeline
     const dispatcher = new Dispatcher(
-      context.config,
-      context.cooldownManager,
-      context.costCalculator,
-      context.metricsCollector,
-      context.usageLogger,
-      context.debugLogger
+      context
     );
     const response = await dispatcher.dispatchChatCompletion(validatedRequest, requestId, clientIp, auth.apiKeyName);
 

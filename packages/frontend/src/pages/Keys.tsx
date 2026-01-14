@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { parse, stringify } from 'yaml';
-import { Plus, Trash2, Search, Copy, X } from 'lucide-react';
+import { Settings2, Trash2, Search, Copy, X } from 'lucide-react';
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -171,7 +171,7 @@ export const KeysPage: React.FC = () => {
           </p>
         </div>
         <Button onClick={handleOpenAdd}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Settings2 className="h-4 w-4 mr-2" />
           Add Key
         </Button>
       </div>
@@ -245,7 +245,7 @@ export const KeysPage: React.FC = () => {
                           size="icon"
                           onClick={() => handleOpenEdit(key)}
                         >
-                          <Plus className="h-4 w-4" />
+                          <Settings2 className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"

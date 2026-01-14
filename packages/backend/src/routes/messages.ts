@@ -15,8 +15,24 @@ export async function handleMessages(
   clientIp: string
 ): Promise<Response> {
   const requestLogger = logger.child({ requestId, endpoint: "/v1/messages", clientIp });
-
+  const debugLogger = context.debugLogger!;
   try {
+
+    // Parse request body
+    let body: any;
+    try {
+      body = await req.json();
+    } catch (error) {
+      requestLogger.debug("Failed to parse request body");
+      throw new PlexusErrorResponse(
+        "invalid_request_error",
+        "Invalid request body: must be valid JSON",
+        400
+      );
+    }
+    // Start debug trace and capture the incoming client request
+    debugLogger.startTrace(requestId, "messages", body, Object.fromEntries(req.headers));
+
     // Validate authentication - support both Bearer and x-api-key headers
     const authHeader = req.headers.get("Authorization") || req.headers.get("x-api-key");
     if (!authHeader) {
@@ -44,18 +60,7 @@ export async function handleMessages(
 
     requestLogger.debug("Request authenticated", { apiKey: validKey.name });
 
-    // Parse request body
-    let body: any;
-    try {
-      body = await req.json();
-    } catch (error) {
-      requestLogger.debug("Failed to parse request body");
-      throw new PlexusErrorResponse(
-        "invalid_request_error",
-        "Invalid request body: must be valid JSON",
-        400
-      );
-    }
+
 
     // Basic validation of required fields
     if (!body.model) {
@@ -90,12 +95,7 @@ export async function handleMessages(
 
     // Create dispatcher and process request using the transformation pipeline
     const dispatcher = new Dispatcher(
-      context.config,
-      context.cooldownManager,
-      context.costCalculator,
-      context.metricsCollector,
-      context.usageLogger,
-      context.debugLogger
+      context
     );
     const response = await dispatcher.dispatchMessages(body, requestId, clientIp, validKey.name);
 

@@ -17,7 +17,7 @@ import { CooldownManager } from "./services/cooldown-manager";
 import { HealthMonitor } from "./services/health-monitor";
 import { UsageStore } from "./storage/usage-store";
 import { ErrorStore } from "./storage/error-store";
-import { DebugStore } from "./storage/debug-store"; // Ensure DebugStore is imported
+import { DebugStore } from "./storage/debug-store";
 import { CostCalculator } from "./services/cost-calculator";
 import { MetricsCollector } from "./services/metrics-collector";
 import { UsageLogger } from "./services/usage-logger";
@@ -27,6 +27,19 @@ import { ConfigManager } from "./services/config-manager";
 import { LogQueryService } from "./services/log-query";
 // @ts-ignore
 import frontendHtml from "../../frontend/src/index.html";
+
+function withCORS(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 /**
  * Request router - maps URLs to handlers
@@ -45,73 +58,78 @@ async function router(req: Request, context: ServerContext, adminAuth: AdminAuth
     clientIp,
   });
 
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return withCORS(new Response(null, { status: 204 }));
+  }
+
   // --- Management API (v0) ---
   if (path.startsWith("/v0/")) {
     // Authenticate Admin
     const authError = await adminAuth.validate(req);
-    if (authError) return authError;
+    if (authError) return withCORS(authError);
 
     if (path === "/v0/config") {
-      if (!context.configManager) return new Response("Config manager not initialized", { status: 503 });
-      return handleConfig(req, context.configManager);
+      if (!context.configManager) return withCORS(new Response("Config manager not initialized", { status: 503 }));
+      return withCORS(await handleConfig(req, context.configManager));
     }
 
     if (path === "/v0/state") {
-      return handleState(req, context);
+      return withCORS(await handleState(req, context));
     }
 
     if (path.startsWith("/v0/logs")) {
-      if (!context.logQueryService) return new Response("Log query service not initialized", { status: 503 });
-      return handleLogs(req, context.logQueryService);
+      if (!context.logQueryService) return withCORS(new Response("Log query service not initialized", { status: 503 }));
+      return withCORS(await handleLogs(req, context.logQueryService));
     }
 
     if (path === "/v0/events") {
-      if (!context.eventEmitter) return new Response("Event emitter not initialized", { status: 503 });
-      return handleEvents(req, context.eventEmitter);
+      if (!context.eventEmitter) return withCORS(new Response("Event emitter not initialized", { status: 503 }));
+      return withCORS(await handleEvents(req, context.eventEmitter));
     }
   }
 
   // --- Standard API ---
 
   if (path === "/health" && req.method === "GET") {
-    return handleHealth(req, context.healthMonitor);
+    return withCORS(handleHealth(req, context.healthMonitor));
   }
 
   if (path === "/ready" && req.method === "GET") {
-    return handleReady(req);
+    return withCORS(handleReady(req));
   }
 
   if (path === "/v1/chat/completions" && req.method === "POST") {
-    return handleChatCompletions(req, context, requestId, clientIp);
+
+    return withCORS(await handleChatCompletions(req, context, requestId, clientIp));
   }
 
   if (path === "/v1/messages" && req.method === "POST") {
-    return handleMessages(req, context, requestId, clientIp);
+    return withCORS(await handleMessages(req, context, requestId, clientIp));
   }
 
   if (path === "/v1/models" && req.method === "GET") {
-    return handleModels(req, context.config, requestId);
+    return withCORS(await handleModels(req, context.config, requestId));
   }
 
   // Frontend routes - serve HTML for React Router client-side routing
   if (path === "/ui" || path.startsWith("/ui/")) {
-    //ts-ignore
-    return new Response(frontendHtml, {
+    return withCORS(new Response(String(frontendHtml), {
       headers: {
         "Content-Type": "text/html",
       },
-    });
+    }));
   }
 
   // 404 for unknown routes
   requestLogger.debug("Route not found", { path });
-  return Response.json(
+  return withCORS(Response.json(
     {
       error: "Not Found",
       message: `Route ${path} not found`,
     },
     { status: 404 }
-  );
+  ));
 }
 
 /**
@@ -191,21 +209,15 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
       config.logging.debug?.retentionDays || 7
   );
   
-  if (config.logging.debug?.enabled) {
-     // Ensure directory exists if we are going to write
-     await debugStore.initialize();
-
-     debugLogger = new DebugLogger({
+   if (config.logging.debug?.enabled) {
+      debugLogger = new DebugLogger({
       enabled: config.logging.debug.enabled,
-      captureRequests: config.logging.debug.captureRequests,
-      captureResponses: config.logging.debug.captureResponses,
       storagePath: config.logging.debug.storagePath,
       retentionDays: config.logging.debug.retentionDays,
     }, debugStore);
     
-    // DebugLogger.initialize() also calls store.initialize(), but it's safe to call idempotent
-    await debugLogger.initialize();
-    logger.info("Debug logger initialized");
+     // DebugLogger.initialize() also calls store.initialize(), but it's safe to call idempotent
+     await debugLogger.initialize();
   }
 
   // Initialize Log Query Service

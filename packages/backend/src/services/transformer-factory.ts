@@ -6,7 +6,7 @@
 import { AnthropicTransformer } from "../transformers/anthropic";
 import { OpenAITransformer } from "../transformers/openai";
 import { GeminiTransformer } from "../transformers/gemini";
-import type { Transformer, UnifiedChatRequest } from "../transformers/types";
+import type { Transformer, UnifiedChatRequest, StreamTransformOptions } from "../transformers/types";
 import { logger } from "../utils/logger";
 
 /**
@@ -116,18 +116,37 @@ export class TransformerFactory {
    * @param response - Response from provider
    * @param sourceApiType - API type of the provider that sent the response
    * @param targetApiType - API type expected by the client
+   * @param debugOptions - Optional debug options for tracing
    * @returns Transformed response
    */
   async transformResponse(
     response: Response,
     sourceApiType: ApiType,
-    targetApiType: ApiType
+    targetApiType: ApiType,
+    debugOptions?: StreamTransformOptions
   ): Promise<Response> {
     // If source and target are the same, no transformation needed (optimization)
-    // But strictly speaking we might want to normalize through Unified anyway? 
+    // But strictly speaking we might want to normalize through Unified anyway?
     // For now, let's assume pass-through is fine if types match.
     if (sourceApiType === targetApiType) {
-      return response;
+      // Return a Bun Response wrapper around the fetch Response
+      const isStream = response.headers
+        .get("Content-Type")
+        ?.includes("text/event-stream");
+
+      if (isStream) {
+        return new Response(response.body, {
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+        });
+      } else {
+        // For non-streaming, we need to parse and recreate to avoid body consumption issues
+        const data = await response.json();
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+        });
+      }
     }
 
     const sourceTransformer = this.getTransformer(sourceApiType);
@@ -141,14 +160,14 @@ export class TransformerFactory {
       if (!response.body) {
         throw new Error("Stream response body is null");
       }
-      
+
       if (!sourceTransformer.transformStream || !targetTransformer.formatStream) {
          throw new Error(`Streaming transformation not supported between ${sourceApiType} and ${targetApiType}`);
-      }
+       }
 
       // Pipeline: Source Stream -> Unified Stream -> Target Stream
-      const unifiedStream = sourceTransformer.transformStream(response.body);
-      const targetStream = targetTransformer.formatStream(unifiedStream);
+      const unifiedStream = sourceTransformer.transformStream(response.body, debugOptions);
+      const targetStream = targetTransformer.formatStream(unifiedStream, debugOptions);
 
       return new Response(targetStream, {
         headers: {
@@ -159,7 +178,7 @@ export class TransformerFactory {
       });
     } else {
       const data = await response.json();
-      
+
       // Pipeline: Source Body -> Unified Response -> Target Body
       const unifiedResponse = await sourceTransformer.transformResponse(data);
       const targetResponse = await targetTransformer.formatResponse(unifiedResponse);
