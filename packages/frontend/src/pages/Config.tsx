@@ -127,7 +127,7 @@ export function ConfigPage() {
       <div className="flex-1 border rounded-lg overflow-hidden">
         <MonacoEditor
           value={config}
-          onChange={setConfig}
+          onChange={(value) => setConfig(value ?? '')}
           language="yaml"
           theme="vs-dark"
           height="100%"
