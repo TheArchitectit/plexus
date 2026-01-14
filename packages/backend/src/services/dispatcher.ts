@@ -240,7 +240,14 @@ export class Dispatcher {
         }
 
         // --- TAP 1: Raw Provider Response (Silent / False) ---
-        const providerTap = new StreamTap(this.context.debugLogger!, requestId, false);
+        // Track first token time at provider level for fair performance measurement
+        const providerTap = new StreamTap(
+          this.context.debugLogger!, 
+          requestId, 
+          false,
+          this.context.usageLogger,
+          requestContext
+        );
 
         const tappedProviderBody = providerResponse.body
           ? providerTap.tap(providerResponse.body, "provider")
@@ -263,7 +270,14 @@ export class Dispatcher {
         );
 
         // --- TAP 2: Transformed Client Response (Final) ---
-        const streamTap = new StreamTap(this.context.debugLogger!, requestId, true);
+        // Track client TTFT to measure transformation overhead
+        const streamTap = new StreamTap(
+          this.context.debugLogger!, 
+          requestId, 
+          true,
+          this.context.usageLogger,
+          requestContext
+        );
 
         // 3. Wrap the body in the tap
         // This is a "transparent pipe" that records while it flows

@@ -173,7 +173,7 @@ export class UsageStore {
 
     // Calculate performance metrics
     const durations = entries.map((e) => e.metrics.durationMs);
-    const ttfts = entries.filter((e) => e.metrics.ttftMs !== null).map((e) => e.metrics.ttftMs!);
+    const ttfts = entries.filter((e) => e.metrics.providerTtftMs !== null).map((e) => e.metrics.providerTtftMs!);
 
     if (durations.length > 0) {
       summary.performance.avgDuration =
@@ -362,6 +362,85 @@ export class UsageStore {
       return false;
     } catch (error) {
       logger.error("Failed to update usage log", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Update usage, cost, and metrics for a specific request (for streaming updates)
+   * @param requestId - Request ID to update
+   * @param usage - Updated usage information
+   * @param cost - Updated cost information
+   * @param metrics - Updated metrics information
+   */
+  async updateUsageWithMetrics(
+    requestId: string,
+    usage: UsageLogEntry["usage"],
+    cost: UsageLogEntry["cost"],
+    metrics: UsageLogEntry["metrics"]
+  ): Promise<boolean> {
+    try {
+      const glob = new Bun.Glob("*.jsonl");
+      const files = Array.from(glob.scanSync(this.storagePath)).sort().reverse();
+
+      for (const fileName of files) {
+        const filePath = join(this.storagePath, fileName);
+        const file = Bun.file(filePath);
+        const content = await file.text();
+        const lines = content.trim().split("\n");
+
+        let updated = false;
+        const updatedLines: string[] = [];
+
+        for (const line of lines) {
+          if (!line) {
+            updatedLines.push(line);
+            continue;
+          }
+
+          try {
+            if (line.includes(requestId)) {
+              const entry: UsageLogEntry = JSON.parse(line);
+              if (entry.id === requestId) {
+                // Update the entry with usage, cost, AND metrics
+                entry.usage = usage;
+                entry.cost = cost;
+                entry.metrics = metrics;
+                entry.pending = false; // Mark as complete when updating from stream reconstruction
+                updatedLines.push(JSON.stringify(entry));
+                updated = true;
+                logger.debug("Updated usage log entry with metrics", {
+                  requestId,
+                  file: fileName,
+                });
+                continue;
+              }
+            }
+          } catch (e) {
+            // If parse fails, keep original line
+            logger.warn("Failed to parse line during update", {
+              file: fileName,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+
+          updatedLines.push(line);
+        }
+
+        if (updated) {
+          // Write updated content back to file
+          await Bun.write(filePath, updatedLines.join("\n") + "\n");
+          return true;
+        }
+      }
+
+      logger.warn("Usage log entry not found for update", { requestId });
+      return false;
+    } catch (error) {
+      logger.error("Failed to update usage log with metrics", {
         requestId,
         error: error instanceof Error ? error.message : String(error),
       });

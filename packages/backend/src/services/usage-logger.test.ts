@@ -129,7 +129,7 @@ describe("UsageLogger", () => {
         targetApiType: "chat",
         passthrough: false,
         streaming: true,
-        firstTokenTime: startTime + 500, // First token after 500ms
+        providerFirstTokenTime: startTime + 500, // First token after 500ms
       };
 
       const responseInfo: ResponseInfo = {
@@ -148,8 +148,8 @@ describe("UsageLogger", () => {
 
       expect(usageLogSpy).toHaveBeenCalled();
       const loggedEntry = usageLogSpy.mock.calls[0][0];
-      expect(loggedEntry.metrics.ttftMs).toBeCloseTo(500, 0);
-      expect(loggedEntry.metrics.tokensPerSecond).toBeGreaterThan(0);
+      expect(loggedEntry.metrics.providerTtftMs).toBeCloseTo(500, 0);
+      expect(loggedEntry.metrics.providerTokensPerSecond).toBeGreaterThan(0);
     });
 
     test("calculates cost per 1M tokens correctly", async () => {

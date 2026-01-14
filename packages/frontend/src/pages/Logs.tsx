@@ -41,7 +41,11 @@ interface UsageLog {
   };
   metrics?: {
     durationMs?: number;
-    ttftMs?: number;
+    providerTtftMs?: number;
+    providerTokensPerSecond?: number;
+    clientTtftMs?: number;
+    clientTokensPerSecond?: number;
+    transformationOverheadMs?: number;
   };
   success?: boolean;
   pending?: boolean; // True for in-flight requests
@@ -556,8 +560,11 @@ export function LogsPage() {
                   <div><strong>Provider:</strong> {logDetails.usage.actualProvider}</div>
                   <div><strong>Alias:</strong> {logDetails.usage.aliasUsed}</div>
                   <div><strong>Duration:</strong> {formatLatency(logDetails.usage.metrics?.durationMs)}</div>
-                  <div><strong>TTFT:</strong> {formatLatency(logDetails.usage.metrics?.ttftMs)}</div>
-                  <div><strong>Tokens/sec:</strong> {logDetails.usage.metrics?.tokensPerSecond?.toFixed(2)}</div>
+                  <div><strong>Provider TTFT:</strong> {formatLatency(logDetails.usage.metrics?.providerTtftMs)}</div>
+                  <div><strong>Provider Tokens/sec:</strong> {logDetails.usage.metrics?.providerTokensPerSecond?.toFixed(2) || 'N/A'}</div>
+                  <div><strong>Client TTFT:</strong> {formatLatency(logDetails.usage.metrics?.clientTtftMs)}</div>
+                  <div><strong>Client Tokens/sec:</strong> {logDetails.usage.metrics?.clientTokensPerSecond?.toFixed(2) || 'N/A'}</div>
+                  <div><strong>Transform Overhead:</strong> {formatLatency(logDetails.usage.metrics?.transformationOverheadMs)}</div>
                   <div><strong>Total Cost:</strong> {formatCost(logDetails.usage.cost?.totalCost)}</div>
                   <div><strong>Input Tokens:</strong> {logDetails.usage.usage?.inputTokens}</div>
                   <div><strong>Output Tokens:</strong> {logDetails.usage.usage?.outputTokens}</div>

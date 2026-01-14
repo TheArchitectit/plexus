@@ -331,9 +331,181 @@ export class DebugLogger {
     });
   }
 
+  /**
+   * Reconstruct provider response from stream chunks
+   */
+  private reconstructProviderResponse(
+    trace: Partial<DebugTraceEntry>,
+    requestId: string
+  ): void {
+    if (
+      !trace.providerStreamChunks ||
+      trace.providerStreamChunks.length === 0 ||
+      trace.providerResponse?.body ||
+      !trace.providerRequest?.apiType ||
+      !this.transformerFactory
+    ) {
+      return;
+    }
+
+    try {
+      const transformer = this.transformerFactory.getTransformer(
+        trace.providerRequest.apiType
+      );
+
+      if (!transformer.reconstructResponseFromStream) {
+        return;
+      }
+
+      // Combine all stream chunks into one string
+      const rawSSE = trace.providerStreamChunks.map((item) => item.chunk).join("");
+      const reconstructed = transformer.reconstructResponseFromStream(rawSSE);
+
+      if (reconstructed) {
+        trace.providerResponse = {
+          status: trace.providerResponse?.status || 200,
+          headers: trace.providerResponse?.headers || {},
+          body: reconstructed,
+          type: "reconstructed",
+        };
+
+        logger.debug("Reconstructed provider response from stream", {
+          requestId,
+          apiType: trace.providerRequest.apiType,
+        });
+      }
+    } catch (error) {
+      logger.warn("Failed to reconstruct provider response from stream", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Reconstruct client response from stream chunks
+   */
+  private reconstructClientResponse(
+    trace: Partial<DebugTraceEntry>,
+    requestId: string
+  ): void {
+    if (
+      !trace.clientStreamChunks ||
+      trace.clientStreamChunks.length === 0 ||
+      trace.clientResponse?.body ||
+      !trace.clientRequest?.apiType ||
+      !this.transformerFactory
+    ) {
+      return;
+    }
+
+    try {
+      const transformer = this.transformerFactory.getTransformer(
+        trace.clientRequest.apiType
+      );
+
+      if (!transformer.reconstructResponseFromStream) {
+        return;
+      }
+
+      // Combine all stream chunks into one string
+      const rawSSE = trace.clientStreamChunks.map((item) => item.chunk).join("");
+      const reconstructed = transformer.reconstructResponseFromStream(rawSSE);
+
+      if (reconstructed) {
+        trace.clientResponse = {
+          status: trace.clientResponse?.status || 200,
+          body: reconstructed,
+          type: "reconstructed",
+        };
+
+        logger.debug("Reconstructed client response from stream", {
+          requestId,
+          apiType: trace.clientRequest.apiType,
+        });
+      }
+    } catch (error) {
+      logger.warn("Failed to reconstruct client response from stream", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Extract usage from reconstructed client response and update usage log
+   * We use the CLIENT response because it contains the complete usage data
+   * after transformation and aggregation from all stream chunks
+   */
+  private async updateUsageFromClientResponse(
+    trace: Partial<DebugTraceEntry>,
+    requestId: string
+  ): Promise<void> {
+    if (
+      !this.usageLogger ||
+      !this.transformerFactory ||
+      !trace.clientResponse?.body ||
+      trace.clientResponse?.type !== "reconstructed" ||
+      !trace.clientRequest?.apiType
+    ) {
+      return;
+    }
+
+    try {
+      const transformer = this.transformerFactory.getTransformer(
+        trace.clientRequest.apiType
+      );
+
+      const clientBody = trace.clientResponse.body;
+
+      // Check if response contains usage data
+      if (!clientBody?.usage && !clientBody?.usageMetadata) {
+        return;
+      }
+
+      const rawUsage = clientBody.usage || clientBody.usageMetadata;
+      const unifiedUsage = transformer.parseUsage(rawUsage);
+
+      logger.debug("Extracted usage from reconstructed response", {
+        requestId,
+        usage: unifiedUsage,
+      });
+
+      // Update usage log entry with reconstructed usage data
+      await this.usageLogger.updateUsageFromReconstructed(requestId, unifiedUsage);
+    } catch (error) {
+      logger.warn("Failed to extract usage from reconstructed response", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Log debug metadata about the trace before storing
+   */
+  private logTraceMetadata(trace: Partial<DebugTraceEntry>, requestId: string): void {
+    logger.debug("About to store trace", {
+      requestId,
+      hasProviderRequest: !!trace.providerRequest,
+      hasProviderResponse: !!trace.providerResponse,
+      hasClientResponse: !!trace.clientResponse,
+      hasProviderStreamChunks: !!(
+        trace.providerStreamChunks && trace.providerStreamChunks.length > 0
+      ),
+      providerStreamChunkCount: trace.providerStreamChunks?.length || 0,
+      hasClientStreamChunks: !!(
+        trace.clientStreamChunks && trace.clientStreamChunks.length > 0
+      ),
+      clientStreamChunkCount: trace.clientStreamChunks?.length || 0,
+    });
+  }
+
+  /**
+   * Complete and store a debug trace
+   */
   async completeTrace(requestId: string): Promise<void> {
-    // --- THE CONCURRENCY FIX ---
-    // We grab the trace and delete it IMMEDIATELY.
+    // Grab the trace and delete it IMMEDIATELY to prevent race conditions
     // This ensures that if a second tap calls this while we are still
     // 'awaiting' the store, the second tap hits this 'return' and exits.
     const trace = this.traces.get(requestId);
@@ -341,158 +513,25 @@ export class DebugLogger {
       return;
     }
     this.traces.delete(requestId);
-    // ----------------------------
 
     try {
-      // RESTORED: Your original required fields check
+      // Validate required fields
       if (!trace.id || !trace.timestamp) {
         logger.warn("Incomplete debug trace, skipping storage", { requestId });
         return;
       }
 
       // Reconstruct responses from stream chunks if needed
-      if (this.transformerFactory) {
-        // Reconstruct provider response from stream chunks
-        if (
-          trace.providerStreamChunks &&
-          trace.providerStreamChunks.length > 0 &&
-          !trace.providerResponse?.body &&
-          trace.providerRequest?.apiType
-        ) {
-          try {
-            const transformer = this.transformerFactory.getTransformer(
-              trace.providerRequest.apiType
-            );
-            
-            if (transformer.reconstructResponseFromStream) {
-              // Combine all stream chunks into one string
-              const rawSSE = trace.providerStreamChunks
-                .map((item) => item.chunk)
-                .join("");
+      this.reconstructProviderResponse(trace, requestId);
+      this.reconstructClientResponse(trace, requestId);
 
-              const reconstructed = transformer.reconstructResponseFromStream(rawSSE);
-              
-              if (reconstructed) {
-                trace.providerResponse = {
-                  status: trace.providerResponse?.status || 200,
-                  headers: trace.providerResponse?.headers || {},
-                  body: reconstructed,
-                  type: "reconstructed",
-                };
-                
-                logger.debug("Reconstructed provider response from stream", {
-                  requestId,
-                  apiType: trace.providerRequest.apiType,
-                });
-              }
-            }
-          } catch (error) {
-            logger.warn("Failed to reconstruct provider response from stream", {
-              requestId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
+      // Extract usage from reconstructed client response
+      await this.updateUsageFromClientResponse(trace, requestId);
 
-        // Reconstruct client response from stream chunks
-        if (
-          trace.clientStreamChunks &&
-          trace.clientStreamChunks.length > 0 &&
-          !trace.clientResponse?.body &&
-          trace.clientRequest?.apiType
-        ) {
-          try {
-            const transformer = this.transformerFactory.getTransformer(
-              trace.clientRequest.apiType
-            );
-            
-            if (transformer.reconstructResponseFromStream) {
-              // Combine all stream chunks into one string
-              const rawSSE = trace.clientStreamChunks
-                .map((item) => item.chunk)
-                .join("");
+      // Log debug metadata
+      this.logTraceMetadata(trace, requestId);
 
-              const reconstructed = transformer.reconstructResponseFromStream(rawSSE);
-              
-              if (reconstructed) {
-                trace.clientResponse = {
-                  status: trace.clientResponse?.status || 200,
-                  body: reconstructed,
-                  type: "reconstructed",
-                };
-                
-                logger.debug("Reconstructed client response from stream", {
-                  requestId,
-                  apiType: trace.clientRequest.apiType,
-                });
-              }
-            }
-          } catch (error) {
-            logger.warn("Failed to reconstruct client response from stream", {
-              requestId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-
-        // Extract usage from reconstructed client response and update usage log
-        // We use the CLIENT response because it contains the complete usage data
-        // after transformation and aggregation from all stream chunks
-        if (
-          this.usageLogger &&
-          trace.clientResponse?.body &&
-          trace.clientResponse?.type === "reconstructed" &&
-          trace.clientRequest?.apiType
-        ) {
-          try {
-            const transformer = this.transformerFactory.getTransformer(
-              trace.clientRequest.apiType
-            );
-            
-            const clientBody = trace.clientResponse.body;
-            
-            // Check if response contains usage data
-            if (clientBody?.usage || clientBody?.usageMetadata) {
-              const rawUsage = clientBody.usage || clientBody.usageMetadata;
-              const unifiedUsage = transformer.parseUsage(rawUsage);
-              
-              logger.debug("Extracted usage from reconstructed response", {
-                requestId,
-                usage: unifiedUsage,
-              });
-
-              // Update usage log entry with reconstructed usage data
-              await this.usageLogger.updateUsageFromReconstructed(
-                requestId,
-                unifiedUsage
-              );
-            }
-          } catch (error) {
-            logger.warn("Failed to extract usage from reconstructed response", {
-              requestId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-      }
-
-      // RESTORED: Your full original debug metadata block
-      logger.debug("About to store trace", {
-        requestId,
-        hasProviderRequest: !!trace.providerRequest,
-        hasProviderResponse: !!trace.providerResponse,
-        hasClientResponse: !!trace.clientResponse,
-        hasProviderStreamChunks: !!(
-          trace.providerStreamChunks && trace.providerStreamChunks.length > 0
-        ),
-        providerStreamChunkCount: trace.providerStreamChunks?.length || 0,
-        hasClientStreamChunks: !!(
-          trace.clientStreamChunks && trace.clientStreamChunks.length > 0
-        ),
-        clientStreamChunkCount: trace.clientStreamChunks?.length || 0,
-      });
-
-      // RESTORED: Your explicit cast and storage call
+      // Store the trace
       await this.store.store(trace as DebugTraceEntry);
 
       logger.debug("Debug trace completed", { requestId });
@@ -501,8 +540,6 @@ export class DebugLogger {
         requestId,
         error: error instanceof Error ? error.message : String(error),
       });
-      // Note: We don't put delete in finally anymore because we did it at the top
-      // to prevent the race condition.
     }
   }
   

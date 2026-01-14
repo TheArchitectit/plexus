@@ -27,7 +27,8 @@ export interface RequestContext {
 
   // Streaming tracking
   streaming?: boolean;
-  firstTokenTime?: number; // Unix timestamp in ms
+  providerFirstTokenTime?: number; // Unix timestamp in ms - when first token received from provider
+  clientFirstTokenTime?: number; // Unix timestamp in ms - when first token sent to client
 }
 
 /**
@@ -58,6 +59,7 @@ export class UsageLogger {
   private metricsCollector: MetricsCollector;
   private eventEmitter?: EventEmitter;
   private enabled: boolean;
+  private streamingContexts: Map<string, RequestContext> = new Map();
 
   constructor(
     usageStore: UsageStore,
@@ -109,20 +111,49 @@ export class UsageLogger {
     const endTime = Date.now();
     const durationMs = endTime - context.startTime;
 
-    // Calculate TTFT if streaming
-    let ttftMs: number | null = null;
-    if (context.streaming && context.firstTokenTime) {
-      ttftMs = context.firstTokenTime - context.startTime;
+    // Calculate provider-level metrics (measures provider performance only)
+    let providerTtftMs: number | null = null;
+    let providerTokensPerSecond: number | null = null;
+    
+    if (context.streaming && context.providerFirstTokenTime) {
+      providerTtftMs = context.providerFirstTokenTime - context.startTime;
+      
+      if (responseInfo.usage) {
+        const outputTokens = responseInfo.usage.outputTokens;
+        const streamDuration = (endTime - context.providerFirstTokenTime) / 1000;
+        if (streamDuration > 0 && outputTokens > 0) {
+          providerTokensPerSecond = outputTokens / streamDuration;
+        }
+      }
     }
 
-    // Calculate tokens per second if streaming
-    let tokensPerSecond: number | null = null;
-    if (context.streaming && responseInfo.usage) {
+    // Calculate client-level metrics (includes Plexus transformation overhead)
+    let clientTtftMs: number | null = null;
+    let clientTokensPerSecond: number | null = null;
+    
+    if (responseInfo.usage) {
       const outputTokens = responseInfo.usage.outputTokens;
-      const streamDuration = (endTime - (context.firstTokenTime || context.startTime)) / 1000;
-      if (streamDuration > 0) {
-        tokensPerSecond = outputTokens / streamDuration;
+      
+      if (context.streaming && context.clientFirstTokenTime) {
+        clientTtftMs = context.clientFirstTokenTime - context.startTime;
+        const streamDuration = (endTime - context.clientFirstTokenTime) / 1000;
+        if (streamDuration > 0 && outputTokens > 0) {
+          clientTokensPerSecond = outputTokens / streamDuration;
+        }
+      } else if (!context.streaming) {
+        // For non-streaming: (output tokens) / (total request duration)
+        const requestDuration = durationMs / 1000;
+        if (requestDuration > 0 && outputTokens > 0) {
+          clientTokensPerSecond = outputTokens / requestDuration;
+          providerTokensPerSecond = clientTokensPerSecond; // Same for non-streaming
+        }
       }
+    }
+
+    // Calculate transformation overhead
+    let transformationOverheadMs: number | null = null;
+    if (clientTtftMs !== null && providerTtftMs !== null) {
+      transformationOverheadMs = clientTtftMs - providerTtftMs;
     }
 
     // Normalize usage
@@ -170,8 +201,11 @@ export class UsageLogger {
       },
       metrics: {
         durationMs,
-        ttftMs,
-        tokensPerSecond,
+        providerTtftMs,
+        providerTokensPerSecond,
+        clientTtftMs,
+        clientTokensPerSecond,
+        transformationOverheadMs,
       },
       success: true,
       streaming: responseInfo.streaming,
@@ -181,14 +215,22 @@ export class UsageLogger {
     // Store usage log
     await this.usageStore.log(entry);
 
-    // Record metrics
+    // Store streaming context for later update
+    if (context.streaming && usage.totalTokens === 0) {
+      this.streamingContexts.set(context.id, context);
+    } else {
+      // Clean up streaming context if this is the final log
+      this.streamingContexts.delete(context.id);
+    }
+
+    // Record metrics (use provider-level metrics for fair comparison)
     const requestMetrics: RequestMetrics = {
       provider: context.actualProvider || "",
       timestamp: context.startTime,
       success: true,
       latencyMs: durationMs,
-      ttftMs,
-      tokensPerSecond,
+      ttftMs: providerTtftMs,
+      tokensPerSecond: providerTokensPerSecond,
       costPer1M: usage.totalTokens > 0 ? (costResult.totalCost / usage.totalTokens) * 1_000_000 : 0,
     };
     this.metricsCollector.recordRequest(requestMetrics);
@@ -266,10 +308,14 @@ export class UsageLogger {
   /**
    * Update request context with first token time (for streaming)
    * @param context - Request context
+   * @param type - Whether this is provider or client first token
    */
-  markFirstToken(context: RequestContext): void {
-    if (!context.firstTokenTime) {
-      context.firstTokenTime = Date.now();
+  markFirstToken(context: RequestContext, type: "provider" | "client" = "provider"): void {
+    const now = Date.now();
+    if (type === "provider" && !context.providerFirstTokenTime) {
+      context.providerFirstTokenTime = now;
+    } else if (type === "client" && !context.clientFirstTokenTime) {
+      context.clientFirstTokenTime = now;
     }
   }
 
@@ -291,6 +337,13 @@ export class UsageLogger {
       if (!existingEntry) {
         logger.warn("Cannot update usage - entry not found", { requestId });
         return;
+      }
+
+      // Get the stored streaming context to access timing information
+      const context = this.streamingContexts.get(requestId);
+      if (!context) {
+        logger.warn("Cannot update metrics - streaming context not found", { requestId });
+        // Continue anyway to at least update usage and cost
       }
 
       // Build updated usage object
@@ -324,10 +377,60 @@ export class UsageLogger {
         source: costResult.source,
       };
 
-      // Update the usage store
-      const updated = await this.usageStore.updateUsage(requestId, usage, cost);
+      // Recalculate metrics with timing information from context
+      let metrics = existingEntry.metrics; // Default to existing metrics
+      
+      if (context) {
+        const endTime = Date.now();
+        const durationMs = endTime - context.startTime;
+
+        // Calculate provider-level metrics
+        let providerTtftMs: number | null = null;
+        let providerTokensPerSecond: number | null = null;
+        
+        if (context.providerFirstTokenTime) {
+          providerTtftMs = context.providerFirstTokenTime - context.startTime;
+          const streamDuration = (endTime - context.providerFirstTokenTime) / 1000;
+          if (streamDuration > 0 && usage.outputTokens > 0) {
+            providerTokensPerSecond = usage.outputTokens / streamDuration;
+          }
+        }
+
+        // Calculate client-level metrics
+        let clientTtftMs: number | null = null;
+        let clientTokensPerSecond: number | null = null;
+        
+        if (context.clientFirstTokenTime) {
+          clientTtftMs = context.clientFirstTokenTime - context.startTime;
+          const streamDuration = (endTime - context.clientFirstTokenTime) / 1000;
+          if (streamDuration > 0 && usage.outputTokens > 0) {
+            clientTokensPerSecond = usage.outputTokens / streamDuration;
+          }
+        }
+
+        // Calculate transformation overhead
+        let transformationOverheadMs: number | null = null;
+        if (clientTtftMs !== null && providerTtftMs !== null) {
+          transformationOverheadMs = clientTtftMs - providerTtftMs;
+        }
+
+        metrics = {
+          durationMs,
+          providerTtftMs,
+          providerTokensPerSecond,
+          clientTtftMs,
+          clientTokensPerSecond,
+          transformationOverheadMs,
+        };
+      }
+
+      // Update the usage store with usage, cost, AND metrics
+      const updated = await this.usageStore.updateUsageWithMetrics(requestId, usage, cost, metrics);
 
       if (updated) {
+        // Clean up streaming context
+        this.streamingContexts.delete(requestId);
+        
         logger.info("Updated usage log from reconstructed stream response", {
           requestId,
           totalTokens: usage.totalTokens,

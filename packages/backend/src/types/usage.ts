@@ -43,8 +43,14 @@ export interface UsageLogEntry {
   // Performance metrics
   metrics: {
     durationMs: number;
-    ttftMs: number | null; // Time to first token (streaming)
-    tokensPerSecond: number | null;
+    // Provider-level metrics (measures provider performance only)
+    providerTtftMs: number | null; // Time to first token from provider
+    providerTokensPerSecond: number | null; // Provider throughput
+    // Client-level metrics (includes Plexus transformation overhead)
+    clientTtftMs: number | null; // Time to first token received by client
+    clientTokensPerSecond: number | null; // Overall throughput including transformation
+    // Transformation overhead (clientTtft - providerTtft)
+    transformationOverheadMs: number | null;
   };
 
   // Status
