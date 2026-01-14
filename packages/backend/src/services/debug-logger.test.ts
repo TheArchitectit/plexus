@@ -113,8 +113,8 @@ describe("DebugLogger", () => {
     const requestId = "test-request-5";
     debugLogger.startTrace(requestId, "chat", {});
 
-    debugLogger.captureStreamSnapshot(requestId, { delta: { content: "Hello" } });
-    debugLogger.captureStreamSnapshot(requestId, { delta: { content: " world" } });
+    debugLogger.captureStreamChunk(requestId, { delta: { content: "Hello" } });
+    debugLogger.captureStreamChunk(requestId, { delta: { content: " world" } });
 
     const traces = (debugLogger as any).traces;
     expect(traces.get(requestId).streamSnapshots).toHaveLength(2);

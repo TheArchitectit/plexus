@@ -6,7 +6,11 @@
 import { AnthropicTransformer } from "../transformers/anthropic";
 import { OpenAITransformer } from "../transformers/openai";
 import { GeminiTransformer } from "../transformers/gemini";
-import type { Transformer, UnifiedChatRequest, StreamTransformOptions } from "../transformers/types";
+import type {
+  Transformer,
+  UnifiedChatRequest,
+  StreamTransformOptions,
+} from "../transformers/types";
 import { logger } from "../utils/logger";
 
 /**
@@ -19,9 +23,15 @@ export type ApiType = "chat" | "messages" | "gemini";
  * Prefers the client's requested API type if supported by the provider.
  * Falls back to 'chat' as the primary default.
  */
-export function getProviderApiType(providerApiTypes: string[], preferredApiType?: ApiType): ApiType {
+export function getProviderApiType(
+  providerApiTypes: string[],
+  preferredApiType?: ApiType
+): ApiType {
   // 1. If we have a preference and it's supported, use it
-  if (preferredApiType && (providerApiTypes as string[]).includes(preferredApiType)) {
+  if (
+    preferredApiType &&
+    (providerApiTypes as string[]).includes(preferredApiType)
+  ) {
     return preferredApiType;
   }
 
@@ -130,9 +140,8 @@ export class TransformerFactory {
     // For now, let's assume pass-through is fine if types match.
     if (sourceApiType === targetApiType) {
       // Return a Bun Response wrapper around the fetch Response
-      const isStream = response.headers
-        .get("Content-Type")
-        ?.includes("text/event-stream");
+      const contentType = response.headers.get("Content-Type") || "";
+      const isStream = contentType.includes("text/event-stream");
 
       if (isStream) {
         return new Response(response.body, {
@@ -161,19 +170,30 @@ export class TransformerFactory {
         throw new Error("Stream response body is null");
       }
 
-      if (!sourceTransformer.transformStream || !targetTransformer.formatStream) {
-         throw new Error(`Streaming transformation not supported between ${sourceApiType} and ${targetApiType}`);
-       }
+      if (
+        !sourceTransformer.transformStream ||
+        !targetTransformer.formatStream
+      ) {
+        throw new Error(
+          `Streaming transformation not supported between ${sourceApiType} and ${targetApiType}`
+        );
+      }
 
       // Pipeline: Source Stream -> Unified Stream -> Target Stream
-      const unifiedStream = sourceTransformer.transformStream(response.body, debugOptions);
-      const targetStream = targetTransformer.formatStream(unifiedStream, debugOptions);
+      const unifiedStream = sourceTransformer.transformStream(
+        response.body,
+        debugOptions
+      );
+      const targetStream = targetTransformer.formatStream(
+        unifiedStream,
+        debugOptions
+      );
 
       return new Response(targetStream, {
         headers: {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
+          Connection: "keep-alive",
         },
       });
     } else {
@@ -181,7 +201,9 @@ export class TransformerFactory {
 
       // Pipeline: Source Body -> Unified Response -> Target Body
       const unifiedResponse = await sourceTransformer.transformResponse(data);
-      const targetResponse = await targetTransformer.formatResponse(unifiedResponse);
+      const targetResponse = await targetTransformer.formatResponse(
+        unifiedResponse
+      );
 
       return new Response(JSON.stringify(targetResponse), {
         headers: { "Content-Type": "application/json" },
@@ -192,7 +214,10 @@ export class TransformerFactory {
   /**
    * Check if transformation is needed between two API types
    */
-  static needsTransformation(sourceApiType: ApiType, targetApiType: ApiType): boolean {
+  static needsTransformation(
+    sourceApiType: ApiType,
+    targetApiType: ApiType
+  ): boolean {
     return sourceApiType !== targetApiType;
   }
 }

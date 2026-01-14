@@ -2,7 +2,12 @@ import { logger } from "../utils/logger";
 import { ProviderClient } from "./provider-client";
 import { Router } from "./router";
 import { PlexusErrorResponse } from "../types/errors";
-import { transformerFactory, TransformerFactory, ApiType, getProviderApiType } from "./transformer-factory";
+import {
+  transformerFactory,
+  TransformerFactory,
+  ApiType,
+  getProviderApiType,
+} from "./transformer-factory";
 import type { PlexusConfig, ProviderConfig } from "../types/config";
 import type { CooldownManager } from "./cooldown-manager";
 import type { CooldownReason } from "../types/health";
@@ -10,6 +15,7 @@ import type { CostCalculator } from "./cost-calculator";
 import type { MetricsCollector } from "./metrics-collector";
 import type { DebugLogger } from "./debug-logger";
 import { ServerContext } from "src/types/server";
+import { StreamTap } from "./streamtap";
 
 /**
  * Dispatcher service for routing requests to appropriate providers
@@ -19,11 +25,14 @@ export class Dispatcher {
   private router: Router;
   private context: ServerContext;
 
-  constructor(
-    context: ServerContext
-  ) {
+  constructor(context: ServerContext) {
     this.context = context;
-    this.router = new Router(context.config, context.cooldownManager, context.costCalculator, context.metricsCollector);
+    this.router = new Router(
+      context.config,
+      context.cooldownManager,
+      context.costCalculator,
+      context.metricsCollector
+    );
   }
 
   /**
@@ -45,7 +54,7 @@ export class Dispatcher {
    * 5. Transform request: Unified → Provider format
    * 6. Execute request
    * 7. Transform response: Provider → Client expected format
-   * 
+   *
    * @param request - The incoming request body
    * @param requestId - Request ID for tracing
    * @param clientApiType - The API type of the incoming request (chat or messages)
@@ -83,7 +92,10 @@ export class Dispatcher {
       const { provider, model, aliasUsed } = resolution.target;
 
       // Step 2: Determine provider's native API type
-      const providerApiType = getProviderApiType(provider.apiTypes || ["chat"], clientApiType);
+      const providerApiType = getProviderApiType(
+        provider.apiTypes || ["chat"],
+        clientApiType
+      );
 
       requestLogger.debug("Dispatching request", {
         requestedModel: request.model,
@@ -92,7 +104,10 @@ export class Dispatcher {
         model,
         clientApiType,
         providerApiType,
-        needsTransformation: TransformerFactory.needsTransformation(clientApiType, providerApiType),
+        needsTransformation: TransformerFactory.needsTransformation(
+          clientApiType,
+          providerApiType
+        ),
       });
 
       // Step 3: Transform request to unified format (from client format)
@@ -119,26 +134,28 @@ export class Dispatcher {
         Object.assign(providerRequest, provider.extraBody);
       }
 
-       requestLogger.debug("Request transformed to provider format", {
-     provider: provider.name,
-         apiType: providerApiType,
-       });
+      requestLogger.debug("Request transformed to provider format", {
+        provider: provider.name,
+        apiType: providerApiType,
+      });
 
-       requestLogger.silly("About to capture provider request", {
-         requestId,
-         providerApiType,
-       });
+      requestLogger.silly("About to capture provider request", {
+        requestId,
+        providerApiType,
+      });
 
-       this.context.debugLogger?.captureProviderRequest(
-         requestId,
-         providerApiType,
-         providerRequest
-       );
+      this.context.debugLogger?.captureProviderRequest(
+        requestId,
+        providerApiType,
+        providerRequest
+      );
 
       // Step 5: Get the appropriate endpoint URL
       const endpointUrl = this.getEndpointUrl(provider, providerApiType);
       if (!endpointUrl) {
-        throw new Error(`Provider '${provider.name}' has no ${providerApiType} endpoint configured`);
+        throw new Error(
+          `Provider '${provider.name}' has no ${providerApiType} endpoint configured`
+        );
       }
 
       // Step 6: Create provider client and make request
@@ -162,46 +179,75 @@ export class Dispatcher {
       }
 
       // Step 7: Check if this is a streaming response
-      const isStreaming = providerResponse.headers.get("Content-Type")?.includes("text/event-stream");
+      const isStreaming = providerResponse.headers
+        .get("Content-Type")
+        ?.includes("text/event-stream");
 
       if (isStreaming) {
         requestLogger.debug("Streaming response detected", {
           providerApiType,
           clientApiType,
-          needsTransformation: TransformerFactory.needsTransformation(clientApiType, providerApiType),
+          needsTransformation: TransformerFactory.needsTransformation(
+            clientApiType,
+            providerApiType
+          ),
         });
 
-        // For streaming, transform response back to client's expected format
-        // The transformer will handle stream-to-stream transformation
+        // --- TAP 1: Raw Provider Response (Silent / False) ---
+        const providerTap = new StreamTap(this.context.debugLogger!, requestId, false);
+
+        const tappedProviderBody = providerResponse.body
+          ? providerTap.tap(providerResponse.body, "provider")
+          : null;
+        // --- TRANSFORMATION ---
+        // Pass the already-tapped provider body into the transformer.
+        // Wrap the tapped body back into a proper Response instance
+        // This prevents the "undefined is not an object" error
+        const providerProxy = new Response(tappedProviderBody, {
+          status: providerResponse.status,
+          statusText: providerResponse.statusText,
+          headers: providerResponse.headers,
+        });
+
+        // --- TRANSFORMATION ---
         const transformedResponse = await transformerFactory.transformResponse(
-          providerResponse,
+          providerProxy, // Pass the proxy Response, NOT the POJO
           providerApiType,
           clientApiType
         );
 
+        // --- TAP 2: Transformed Client Response (Final) ---
+        const streamTap = new StreamTap(this.context.debugLogger!, requestId, true);
+
+        // 3. Wrap the body in the tap
+        // This is a "transparent pipe" that records while it flows
+        const tappedBody = transformedResponse.body
+          ? streamTap.tap(transformedResponse.body, "client")
+          : null;
+
         // Return streaming response with proper SSE headers
-        return new Response(transformedResponse.body, {
+        return new Response(tappedBody, {
           status: transformedResponse.status,
           headers: {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
+            Connection: "keep-alive",
             "X-Accel-Buffering": "no", // Disable buffering for nginx
           },
         });
       }
 
-       requestLogger.silly("About to capture provider response", {
-       requestId,
+      requestLogger.silly("About to capture provider response", {
+        requestId,
         status: providerResponse.status,
       });
 
-       this.context.debugLogger?.captureProviderResponse(
-         requestId,
-         providerResponse.status,
-         Object.fromEntries(providerResponse.headers),
-         await providerResponse.clone().json()
-       );
+      this.context.debugLogger?.captureProviderResponse(
+        requestId,
+        providerResponse.status,
+        Object.fromEntries(providerResponse.headers),
+        await providerResponse.clone().json()
+      );
       // Step 7: Transform non-streaming response back to client's expected format
       const transformedResponse = await transformerFactory.transformResponse(
         providerResponse,
@@ -209,20 +255,20 @@ export class Dispatcher {
         clientApiType
       );
 
-       requestLogger.debug("Response transformed to client format", {
-       clientApiType,
-    });
+      requestLogger.debug("Response transformed to client format", {
+        clientApiType,
+      });
 
-       requestLogger.silly("About to capture client response", {
-       requestId,
+      requestLogger.silly("About to capture client response", {
+        requestId,
         status: providerResponse.status,
       });
 
-       this.context.debugLogger?.captureClientResponse(
-         requestId,
-         providerResponse.status,
-         await transformedResponse.clone().json()
-       );
+      this.context.debugLogger?.captureClientResponse(
+        requestId,
+        providerResponse.status,
+        await transformedResponse.clone().json()
+      );
 
       this.context.debugLogger?.completeTrace(requestId);
       return transformedResponse;
@@ -230,6 +276,7 @@ export class Dispatcher {
       requestLogger.error("Dispatcher error", {
         error: error instanceof Error ? error.message : String(error),
       });
+      await this.context.debugLogger?.completeTrace(requestId);
 
       // Check if this is a network/connection error
       if (error instanceof Error && this.isConnectionError(error)) {
@@ -263,9 +310,9 @@ export class Dispatcher {
    * Convenience method that calls dispatch with clientApiType="chat"
    */
   async dispatchChatCompletion(
-    request: any, 
-    requestId: string, 
-    clientIp?: string, 
+    request: any,
+    requestId: string,
+    clientIp?: string,
     apiKeyName?: string
   ): Promise<Response> {
     return this.dispatch(request, requestId, "chat", clientIp, apiKeyName);
@@ -276,9 +323,9 @@ export class Dispatcher {
    * Convenience method that calls dispatch with clientApiType="messages"
    */
   async dispatchMessages(
-    request: any, 
-    requestId: string, 
-    clientIp?: string, 
+    request: any,
+    requestId: string,
+    clientIp?: string,
     apiKeyName?: string
   ): Promise<Response> {
     return this.dispatch(request, requestId, "messages", clientIp, apiKeyName);
@@ -287,7 +334,10 @@ export class Dispatcher {
   /**
    * Get the appropriate endpoint URL for a provider based on API type
    */
-  private getEndpointUrl(provider: ProviderConfig, apiType: ApiType): string | undefined {
+  private getEndpointUrl(
+    provider: ProviderConfig,
+    apiType: ApiType
+  ): string | undefined {
     if (apiType === "messages") {
       return provider.baseUrls.messages;
     }
@@ -354,5 +404,4 @@ export class Dispatcher {
     const errorMessage = error.message.toLowerCase();
     return connectionErrors.some((term) => errorMessage.includes(term));
   }
-
 }
