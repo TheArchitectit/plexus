@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { parse } from 'yaml';
 import { fetchEventSource, EventStreamContentType } from '@microsoft/fetch-event-source';
@@ -51,6 +52,8 @@ interface UsageLog {
   pending?: boolean; // True for in-flight requests
   debug?: string;
   error?: string;
+  isNew?: boolean; // For animation tracking
+  isUpdating?: boolean; // For pulse animation
 }
 
 interface StateResponse {
@@ -201,6 +204,21 @@ export function LogsPage() {
   const allModels = Object.values(models).flat();
   const fetchLogsRef = useRef<(() => Promise<void>) | null>(null);
 
+  // Clear animation flags after animations complete
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLogs(prevLogs => 
+        prevLogs.map(log => ({
+          ...log,
+          isNew: false,
+          isUpdating: false
+        }))
+      );
+    }, 1000); // Clear flags after 1 second
+
+    return () => clearTimeout(timer);
+  }, [logs]);
+
   fetchLogsRef.current = fetchLogs;
 
   useEffect(() => {
@@ -253,17 +271,17 @@ if (data.type === 'usage') {
               
               // Check if this is an update event
               if (newLog.updated) {
-                // Replace existing log entry completely
+                // Replace existing log entry completely with pulse animation
                 return prevLogs.map(log => 
-                  log.id === newLog.id ? newLog : log
+                  log.id === newLog.id ? { ...newLog, isUpdating: true } : log
                 );
               } else {
                 // Check if log already exists to avoid duplicates
                 const exists = prevLogs.some(log => log.id === newLog.id);
                 if (exists) return prevLogs;
                 
-                // Add new log to the beginning (newest first)
-                const updatedLogs = [newLog, ...prevLogs];
+                // Add new log to the beginning (newest first) with slide-in animation
+                const updatedLogs = [{ ...newLog, isNew: true }, ...prevLogs];
                 // Keep only the most recent 100 entries to prevent memory issues
                 return updatedLogs.slice(0, 100);
               }
@@ -296,6 +314,48 @@ if (data.type === 'usage') {
 
   return (
     <>
+    <style jsx>{`
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes singlePulse {
+        0% {
+          background-color: rgb(219 234 254); /* blue-100 */
+        }
+        100% {
+          background-color: transparent;
+        }
+      }
+      
+      .animate-slide-in {
+        animation: slideIn 0.5s ease-out;
+      }
+      
+      .animate-single-pulse {
+        animation: singlePulse 1s ease-out;
+      }
+      
+      .dark .animate-single-pulse {
+        animation: singlePulseDark 1s ease-out;
+      }
+      
+      @keyframes singlePulseDark {
+        0% {
+          background-color: rgb(30 58 138); /* blue-900 */
+        }
+        100% {
+          background-color: transparent;
+        }
+      }
+    `}</style>
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -421,7 +481,14 @@ if (data.type === 'usage') {
               </TableRow>
             ) : (
               logs.map((log) => (
-                <TableRow key={log.id || Math.random()} className={log.pending ? 'opacity-60' : ''}>
+                <TableRow 
+                  key={log.id || Math.random()} 
+                  className={cn(
+                    log.pending ? 'opacity-60' : '',
+                    log.isNew ? 'animate-slide-in' : '',
+                    log.isUpdating ? 'animate-single-pulse' : ''
+                  )}
+                >
                   <TableCell className="whitespace-nowrap">
                     {formatTimestamp(log.timestamp)}
                   </TableCell>
