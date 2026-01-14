@@ -20,6 +20,10 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/declarations.d.ts"
+  ],
   "exclude": ["node_modules", "dist", "references"]
 }

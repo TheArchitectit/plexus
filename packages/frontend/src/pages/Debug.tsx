@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import MonacoEditor from '@/components/ui/monaco-editor';
 import { Copy, Trash2, Clock } from 'lucide-react';
 import type { components } from '@/lib/management';
@@ -137,7 +138,7 @@ export function DebugPage() {
               </Badge>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <ScrollArea className="flex-1">
             {loading ? (
               <div className="p-4 text-center text-muted-foreground">Loading...</div>
             ) : logs.length === 0 ? (
@@ -165,7 +166,7 @@ export function DebugPage() {
                 ))}
               </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
 
         <div className="lg:col-span-2 bg-card border rounded-lg overflow-hidden flex flex-col">
@@ -190,8 +191,9 @@ export function DebugPage() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4">
-                <Accordion type="multiple" defaultValue={["client-request", "provider-request"]} className="w-full">
+              <ScrollArea className="flex-1">
+                <div className="p-4">
+                  <Accordion type="multiple" defaultValue={["client-request", "provider-request"]} className="w-full">
                   {selectedLog.clientRequest && (
                     <AccordionItem value="client-request">
                       <AccordionTrigger className="hover:no-underline">
@@ -372,7 +374,8 @@ export function DebugPage() {
                     </AccordionItem>
                   )}
                 </Accordion>
-              </div>
+                </div>
+              </ScrollArea>
 
               <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogContent>
