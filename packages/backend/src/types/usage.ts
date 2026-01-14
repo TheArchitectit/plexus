@@ -50,6 +50,7 @@ export interface UsageLogEntry {
   // Status
   success: boolean;
   streaming: boolean;
+  pending?: boolean; // True for in-flight requests, false when complete
   errorType?: string;
   errorMessage?: string;
 }

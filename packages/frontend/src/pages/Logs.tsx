@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Trash2, ChevronLeft, ChevronRight, Bug, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Trash2, ChevronLeft, ChevronRight, Bug, AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 const activeSSEConnections = new Set<AbortController>();
 
@@ -44,6 +44,7 @@ interface UsageLog {
     ttftMs?: number;
   };
   success?: boolean;
+  pending?: boolean; // True for in-flight requests
   debug?: string;
   error?: string;
 }
@@ -383,7 +384,7 @@ export function LogsPage() {
               </TableRow>
             ) : (
               logs.map((log) => (
-                <TableRow key={log.id || Math.random()}>
+                <TableRow key={log.id || Math.random()} className={log.pending ? 'opacity-60' : ''}>
                   <TableCell className="whitespace-nowrap">
                     {formatTimestamp(log.timestamp)}
                   </TableCell>
@@ -394,12 +395,35 @@ export function LogsPage() {
                   </TableCell>
                   <TableCell className="font-medium">{safeText(log.actualModel)}</TableCell>
                   <TableCell>
-                    {log.usage?.totalTokens !== undefined ? log.usage.totalTokens.toLocaleString() : '-'}
+                    {log.pending ? (
+                      <span className="text-muted-foreground italic flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        pending...
+                      </span>
+                    ) : log.usage?.totalTokens !== undefined ? (
+                      log.usage.totalTokens.toLocaleString()
+                    ) : (
+                      '-'
+                    )}
                   </TableCell>
-                  <TableCell>{formatCost(log.cost?.totalCost)}</TableCell>
+                  <TableCell>
+                    {log.pending ? (
+                      <span className="text-muted-foreground italic flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        pending...
+                      </span>
+                    ) : (
+                      formatCost(log.cost?.totalCost)
+                    )}
+                  </TableCell>
                   <TableCell>{formatLatency(log.metrics?.durationMs)}</TableCell>
                   <TableCell>
-                    {log.success === true ? (
+                    {log.pending ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        In Progress
+                      </Badge>
+                    ) : log.success === true ? (
                       <Badge variant="default" className="gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Success

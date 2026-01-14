@@ -30,7 +30,7 @@ export class DebugLogger {
     usageLogger?: UsageLogger
   ) {
     this.store =
-      store || new DebugStore(config.storagePath, config.retentionDays);
+      store || new DebugStore(config.storagePath, config.retentionDays, config.enabled);
     this.transformerFactory = transformerFactory;
     this.usageLogger = usageLogger;
   }
@@ -179,8 +179,6 @@ export class DebugLogger {
     clientRequest: any,
     headers?: Record<string, string>
   ): void {
-    if (!this.config.enabled) return;
-
     this.traces.set(requestId, {
       id: requestId,
       timestamp: new Date().toISOString(),
@@ -207,8 +205,6 @@ export class DebugLogger {
     providerRequest: any,
     headers?: Record<string, string>
   ): void {
-    if (!this.config.enabled) return;
-
     logger.silly("captureProviderRequest", {
       requestId,
       providerApiType,
@@ -239,8 +235,6 @@ export class DebugLogger {
     headers: Record<string, string>,
     body: any
   ): void {
-    if (!this.config.enabled) return;
-
     logger.silly("captureProviderResponse", {
       requestId,
       status,
@@ -266,8 +260,6 @@ export class DebugLogger {
    * @param body - Response body in client's format
    */
   captureClientResponse(requestId: string, status: number, body: any): void {
-    if (!this.config.enabled) return;
-
     logger.silly("captureClientResponse", {
       requestId,
       status,
@@ -291,8 +283,6 @@ export class DebugLogger {
    * @param chunk - Stream chunk
    */
   captureClientStreamChunk(requestId: string, chunk: string): void {
-    if (!this.config.enabled) return;
-
     const trace = this.traces.get(requestId);
     if (trace) {
       if (!trace.clientStreamChunks) {
@@ -320,8 +310,6 @@ export class DebugLogger {
    * @param chunk - Stream chunk
    */
   captureProviderStreamChunk(requestId: string, chunk: string): void {
-    if (!this.config.enabled) return;
-
     const trace = this.traces.get(requestId);
     if (trace) {
       if (!trace.providerStreamChunks) {
@@ -344,8 +332,6 @@ export class DebugLogger {
   }
 
   async completeTrace(requestId: string): Promise<void> {
-    if (!this.config.enabled) return;
-
     // --- THE CONCURRENCY FIX ---
     // We grab the trace and delete it IMMEDIATELY.
     // This ensures that if a second tap calls this while we are still

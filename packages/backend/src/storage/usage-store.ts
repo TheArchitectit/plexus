@@ -326,6 +326,7 @@ export class UsageStore {
                 // Update the entry
                 entry.usage = usage;
                 entry.cost = cost;
+                entry.pending = false; // Mark as complete when updating from stream reconstruction
                 updatedLines.push(JSON.stringify(entry));
                 updated = true;
                 logger.debug("Updated usage log entry", {

@@ -207,21 +207,23 @@ export async function createServer(config: PlexusConfig): Promise<{ server: any;
   // We initialize it even if debug logging is disabled, to allow querying historical logs
   debugStore = new DebugStore(
       config.logging.debug?.storagePath || "./logs/debug",
-      config.logging.debug?.retentionDays || 7
+      config.logging.debug?.retentionDays || 7,
+      config.logging.debug?.enabled || false
   );
   
-   if (config.logging.debug?.enabled) {
-      // Create transformer factory for stream reconstruction
-      const transformerFactory = new TransformerFactory();
-      
-      debugLogger = new DebugLogger({
-      enabled: config.logging.debug.enabled,
-      storagePath: config.logging.debug.storagePath,
-      retentionDays: config.logging.debug.retentionDays,
-    }, debugStore, transformerFactory, usageLogger);
-    
-     // DebugLogger.initialize() also calls store.initialize(), but it's safe to call idempotent
-     await debugLogger.initialize();
+  // Always create transformer factory and debugLogger for stream reconstruction and usage tracking
+  // The debugStore.store() method will skip persistence if debug logging is disabled
+  const transformerFactory = new TransformerFactory();
+  
+  debugLogger = new DebugLogger({
+    enabled: config.logging.debug?.enabled || false,
+    storagePath: config.logging.debug?.storagePath || "./logs/debug",
+    retentionDays: config.logging.debug?.retentionDays || 7,
+  }, debugStore, transformerFactory, usageLogger);
+  
+  // Only initialize storage if debug logging is enabled
+  if (config.logging.debug?.enabled) {
+    await debugLogger.initialize();
   }
 
   // Initialize Log Query Service

@@ -175,6 +175,7 @@ export class UsageLogger {
       },
       success: true,
       streaming: responseInfo.streaming,
+      pending: usage.totalTokens === 0, // Mark as pending if tokens are 0 (initial streaming log)
     };
 
     // Store usage log

@@ -8,7 +8,11 @@ import { join } from "node:path";
  * Stores full request/response captures for debugging
  */
 export class DebugStore {
-  constructor(private storagePath: string, private retentionDays: number) {}
+  constructor(
+    private storagePath: string, 
+    private retentionDays: number,
+    private enabled: boolean = true
+  ) {}
 
   /**
    * Helper to format timestamp for directory name
@@ -128,6 +132,11 @@ export class DebugStore {
    * @param entry - Debug trace entry
    */
   async store(entry: DebugTraceEntry): Promise<void> {
+    // Early return if debug logging is disabled
+    if (!this.enabled) {
+      return;
+    }
+
     try {
       // Create directory name: strftime(%Y-%m-%d-%H-%M-%S)-<request-id>
       const timestamp = this.getTimestamp(entry.timestamp);
