@@ -910,11 +910,22 @@ export class AnthropicTransformer implements Transformer {
        case "content_block_start":
             // Initialize the block at the specific index
         const index = parsed.index;
-            result.content![index] = {
-              type: parsed.content_block.type,
-          ...(parsed.content_block.type === "text" ? { text: "" } : {}),
-              ...(parsed.content_block.type === "thinking" ? { thinking: "" } : {}),
-            };
+            const blockType = parsed.content_block.type;
+
+            if (blockType === "text") {
+              result.content![index] = { type: "text", text: "" };
+            } else if (blockType === "thinking") {
+              result.content![index] = { type: "thinking", thinking: "" };
+            } else if (blockType === "tool_use") {
+              result.content![index] = {
+                type: "tool_use",
+                id: parsed.content_block.id,
+                name: parsed.content_block.name,
+                input: ""
+              };
+            } else {
+              result.content![index] = { type: blockType };
+            }
             break;
 
           case "content_block_delta":
@@ -926,7 +937,7 @@ export class AnthropicTransformer implements Transformer {
           } else if (block && parsed.delta.type === "thinking_delta") {
               block.thinking = (block.thinking || "") + parsed.delta.thinking;
             } else if (block && parsed.delta.type === "input_json_delta") {
-        // Used for tool use reconstruction
+        // Accumulate partial JSON for tool use
             block.input = (block.input || "") + parsed.delta.partial_json;
             }
             break;
@@ -948,6 +959,19 @@ export class AnthropicTransformer implements Transformer {
         }
       } catch (e) {
         // Ignore parse errors for non-JSON lines
+      }
+    }
+
+    // Post-process tool_use blocks to parse input JSON
+    if (result.content) {
+      for (const block of result.content) {
+        if (block.type === "tool_use" && typeof block.input === "string") {
+          try {
+            block.input = JSON.parse(block.input);
+          } catch (e) {
+            // Keep as string if parsing fails
+          }
+        }
       }
     }
 

@@ -252,6 +252,16 @@ export class OpenAITransformer implements Transformer {
     let finishReason = "stop";
     let usageMetadata: any = null;
 
+    // Track tool calls by index
+    const toolCallsMap: Map<number, {
+      id?: string;
+      type?: string;
+      function?: {
+        name?: string;
+        arguments: string;
+      };
+    }> = new Map();
+
     for (const line of lines) {
     // Skip comments (lines starting with ':') or empty lines
    if (!line.startsWith("data: ") || line === "data: [DONE]") {
@@ -273,6 +283,44 @@ export class OpenAITransformer implements Transformer {
         if (delta) {
         if (delta.content) accumulatedContent += delta.content;
           if (delta.reasoning) accumulatedReasoning += delta.reasoning;
+
+          // Accumulate tool calls
+          if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
+            for (const toolCallDelta of delta.tool_calls) {
+              const index = toolCallDelta.index ?? 0;
+
+              if (!toolCallsMap.has(index)) {
+                toolCallsMap.set(index, {
+                  function: {
+                    arguments: ""
+                  }
+                });
+              }
+
+              const toolCall = toolCallsMap.get(index)!;
+
+              // Set id and type from the first chunk
+              if (toolCallDelta.id) {
+                toolCall.id = toolCallDelta.id;
+              }
+              if (toolCallDelta.type) {
+                toolCall.type = toolCallDelta.type;
+              }
+
+              // Accumulate function name and arguments
+              if (toolCallDelta.function) {
+                if (!toolCall.function) {
+                  toolCall.function = { arguments: "" };
+                }
+                if (toolCallDelta.function.name) {
+                  toolCall.function.name = toolCallDelta.function.name;
+                }
+                if (toolCallDelta.function.arguments) {
+                  toolCall.function.arguments += toolCallDelta.function.arguments;
+                }
+              }
+            }
+          }
         }
 
         // Capture Finish Reason
@@ -291,6 +339,20 @@ export class OpenAITransformer implements Transformer {
 
     if (!id) return null;
 
+    // Convert tool calls map to array if any tool calls exist
+    const toolCalls = toolCallsMap.size > 0
+      ? Array.from(toolCallsMap.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([_, toolCall]) => ({
+            id: toolCall.id || "",
+            type: toolCall.type || "function",
+            function: {
+              name: toolCall.function?.name || "",
+              arguments: toolCall.function?.arguments || ""
+            }
+          }))
+      : undefined;
+
     return {
       id,
       model,
@@ -303,6 +365,7 @@ export class OpenAITransformer implements Transformer {
             role: "assistant",
           content: accumulatedContent,
             ...(accumulatedReasoning ? { reasoning: accumulatedReasoning } : {}),
+            ...(toolCalls ? { tool_calls: toolCalls } : {})
           },
           finish_reason: finishReason,
         },
