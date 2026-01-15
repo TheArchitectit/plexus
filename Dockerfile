@@ -18,6 +18,7 @@ COPY server/ server/
 COPY src/ src/
 COPY index.ts .
 COPY server.ts .
+COPY compile.ts .
 
 # Compile for Linux x64
 RUN bun run compile:linux
