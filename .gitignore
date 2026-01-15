@@ -4,4 +4,6 @@ data/*
 dist/
 *.exe
 plexus2-*
+plexus
+plexus-*
 CLAUDE.md
