@@ -31,23 +31,33 @@ export class DebugStore {
   }
 
   /**
+   * Helper to sanitize directory entries from glob results
+   * Removes trailing slashes, filters empty strings, and ensures type safety
+   */
+  private sanitizeGlobEntries(entries: Iterable<string>): string[] {
+    return Array.from(entries)
+      .map((d) => (typeof d === "string" ? d.replace(/\/$/, "") : ""))
+      .filter((d) => d.length > 0);
+  }
+
+  /**
    * Helper to reconstruct a trace from individual files
    */
   private async reconstructTraceFromFiles(dirPath: string): Promise<DebugTraceEntry | null> {
     try {
-      // Extract request ID and timestamp from directory name
-      // Format: YYYY-MM-DD-HH-MM-SS-<request-id>
+    // Extract request ID and timestamp from directory name
+    // Format: YYYY-MM-DD-HH-MM-SS-<request-id>
       const dirName = dirPath.split("/").pop() || "";
       const match = dirName.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(.+)$/);
       
       if (!match) {
-        logger.warn("Invalid debug directory name format", { dirName });
-        return null;
-   }
+     logger.warn("Invalid debug directory name format", { dirName });
+     return null;
+      }
 
       const [, year, month, day, hour, minute, second, requestId] = match;
       const timestamp = new Date(
-        parseInt(year!),
+      parseInt(year!),
         parseInt(month!) - 1,
         parseInt(day!),
         parseInt(hour!),
@@ -58,7 +68,7 @@ export class DebugStore {
       // Read individual files
       const clientRequestFile = Bun.file(join(dirPath, "client_request.json"));
       const providerRequestFile = Bun.file(join(dirPath, "provider_request.json"));
-      const providerResponseFile = Bun.file(join(dirPath, "provider_response.json"));
+   const providerResponseFile = Bun.file(join(dirPath, "provider_response.json"));
       const clientResponseFile = Bun.file(join(dirPath, "client_response.json"));
       const providerStreamFile = Bun.file(join(dirPath, "provider_stream.txt"));
       const clientStreamFile = Bun.file(join(dirPath, "client_stream.txt"));
@@ -67,7 +77,7 @@ export class DebugStore {
       const trace: DebugTraceEntry = {
         id: requestId!,
         timestamp,
-        clientRequest: (await clientRequestFile.exists()) ? await clientRequestFile.json() : { apiType: "", body: {}, headers: {} },
+      clientRequest: (await clientRequestFile.exists()) ? await clientRequestFile.json() : { apiType: "", body: {}, headers: {} },
         providerRequest: (await providerRequestFile.exists()) ? await providerRequestFile.json() : { apiType: "", body: {}, headers: {} },
       };
 
@@ -85,10 +95,10 @@ export class DebugStore {
         const streamContent = await providerStreamFile.text();
         trace.providerStreamChunks = [
           {
-         timestamp,
+            timestamp,
             chunk: streamContent,
           },
-        ];
+     ];
       }
 
       if (await clientStreamFile.exists()) {
@@ -107,7 +117,6 @@ export class DebugStore {
       return null;
     }
   }
-
   /**
    * Initialize storage (create directories if needed)
    */
@@ -115,7 +124,7 @@ export class DebugStore {
     try {
       const storageExists = await Bun.file(this.storagePath).exists();
       if (!storageExists) {
-        await mkdir(this.storagePath, { recursive: true });
+    await mkdir(this.storagePath, { recursive: true });
         logger.info("Debug storage initialized", { path: this.storagePath });
       }
     } catch (error) {
@@ -148,7 +157,6 @@ export class DebugStore {
 
       // Split the trace into multiple files for better visibility
       const tasks = [];
-
       // Client request
       const clientRequestJson = JSON.stringify(entry.clientRequest, null, 2);
       if (typeof clientRequestJson === "string") {
@@ -162,9 +170,9 @@ export class DebugStore {
         entry.providerRequest,
         null,
         2
-      );
-      if (typeof providerRequestJson === "string") {
-        tasks.push(
+    );
+    if (typeof providerRequestJson === "string") {
+      tasks.push(
           Bun.write(join(dirPath, "provider_request.json"), providerRequestJson)
         );
       }
@@ -172,15 +180,15 @@ export class DebugStore {
       if (entry.providerResponse) {
         const providerResponseJson = JSON.stringify(
           entry.providerResponse,
-          null,
+       null,
           2
         );
         if (typeof providerResponseJson === "string") {
           tasks.push(
             Bun.write(
-              join(dirPath, "provider_response.json"),
-              providerResponseJson
-            )
+           join(dirPath, "provider_response.json"),
+        providerResponseJson
+          )
           );
         }
       }
@@ -204,7 +212,7 @@ export class DebugStore {
           .map((item) => item.chunk)
           .join("");
 
-        tasks.push(
+      tasks.push(
           Bun.write(join(dirPath, "provider_stream.txt"), rawStreamContent)
         );
       }
@@ -214,7 +222,7 @@ export class DebugStore {
         // Extract only the raw chunk text and join into one continuous block
         const rawStreamContent = entry.clientStreamChunks
           .map((item) => item.chunk)
-          .join("");
+        .join("");
 
         tasks.push(
           Bun.write(join(dirPath, "client_stream.txt"), rawStreamContent)
@@ -222,8 +230,8 @@ export class DebugStore {
       }
 
       if (tasks.length === 0) {
-        logger.warn("No trace data to write", { requestId: entry.id, dirPath });
-        return;
+     logger.warn("No trace data to write", { requestId: entry.id, dirPath });
+      return;
       }
 
       await Promise.all(tasks);
@@ -250,7 +258,7 @@ export class DebugStore {
     try {
       // Find directory ending with the request ID
       const glob = new Bun.Glob(`*-${requestId}`);
-      const dirs = Array.from(
+      const dirs = this.sanitizeGlobEntries(
         glob.scanSync({ cwd: this.storagePath, onlyFiles: false })
       );
 
@@ -276,8 +284,8 @@ export class DebugStore {
     offset?: number;
   }): Promise<DebugTraceEntry[]> {
     try {
-      const glob = new Bun.Glob("*/");
-      const dirs = Array.from(
+      const glob = new Bun.Glob("*");
+      const dirs = this.sanitizeGlobEntries(
         glob.scanSync({ cwd: this.storagePath, onlyFiles: false })
       );
 
@@ -288,7 +296,6 @@ export class DebugStore {
       const endStr = query.endDate ? this.getTimestamp(query.endDate) : "9999";
 
       const validDirs = dirs
-        .map((d) => d.replace(/\/$/, "")) // Remove trailing slash if present
         .filter((name) => name >= startStr && name <= endStr)
         .sort((a, b) => b.localeCompare(a)); // Newest first
 
@@ -301,11 +308,11 @@ export class DebugStore {
 
       for (const dirName of pagedDirs) {
         try {
-          const dirPath = join(this.storagePath, dirName);
+      const dirPath = join(this.storagePath, dirName);
           const trace = await this.reconstructTraceFromFiles(dirPath);
-       if (trace) {
-        entries.push(trace);
-          }
+        if (trace) {
+            entries.push(trace);
+        }
         } catch (e) {
           logger.debug("Failed to reconstruct trace from files", { dirName, error: e });
         }
@@ -328,58 +335,55 @@ export class DebugStore {
         return 0;
       }
 
-      const glob = new Bun.Glob("*/");
-      const dirs = Array.from(
-        glob.scanSync({ cwd: this.storagePath, onlyFiles: false })
+      const glob = new Bun.Glob("*");
+      const dirs = this.sanitizeGlobEntries(
+     glob.scanSync({ cwd: this.storagePath, onlyFiles: false })
       );
 
       let deletedCount = 0;
 
       for (const dirName of dirs) {
-        const name = dirName.replace(/\/$/, "");
-
         // If days is 0, delete ALL directories
-        if (days === 0) {
+    if (days === 0) {
           try {
             await rm(join(this.storagePath, dirName), {
               recursive: true,
               force: true,
             });
             deletedCount++;
-            logger.info("Deleted debug directory", { dirName });
-          } catch (e) {
+        logger.info("Deleted debug directory", { dirName });
+        } catch (e) {
             logger.error("Failed to delete debug directory", {
               dirName,
               error: e instanceof Error ? e.message : String(e),
             });
           }
-          continue;
+       continue;
         }
-
         // Otherwise, check if directory is older than the cutoff time
         const now = Date.now();
         const cutoffTime = now - days * 24 * 60 * 60 * 1000;
         const cutoffStr = this.getTimestamp(new Date(cutoffTime).toISOString());
 
-        if (name < cutoffStr) {
-          try {
+        if (dirName < cutoffStr) {
+      try {
             await rm(join(this.storagePath, dirName), {
-              recursive: true,
-              force: true,
+            recursive: true,
+           force: true,
             });
             deletedCount++;
-            logger.info("Deleted old debug directory", { dirName });
+         logger.info("Deleted old debug directory", { dirName });
           } catch (e) {
             logger.error("Failed to delete old debug directory", {
               dirName,
-              error: e instanceof Error ? e.message : String(e),
+          error: e instanceof Error ? e.message : String(e),
             });
           }
-        }
+     }
       }
       return deletedCount;
     } catch (error) {
-      logger.error("Failed to delete debug traces", {
+    logger.error("Failed to delete debug traces", {
         error: error instanceof Error ? error.message : String(error),
       });
       return 0;
@@ -393,25 +397,22 @@ export class DebugStore {
     try {
       const storageExists = await Bun.file(this.storagePath).exists();
       if (!storageExists) {
-        return;
+      return;
       }
-
       const now = Date.now();
       const cutoffTime = now - this.retentionDays * 24 * 60 * 60 * 1000;
-      const cutoffStr = this.getTimestamp(new Date(cutoffTime).toISOString());
+    const cutoffStr = this.getTimestamp(new Date(cutoffTime).toISOString());
 
       // Read directory
-      const glob = new Bun.Glob("*/");
-      const dirs = Array.from(
+      const glob = new Bun.Glob("*");
+      const dirs = this.sanitizeGlobEntries(
         glob.scanSync({ cwd: this.storagePath, onlyFiles: false })
       );
 
       let deletedCount = 0;
       for (const dirName of dirs) {
-        const name = dirName.replace(/\/$/, "");
-
-        if (name < cutoffStr) {
-          try {
+        if (dirName < cutoffStr) {
+        try {
             await rm(join(this.storagePath, dirName), {
               recursive: true,
               force: true,
@@ -419,9 +420,9 @@ export class DebugStore {
             deletedCount++;
           } catch (e) {
             logger.warn("Failed to delete old debug directory", {
-              dirName,
-              error: e,
-            });
+          dirName,
+            error: e,
+         });
           }
         }
       }
@@ -434,7 +435,7 @@ export class DebugStore {
       }
     } catch (error) {
       logger.error("Debug trace cleanup failed", {
-        error: error instanceof Error ? error.message : String(error),
+     error: error instanceof Error ? error.message : String(error),
       });
     }
   }
