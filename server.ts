@@ -1,34 +1,34 @@
-import { logger } from "./utils/logger";
-import { handleHealth, handleReady } from "./routes/health";
-import { handleChatCompletions } from "./routes/chat-completions";
-import { handleMessages } from "./routes/messages";
-import { handleModels } from "./routes/models";
+import { logger } from "./server/utils/logger";
+import { handleHealth, handleReady } from "./server/routes/health";
+import { handleChatCompletions } from "./server/routes/chat-completions";
+import { handleMessages } from "./server/routes/messages";
+import { handleModels } from "./server/routes/models";
 // Phase 8 Management Routes
-import { handleConfig } from "./routes/v0/config";
-import { handleState } from "./routes/v0/state";
-import { handleLogs } from "./routes/v0/logs";
-import { handleEvents } from "./routes/v0/events";
-import { AdminAuth } from "./middleware/admin-auth";
+import { handleConfig } from "./server/routes/v0/config";
+import { handleState } from "./server/routes/v0/state";
+import { handleLogs } from "./server/routes/v0/logs";
+import { handleEvents } from "./server/routes/v0/events";
+import { AdminAuth } from "./server/middleware/admin-auth";
 
-import type { PlexusConfig } from "./types/config";
-import type { ServerContext } from "./types/server";
-import { createRequestId } from "./utils/headers";
-import { CooldownManager } from "./services/cooldown-manager";
-import { HealthMonitor } from "./services/health-monitor";
-import { UsageStore } from "./storage/usage-store";
-import { ErrorStore } from "./storage/error-store";
-import { DebugStore } from "./storage/debug-store";
-import { CostCalculator } from "./services/cost-calculator";
-import { MetricsCollector } from "./services/metrics-collector";
-import { UsageLogger } from "./services/usage-logger";
-import { DebugLogger } from "./services/debug-logger";
-import { EventEmitter } from "./services/event-emitter";
-import { ConfigManager } from "./services/config-manager";
-import { LogQueryService } from "./services/log-query";
-import { TransformerFactory } from "./services/transformer-factory";
+import type { PlexusConfig } from "./server/types/config";
+import type { ServerContext } from "./server/types/server";
+import { createRequestId } from "./server/utils/headers";
+import { CooldownManager } from "./server/services/cooldown-manager";
+import { HealthMonitor } from "./server/services/health-monitor";
+import { UsageStore } from "./server/storage/usage-store";
+import { ErrorStore } from "./server/storage/error-store";
+import { DebugStore } from "./server/storage/debug-store";
+import { CostCalculator } from "./server/services/cost-calculator";
+import { MetricsCollector } from "./server/services/metrics-collector";
+import { UsageLogger } from "./server/services/usage-logger";
+import { DebugLogger } from "./server/services/debug-logger";
+import { EventEmitter } from "./server/services/event-emitter";
+import { ConfigManager } from "./server/services/config-manager";
+import { LogQueryService } from "./server/services/log-query";
+import { TransformerFactory } from "./server/services/transformer-factory";
 
 // @ts-ignore - HTML import
-import frontendHtml from "../src/index.html";
+import frontendHtml from "./public/index.html";
 
 function withCORS(response: Response): Response {
   const headers = new Headers(response.headers);
@@ -130,26 +130,10 @@ async function router(req: Request, context: ServerContext, adminAuth: AdminAuth
 /**
  * Creates and starts the HTTP server
  */
-export async function createServer(config: PlexusConfig): Promise<{ server: any; shutdown: () => Promise<void> }> {
+export async function createServer(config: PlexusConfig, configManager: ConfigManager, eventEmitter: EventEmitter): Promise<{ server: any; shutdown: () => Promise<void> }> {
   // Initialize resilience services
   const cooldownManager = new CooldownManager(config);
   const healthMonitor = new HealthMonitor(config, cooldownManager);
-
-  // Initialize Management Services (Phase 8)
-  const eventEmitter = new EventEmitter(
-    config.events?.maxClients,
-    config.events?.heartbeatIntervalMs
-  );
-
-  const configManager = new ConfigManager(
-    // Assume config file path from existing loader logic if possible, 
-    // but here we might need to know where it came from.
-    // For now, we'll assume default "./config/plexus.yaml" or env
-    // Ideally loadConfig returns path too, but for now:
-    "config/plexus.yaml", 
-    config,
-    eventEmitter
-  );
 
   const adminAuth = new AdminAuth(config);
 

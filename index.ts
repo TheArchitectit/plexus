@@ -1,16 +1,22 @@
-import { loadConfig } from "./config";
+import { loadConfig } from "./server/config";
 import { createServer } from "./server";
-import { logger } from "./utils/logger";
+import { logger } from "./server/utils/logger";
+import { ConfigManager } from "./server/services/config-manager";
+import { EventEmitter } from "./server/services/event-emitter";
 
 async function main() {
   try {
     // Determine config path from environment variable or command line argument
-    const envConfigPath = process.env.PLEXUS_CONFIG_PATH;
     const args = process.argv.slice(2);
     const configArgIndex = args.indexOf("--config");
-    const argConfigPath = configArgIndex !== -1 ? args[configArgIndex + 1] : null;
 
-    const configPath = argConfigPath || envConfigPath;
+    if (configArgIndex === -1 || configArgIndex === args.length - 1) {
+      console.error("Error: --config argument is required");
+      process.exit(1);
+    }
+
+    const configPath = args[configArgIndex + 1];
+    logger.debug(`Using config path: ${configPath}`);
 
     // Load configuration
     const config = await loadConfig(configPath);
@@ -23,8 +29,17 @@ async function main() {
       environment: process.env.NODE_ENV || "development",
     });
 
+    // Initialize event emitter for config changes
+    const eventEmitter = new EventEmitter(
+      config.events?.maxClients,
+      config.events?.heartbeatIntervalMs
+    );
+
+    // Create config manager with the loaded config path
+    const configManager = new ConfigManager(configPath, config, eventEmitter);
+
     // Create and start server
-    const { shutdown } = await createServer(config);
+    const { shutdown } = await createServer(config, configManager, eventEmitter);
 
     // Handle graceful shutdown
     const shutdownSignals: NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
