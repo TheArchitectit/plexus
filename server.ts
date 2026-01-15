@@ -224,7 +224,27 @@ export async function createServer(
         if (authError) return withCORS(authError);
         return withCORS(await handleState(req, context));
       },
-      "/v0/logs": async (req) => {
+      "/v0/logs": {
+        GET: async (req) => {
+          const authError = await adminAuth.validate(req);
+          if (authError) return withCORS(authError);
+          if (!context.logQueryService)
+            return withCORS(
+              new Response("Log query service not initialized", { status: 503 }),
+            );
+          return withCORS(await handleLogs(req, context.logQueryService));
+        },
+        DELETE: async (req) => {
+          const authError = await adminAuth.validate(req);
+          if (authError) return withCORS(authError);
+          if (!context.logQueryService)
+            return withCORS(
+              new Response("Log query service not initialized", { status: 503 }),
+            );
+          return withCORS(await handleLogs(req, context.logQueryService));
+        },
+      },
+      "/v0/logs/*": async (req) => {
         const authError = await adminAuth.validate(req);
         if (authError) return withCORS(authError);
         if (!context.logQueryService)
