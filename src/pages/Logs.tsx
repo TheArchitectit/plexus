@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Trash2, ChevronLeft, ChevronRight, Info, AlertTriangle, CheckCircle, XCircle, Loader2, ArrowLeftRight, Languages, CircleStop } from 'lucide-react';
+import { Search, Trash2, ChevronLeft, ChevronRight, Info, AlertTriangle, CheckCircle, XCircle, Loader2, ArrowLeftRight, Languages, CircleStop, Copy } from 'lucide-react';
 import chatIcon from '@/assets/chat.svg';
 import messagesIcon from '@/assets/messages.svg';
 import geminiIcon from '@/assets/gemini.svg';
@@ -245,6 +245,10 @@ export function LogsPage() {
         style={{ filter: (apiType === 'chat' && theme === 'light') ? 'invert(1)' : 'none' }}
       />
     );
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
   };
 
   const selectedProviderModels = filters.provider ? models[filters.provider] || [] : [];
@@ -519,10 +523,24 @@ if (data.type === 'usage') {
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{safeText(log.aliasUsed)}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => log.aliasUsed && handleCopy(log.aliasUsed)}
+                        className="group flex items-center gap-1 font-medium text-left hover:bg-accent hover:text-accent-foreground rounded px-1.5 py-0.5 transition-colors"
+                        title="Click to copy"
+                      >
+                        <span>{safeText(log.aliasUsed)}</span>
+                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
                       {log.aliasUsed !== log.actualModel && (
-                        <span className="text-xs text-muted-foreground">{safeText(log.actualModel)}</span>
+                        <button
+                          onClick={() => log.actualModel && handleCopy(log.actualModel)}
+                          className="group flex items-center gap-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded px-1.5 py-0.5 transition-colors text-left"
+                          title="Click to copy"
+                        >
+                          <span>{safeText(log.actualModel)}</span>
+                          <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
                       )}
                     </div>
                   </TableCell>

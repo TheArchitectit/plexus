@@ -269,10 +269,18 @@ export async function createServer(
     },
   });
 
+  // Display 127.0.0.1 in dev mode instead of 0.0.0.0 for clickable URLs
+  // Browsers treat 0.0.0.0 as potentially insecure and apply stricter security settings
+  // 127.0.0.1 is recognized as localhost with relaxed security policies
+  const displayHost =
+    process.env.NODE_ENV !== "production" && config.server.host === "0.0.0.0"
+      ? "127.0.0.1"
+      : config.server.host;
+
   logger.info("Server started", {
     host: config.server.host,
     port: config.server.port,
-    url: `http://${config.server.host}:${config.server.port}`,
+    url: `http://${displayHost}:${config.server.port}`,
   });
 
   // Graceful shutdown handler
