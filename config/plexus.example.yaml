@@ -86,7 +86,7 @@ models:
   - alias: "fast"
     description: "Low-latency model optimized for speed"
     selector: "latency"
-    apiMatch: true # Only consider targets matching client's API type
+    prefer_api_match: true # Only consider targets matching client's API type
     targets:
       - provider: "openai"
         model: "gpt-4o-mini"

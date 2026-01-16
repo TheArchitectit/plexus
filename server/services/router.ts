@@ -148,9 +148,36 @@ export class Router {
       };
     }
 
-    // Select a target using the configured strategy (from healthy targets)
+    // Apply API matching if prefer_api_match is enabled (defaults to true)
+    let targetsForSelection = healthyTargets;
+    const preferApiMatch = aliasConfig.prefer_api_match ?? true;
+    
+    if (preferApiMatch && context.incomingApiType) {
+      const apiMatchedTargets = this.filterByApiSupport(
+        healthyTargets,
+        context.incomingApiType
+      );
+      
+      // Only use API-matched targets if we found any
+      if (apiMatchedTargets.length > 0) {
+        logger.debug("Filtering targets by API match", {
+          alias: aliasUsed,
+          incomingApi: context.incomingApiType,
+          matchedCount: apiMatchedTargets.length,
+          totalCount: healthyTargets.length,
+        });
+        targetsForSelection = apiMatchedTargets;
+      } else {
+        logger.debug("No API-matched targets found, using all healthy targets", {
+          alias: aliasUsed,
+          incomingApi: context.incomingApiType,
+        });
+      }
+    }
+
+    // Select a target using the configured strategy (from filtered targets)
     const selectedTarget = this.selector.select(
-      healthyTargets,
+      targetsForSelection,
       aliasConfig.selector,
       context
     );
@@ -346,6 +373,28 @@ export class Router {
     });
 
     return healthy;
+  }
+
+  /**
+   * Filters targets to only those that support the incoming API type
+   */
+  private filterByApiSupport(
+    targets: TargetWithProvider[],
+    incomingApiType: string
+  ): TargetWithProvider[] {
+    return targets.filter((target) => {
+      const provider = target.providerConfig;
+      
+      // Check if provider's baseUrls has the incoming API type enabled
+      const apiConfig = provider.baseUrls[incomingApiType as keyof typeof provider.baseUrls];
+      
+      if (!apiConfig) {
+        return false;
+      }
+      
+      // Check if the specific API is enabled
+      return apiConfig.enabled === true;
+    });
   }
 
   /**

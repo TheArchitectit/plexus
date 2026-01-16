@@ -133,6 +133,29 @@ describe("Anthropic Transformer - parseRequest", () => {
     expect(unified.messages[1]!.content).toBe("Hello");
   });
 
+  test("converts Anthropic system message array to unified format", async () => {
+    const anthropicRequest = {
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1000,
+      system: [
+        { type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
+        { type: "text", text: "Analyze if this message indicates a new conversation topic." }
+      ],
+      messages: [
+        { role: "user", content: "Hello" }
+      ]
+    };
+
+    const unified = await anthropicTransformer.parseRequest(anthropicRequest);
+
+    // System should be first message with array content
+    expect(unified.messages[0]!.role).toBe("system");
+    expect(Array.isArray(unified.messages[0]!.content)).toBe(true);
+    expect(unified.messages[0]!.content).toHaveLength(2);
+    expect(unified.messages[1]!.role).toBe("user");
+    expect(unified.messages[1]!.content).toBe("Hello");
+  });
+
   test("converts Anthropic tools to unified format", async () => {
     const anthropicRequest = {
       model: "claude-3-opus",
@@ -226,6 +249,34 @@ describe("transformToUnified and transformFromUnified", () => {
         expect(unified.messages[1]!.role).toBe("user");
         expect(unified.messages[1]!.content).toBe("Hello");
       });
+
+  test("Anthropic transformRequest preserves system array structure", async () => {
+    const transformer = new AnthropicTransformer();
+    const unifiedRequest = {
+      model: "claude-haiku-4-5-20251001",
+      messages: [
+        { 
+          role: "system" as const, 
+          content: [
+            { type: "text" as const, text: "You are Claude Code, Anthropic's official CLI for Claude." },
+            { type: "text" as const, text: "Analyze if this message indicates a new conversation topic." }
+          ]
+        },
+        { role: "user" as const, content: "are you online" },
+        { role: "assistant" as const, content: "{" }
+      ],
+      max_tokens: 21333,
+      temperature: 1
+    };
+
+    const transformed = await transformer.transformRequest(unifiedRequest);
+
+    // System should be an array, not a stringified JSON
+    expect(Array.isArray(transformed.system)).toBe(true);
+    expect(transformed.system).toHaveLength(2);
+    expect(transformed.system[0]).toEqual({ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." });
+    expect(transformed.system[1]).toEqual({ type: "text", text: "Analyze if this message indicates a new conversation topic." });
+  });
     });
     
     describe("Usage Parsing and Formatting", () => {

@@ -142,7 +142,7 @@ export const ModelAliasConfigSchema = z.object({
   additionalAliases: z.array(z.string()).optional(),
   targets: z.array(ModelTargetSchema).min(1),
   selector: SelectorStrategySchema,
-  apiMatch: z.boolean().optional(),
+  prefer_api_match: z.boolean().optional(),
 });
 
 export type ModelAliasConfig = z.infer<typeof ModelAliasConfigSchema>;
