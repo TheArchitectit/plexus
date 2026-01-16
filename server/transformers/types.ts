@@ -95,6 +95,8 @@ export interface UnifiedChatRequest {
   user?: string;
   incomingApiType?: string;
   originalBody?: any;
+  /** Arbitrary passthrough fields for provider-specific features */
+  passthrough?: Record<string, any>;
   metadata?: {
     oauth_project_id?: string;
     [key: string]: any;

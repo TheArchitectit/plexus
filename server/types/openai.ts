@@ -67,6 +67,13 @@ export const OpenAIChatMessageSchema = z.object({
 
 export type OpenAIChatMessage = z.infer<typeof OpenAIChatMessageSchema>;
 
+// OpenAI Stream Options
+export const OpenAIStreamOptionsSchema = z.object({
+  include_usage: z.boolean().optional(),
+}).passthrough();
+
+export type OpenAIStreamOptions = z.infer<typeof OpenAIStreamOptionsSchema>;
+
 // OpenAI Chat Completion Request
 export const OpenAIChatCompletionRequestSchema = z.object({
   model: z.string(),
@@ -85,7 +92,8 @@ export const OpenAIChatCompletionRequestSchema = z.object({
     z.enum(["none", "auto", "required"]),
     OpenAIToolChoiceSchema,
   ]).optional(),
-});
+  stream_options: OpenAIStreamOptionsSchema.optional(),
+}).passthrough();
 
 export type OpenAIChatCompletionRequest = z.infer<typeof OpenAIChatCompletionRequestSchema>;
 

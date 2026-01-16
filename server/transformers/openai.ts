@@ -14,13 +14,14 @@ export class OpenAITransformer implements Transformer {
   }
 
   async parseRequest(input: any): Promise<UnifiedChatRequest> {
-    return {
+    // Extract known fields
+    const knownFields = {
       messages: input.messages,
       model: input.model,
       max_tokens: input.max_tokens,
       temperature: input.temperature,
       top_p: input.top_p,
-    presence_penalty: input.presence_penalty,
+      presence_penalty: input.presence_penalty,
       frequency_penalty: input.frequency_penalty,
       stop: input.stop,
       stream: input.stream,
@@ -36,10 +37,25 @@ export class OpenAITransformer implements Transformer {
       top_logprobs: input.top_logprobs,
       user: input.user,
     };
+
+    // Extract all other fields for passthrough
+    const knownFieldNames = new Set(Object.keys(knownFields));
+    const passthrough: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(input)) {
+      if (!knownFieldNames.has(key) && value !== undefined) {
+        passthrough[key] = value;
+      }
+    }
+
+    return {
+      ...knownFields,
+      ...(Object.keys(passthrough).length > 0 ? { passthrough } : {}),
+    };
   }
 
   async transformRequest(request: UnifiedChatRequest): Promise<any> {
-    return {
+    const baseRequest = {
       model: request.model,
       messages: request.messages,
       max_tokens: request.max_tokens,
@@ -51,8 +67,8 @@ export class OpenAITransformer implements Transformer {
       stream: request.stream,
       tools: request.tools,
       tool_choice: request.tool_choice,
-    response_format: request.response_format,
-  modalities: request.modalities,
+      response_format: request.response_format,
+      modalities: request.modalities,
       image_config: request.image_config,
       n: request.n,
       logit_bias: request.logit_bias,
@@ -60,6 +76,16 @@ export class OpenAITransformer implements Transformer {
       top_logprobs: request.top_logprobs,
       user: request.user,
     };
+
+    // Merge passthrough fields if present
+    if (request.passthrough && Object.keys(request.passthrough).length > 0) {
+      return {
+        ...baseRequest,
+        ...request.passthrough,
+      };
+    }
+
+    return baseRequest;
   }
 
   parseUsage(input: any): UnifiedUsage {
