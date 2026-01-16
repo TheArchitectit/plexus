@@ -345,7 +345,7 @@ export class OpenAITransformer implements Transformer {
           .sort((a, b) => a[0] - b[0])
           .map(([_, toolCall]) => ({
             id: toolCall.id || "",
-            type: toolCall.type || "function",
+            type: "function" as const,
             function: {
               name: toolCall.function?.name || "",
               arguments: toolCall.function?.arguments || ""

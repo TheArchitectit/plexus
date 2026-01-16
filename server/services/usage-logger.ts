@@ -156,16 +156,19 @@ export class UsageLogger {
       transformationOverheadMs = clientTtftMs - providerTtftMs;
     }
 
-    // Normalize usage
+    // Normalize usage: -1 for missing/null data, 0 for explicit zero
     const usage = {
-      inputTokens: responseInfo.usage?.inputTokens || 0,
-      outputTokens: responseInfo.usage?.outputTokens || 0,
-      cacheReadTokens: responseInfo.usage?.cacheReadTokens || 0,
-      cacheCreationTokens: responseInfo.usage?.cacheCreationTokens || 0,
-      reasoningTokens: responseInfo.usage?.reasoningTokens || 0,
+      inputTokens: responseInfo.usage?.inputTokens ?? -1,
+      outputTokens: responseInfo.usage?.outputTokens ?? -1,
+      cacheReadTokens: responseInfo.usage?.cacheReadTokens ?? -1,
+      cacheCreationTokens: responseInfo.usage?.cacheCreationTokens ?? -1,
+      reasoningTokens: responseInfo.usage?.reasoningTokens ?? -1,
       totalTokens: 0,
     };
-    usage.totalTokens = usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheCreationTokens + usage.reasoningTokens;
+    // Sum only positive token values (exclude -1 missing values)
+    usage.totalTokens = [usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheCreationTokens, usage.reasoningTokens]
+      .filter(val => val >= 0)
+      .reduce((sum, val) => sum + val, 0);
 
     // Calculate cost
     const costResult = await this.costCalculator.calculateCost({
@@ -337,16 +340,19 @@ if (this.eventEmitter) {
         // Continue anyway to at least update usage and cost
       }
 
-      // Build updated usage object
-      const usage = {
-        inputTokens: unifiedUsage.input_tokens || 0,
-        outputTokens: unifiedUsage.output_tokens || 0,
-        cacheReadTokens: unifiedUsage.cache_read_tokens || 0,
-        cacheCreationTokens: unifiedUsage.cache_creation_tokens || 0,
-        reasoningTokens: unifiedUsage.reasoning_tokens || 0,
-        totalTokens: 0,
-      };
-      usage.totalTokens = usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheCreationTokens + usage.reasoningTokens;
+       // Build updated usage object: -1 for missing/null data, 0 for explicit zero
+       const usage = {
+         inputTokens: unifiedUsage.input_tokens ?? -1,
+         outputTokens: unifiedUsage.output_tokens ?? -1,
+         cacheReadTokens: unifiedUsage.cache_read_tokens ?? -1,
+         cacheCreationTokens: unifiedUsage.cache_creation_tokens ?? -1,
+         reasoningTokens: unifiedUsage.reasoning_tokens ?? -1,
+         totalTokens: 0,
+       };
+       // Sum only positive token values (exclude -1 missing values)
+       usage.totalTokens = [usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheCreationTokens, usage.reasoningTokens]
+         .filter(val => val >= 0)
+         .reduce((sum, val) => sum + val, 0);
 
       // Recalculate cost with updated token counts
       const costResult = await this.costCalculator.calculateCost({

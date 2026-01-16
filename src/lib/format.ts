@@ -54,7 +54,8 @@ export function formatNumber(num: number, decimals: number = 1): string {
 /**
  * Format token counts (same as formatNumber but specifically for tokens)
  */
-export function formatTokens(tokens: number): string {
+export function formatTokens(tokens: number | null | undefined): string {
+    if (tokens === null || tokens === undefined || tokens === -1) return '-';
     return formatNumber(tokens, 1);
 }
 

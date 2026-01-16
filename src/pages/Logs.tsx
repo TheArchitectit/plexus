@@ -493,6 +493,7 @@ if (data.type === 'usage') {
                 <TableRow 
                   key={log.id || Math.random()} 
                   className={cn(
+                    'min-h-[89]',
                     log.pending ? 'opacity-60' : '',
                     log.isNew ? 'animate-slide-in' : '',
                     log.isUpdating ? 'animate-single-pulse' : ''
@@ -569,19 +570,19 @@ if (data.type === 'usage') {
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                         <div className="flex items-center gap-1.5">
                           <CloudUpload className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span>{formatTokens(log.usage.inputTokens ?? 0)}</span>
+                          <span>{formatTokens(log.usage.inputTokens)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <CloudDownload className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span>{formatTokens(log.usage.outputTokens ?? 0)}</span>
+                          <span>{formatTokens(log.usage.outputTokens)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Brain className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span>{formatTokens(log.usage.reasoningTokens ?? 0)}</span>
+                          <span>{formatTokens(log.usage.reasoningTokens)}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <PackageOpen className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span>{formatTokens(log.usage.cacheReadTokens ?? 0)}</span>
+                          <span>{formatTokens(log.usage.cacheReadTokens)}</span>
                         </div>
                       </div>
                     ) : (

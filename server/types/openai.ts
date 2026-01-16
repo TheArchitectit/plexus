@@ -1,5 +1,27 @@
 import { z } from "zod";
 
+// OpenAI Image URL Content
+export const OpenAIImageUrlSchema = z.object({
+  url: z.string(),
+  detail: z.enum(["low", "high", "auto"]).optional(),
+});
+
+export type OpenAIImageUrl = z.infer<typeof OpenAIImageUrlSchema>;
+
+// OpenAI Content Block (for multimodal messages)
+export const OpenAIContentBlockSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("text"),
+    text: z.string(),
+  }),
+  z.object({
+    type: z.literal("image_url"),
+    image_url: OpenAIImageUrlSchema,
+  }),
+]);
+
+export type OpenAIContentBlock = z.infer<typeof OpenAIContentBlockSchema>;
+
 // OpenAI Tool definitions
 export const OpenAIToolSchema = z.object({
   type: z.literal("function"),
@@ -37,7 +59,7 @@ export type OpenAIToolChoice = z.infer<typeof OpenAIToolChoiceSchema>;
 // OpenAI Chat Message
 export const OpenAIChatMessageSchema = z.object({
   role: z.enum(["system", "user", "assistant", "tool"]),
-  content: z.string().nullable(),
+  content: z.union([z.string(), z.array(OpenAIContentBlockSchema)]).nullable(),
   name: z.string().optional(),
   tool_calls: z.array(OpenAIToolCallSchema).optional(),
   tool_call_id: z.string().optional(),
