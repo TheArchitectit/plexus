@@ -1,16 +1,32 @@
+version: "3.9"
+
 services:
   plexus:
-    build: .
-    image: plexus:latest
+    image: ghcr.io/mcowger/plexus:dev
     container_name: plexus
     platform: linux/amd64
     restart: unless-stopped
     ports:
       - "4000:4000"
     volumes:
-      - ./config:/app/config
-      # - ./data:/app/data
+      - /mnt/plexus/config:/app/config
     environment:
       - LOG_LEVEL=info
-      - DATA_DIR=/app/config
       - CONFIG_FILE=/app/config/plexus.yaml
+      - AUTH_JSON=/app/config/auth.json
+      - DATABASE_URL=postgresql://plexus:plexus@plexusdb:5432/plexus
+    depends_on:
+      - plexusdb
+
+  plexusdb:
+    image: postgres:17-alpine
+    container_name: plexusdb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: plexus
+    volumes:
+      - /mnt/plexus/db:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+
