@@ -71,8 +71,8 @@ describe('useLogs', () => {
     });
 
     it('should handle errors gracefully', async () => {
-        (api.getAggregatedMetrics as jest.Mock).mockRejectedValue(new Error('API Error'));
-        (api.getMetricsStats as jest.Mock).mockRejectedValue(new Error('API Error'));
+        (api.getAggregatedMetrics as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API Error'));
+        (api.getMetricsStats as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API Error'));
 
         const { result } = renderHook(() => useLogs());
 

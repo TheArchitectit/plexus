@@ -50,6 +50,9 @@ interface ChartDataPoint {
     cost: number;
     duration: number;
     ttft: number;
+    avgTps: number;
+    avgTtft: number;
+    avgLatency: number;
     fill?: string;
 }
 
@@ -60,6 +63,9 @@ interface AggregatedDataPoint {
     cost: number;
     duration: number;
     ttft: number;
+    avgTps: number;
+    avgTtft: number;
+    avgLatency: number;
 }
 
 interface ChartDataResponse {
@@ -199,14 +205,24 @@ export async function registerMetricsRoutes(fastify: FastifyInstance, usageStora
                 const cost = Number(row.cost) || 0;
                 const durationCount = Number(row.durationCount) || 0;
                 const ttftCount = Number(row.ttftCount) || 0;
+                const durationSum = Number(row.durationSum) || 0;
+                const ttftSum = Number(row.ttftSum) || 0;
+
+                const avgLatency = durationCount > 0 ? durationSum / durationCount : 0;
+                const avgTtft = ttftCount > 0 ? ttftSum / ttftCount : 0;
+                // TPS = tokens / duration * 1000 (convert ms to seconds)
+                const avgTps = durationSum > 0 ? (tokens / durationSum) * 1000 : 0;
 
                 return {
                     name: bucketFormat(bucketStartMs),
                     requests,
                     tokens,
                     cost,
-                    duration: durationCount > 0 ? (Number(row.durationSum) || 0) / durationCount : 0,
-                    ttft: ttftCount > 0 ? (Number(row.ttftSum) || 0) / ttftCount : 0
+                    duration: avgLatency,
+                    ttft: avgTtft,
+                    avgTps,
+                    avgTtft,
+                    avgLatency
                 };
             });
 
@@ -303,14 +319,24 @@ export async function registerMetricsRoutes(fastify: FastifyInstance, usageStora
                 const cost = Number(row.cost) || 0;
                 const durationCount = Number(row.durationCount) || 0;
                 const ttftCount = Number(row.ttftCount) || 0;
+                const durationSum = Number(row.durationSum) || 0;
+                const ttftSum = Number(row.ttftSum) || 0;
+
+                const avgLatency = durationCount > 0 ? durationSum / durationCount : 0;
+                const avgTtft = ttftCount > 0 ? ttftSum / ttftCount : 0;
+                // TPS = tokens / duration * 1000 (convert ms to seconds)
+                const avgTps = durationSum > 0 ? (tokens / durationSum) * 1000 : 0;
 
                 return {
                     name,
                     requests,
                     tokens,
                     cost,
-                    duration: durationCount > 0 ? (Number(row.durationSum) || 0) / durationCount : 0,
-                    ttft: ttftCount > 0 ? (Number(row.ttftSum) || 0) / ttftCount : 0
+                    duration: avgLatency,
+                    ttft: avgTtft,
+                    avgTps,
+                    avgTtft,
+                    avgLatency
                 };
             });
 
@@ -682,7 +708,12 @@ export async function registerMetricsRoutes(fastify: FastifyInstance, usageStora
                     requests: sql<number>`COUNT(*)`,
                     inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
                     outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
-                    cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`
+                    reasoningTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensReasoning}), 0)`,
+                    cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
+                    durationSum: sql<number>`COALESCE(SUM(${schema.requestUsage.durationMs}), 0)`,
+                    durationCount: sql<number>`COUNT(CASE WHEN ${schema.requestUsage.durationMs} > 0 THEN 1 END)`,
+                    ttftSum: sql<number>`COALESCE(SUM(${schema.requestUsage.ttftMs}), 0)`,
+                    ttftCount: sql<number>`COUNT(CASE WHEN ${schema.requestUsage.ttftMs} > 0 THEN 1 END)`
                 })
                 .from(schema.requestUsage)
                 .where(and(
@@ -731,14 +762,30 @@ export async function registerMetricsRoutes(fastify: FastifyInstance, usageStora
                     { label: 'Total Tokens', value: String((statsRow?.inputTokens || 0) + (statsRow?.outputTokens || 0)) },
                     { label: 'Avg. Duration', value: String(Math.round(statsRow?.avgDurationMs || 0)) + 'ms' }
                 ],
-                usageData: seriesRows.map(row => ({
-                    timestamp: bucketFormat(Number(row.bucketStartMs)),
-                    requests: Number(row.requests) || 0,
-                    tokens: (Number(row.inputTokens) || 0) + (Number(row.outputTokens) || 0) + (Number(row.cachedTokens) || 0),
-                    inputTokens: Number(row.inputTokens) || 0,
-                    outputTokens: Number(row.outputTokens) || 0,
-                    cachedTokens: Number(row.cachedTokens) || 0
-                })),
+                usageData: seriesRows.map(row => {
+                    const tokens = (Number(row.inputTokens) || 0) + (Number(row.outputTokens) || 0) + (Number(row.reasoningTokens) || 0) + (Number(row.cachedTokens) || 0);
+                    const durationCount = Number(row.durationCount) || 0;
+                    const ttftCount = Number(row.ttftCount) || 0;
+                    const durationSum = Number(row.durationSum) || 0;
+                    const ttftSum = Number(row.ttftSum) || 0;
+
+                    const avgLatency = durationCount > 0 ? durationSum / durationCount : 0;
+                    const avgTtft = ttftCount > 0 ? ttftSum / ttftCount : 0;
+                    // TPS = tokens / duration * 1000 (convert ms to seconds)
+                    const avgTps = durationSum > 0 ? (tokens / durationSum) * 1000 : 0;
+
+                    return {
+                        timestamp: bucketFormat(Number(row.bucketStartMs)),
+                        requests: Number(row.requests) || 0,
+                        tokens,
+                        inputTokens: Number(row.inputTokens) || 0,
+                        outputTokens: Number(row.outputTokens) || 0,
+                        cachedTokens: Number(row.cachedTokens) || 0,
+                        avgTps,
+                        avgTtft,
+                        avgLatency
+                    };
+                }),
                 cooldowns: [],
                 todayMetrics: {
                     requests: Number(todayRow?.requests) || 0,

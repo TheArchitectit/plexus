@@ -131,7 +131,17 @@ export const useLogs = (options: UseLogsOptions = {}): UseLogsReturn => {
       if (groupBy === 'time') {
         const grouped = new Map<
           string,
-          { requests: number; tokens: number; cost: number; duration: number; ttft: number; count: number }
+          {
+            requests: number;
+            tokens: number;
+            cost: number;
+            duration: number;
+            ttft: number;
+            tps: number;
+            tpsCount: number;
+            ttftCount: number;
+            count: number;
+          }
         >();
 
         records.forEach((record) => {
@@ -150,6 +160,9 @@ export const useLogs = (options: UseLogsOptions = {}): UseLogsReturn => {
             cost: 0,
             duration: 0,
             ttft: 0,
+            tps: 0,
+            tpsCount: 0,
+            ttftCount: 0,
             count: 0,
           };
           existing.requests += 1;
@@ -160,7 +173,14 @@ export const useLogs = (options: UseLogsOptions = {}): UseLogsReturn => {
             (record.tokensCached || 0);
           existing.cost += record.costTotal || 0;
           existing.duration += record.durationMs || 0;
-          existing.ttft += record.ttftMs || 0;
+          if (record.ttftMs && record.ttftMs > 0) {
+            existing.ttft += record.ttftMs;
+            existing.ttftCount += 1;
+          }
+          if (record.tokensPerSec && record.tokensPerSec > 0) {
+            existing.tps += record.tokensPerSec;
+            existing.tpsCount += 1;
+          }
           existing.count += 1;
           grouped.set(key, existing);
         });
@@ -172,14 +192,28 @@ export const useLogs = (options: UseLogsOptions = {}): UseLogsReturn => {
             tokens: value.tokens,
             cost: value.cost,
             duration: value.count > 0 ? value.duration / value.count : 0,
-            ttft: value.count > 0 ? value.ttft / value.count : 0,
+            ttft: value.ttftCount > 0 ? value.ttft / value.ttftCount : 0,
             count: value.count,
+            // New performance metrics
+            avgTps: value.tpsCount > 0 ? value.tps / value.tpsCount : 0,
+            avgTtft: value.ttftCount > 0 ? value.ttft / value.ttftCount : 0,
+            avgLatency: value.count > 0 ? value.duration / value.count : 0,
           }))
           .sort((a, b) => a.name.localeCompare(b.name));
       } else {
         const grouped = new Map<
           string,
-          { requests: number; tokens: number; cost: number; duration: number; ttft: number; count: number }
+          {
+            requests: number;
+            tokens: number;
+            cost: number;
+            duration: number;
+            ttft: number;
+            tps: number;
+            tpsCount: number;
+            ttftCount: number;
+            count: number;
+          }
         >();
 
         records.forEach((record) => {
@@ -207,6 +241,9 @@ export const useLogs = (options: UseLogsOptions = {}): UseLogsReturn => {
             cost: 0,
             duration: 0,
             ttft: 0,
+            tps: 0,
+            tpsCount: 0,
+            ttftCount: 0,
             count: 0,
           };
           existing.requests += 1;
@@ -217,7 +254,14 @@ export const useLogs = (options: UseLogsOptions = {}): UseLogsReturn => {
             (record.tokensCached || 0);
           existing.cost += record.costTotal || 0;
           existing.duration += record.durationMs || 0;
-          existing.ttft += record.ttftMs || 0;
+          if (record.ttftMs && record.ttftMs > 0) {
+            existing.ttft += record.ttftMs;
+            existing.ttftCount += 1;
+          }
+          if (record.tokensPerSec && record.tokensPerSec > 0) {
+            existing.tps += record.tokensPerSec;
+            existing.tpsCount += 1;
+          }
           existing.count += 1;
           grouped.set(key, existing);
         });
@@ -229,9 +273,13 @@ export const useLogs = (options: UseLogsOptions = {}): UseLogsReturn => {
             tokens: value.tokens,
             cost: value.cost,
             duration: value.count > 0 ? value.duration / value.count : 0,
-            ttft: value.count > 0 ? value.ttft / value.count : 0,
+            ttft: value.ttftCount > 0 ? value.ttft / value.ttftCount : 0,
             count: value.count,
             fill: COLORS[Math.abs(key.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % COLORS.length],
+            // New performance metrics
+            avgTps: value.tpsCount > 0 ? value.tps / value.tpsCount : 0,
+            avgTtft: value.ttftCount > 0 ? value.ttft / value.ttftCount : 0,
+            avgLatency: value.count > 0 ? value.duration / value.count : 0,
           }))
           .sort((a, b) => b.requests - a.requests)
           .slice(0, 10);

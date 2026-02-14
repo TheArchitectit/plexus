@@ -289,7 +289,18 @@ export interface AggregatedDataPoint {
   ttft: number;
   count: number;
   fill?: string;
+  /** Average tokens per second (TPS) for this aggregation */
+  avgTps?: number;
+  /** Average time to first token (TTFT) in ms for this aggregation */
+  avgTtft?: number;
+  /** Average latency (duration) in ms for this aggregation */
+  avgLatency?: number;
 }
+
+/**
+ * Metric key type for selecting which metrics to display
+ */
+export type MetricKey = 'requests' | 'tokens' | 'cost' | 'duration' | 'ttft' | 'tps' | 'latency';
 
 /**
  * Hook return type for time ago updates
