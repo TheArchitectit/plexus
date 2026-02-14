@@ -7,10 +7,9 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  ReferenceLine
+  Legend
 } from 'recharts';
-import { formatMs, formatNumber, formatTPS } from '../../../../lib/format';
+import { formatMs, formatTPS } from '../../../../lib/format';
 import type { TimeRange } from './TimeRangeSelector';
 import type { MetricConfig } from './MetricToggleGroup';
 import type { UsageRecord } from '../../../../lib/api';
@@ -232,9 +231,9 @@ export const MetricsLineChart: React.FC<MetricsLineChartProps> = ({
   // Calculate Y-axis domains for each metric
   const yAxisDomains = useMemo(() => {
     const domains: Record<string, [number, number]> = {
-      tps: [0, 'auto'] as [number, number | string],
-      ttft: [0, 'auto'] as [number, number | string],
-      latency: [0, 'auto'] as [number, number | string]
+      tps: [0, 100],
+      ttft: [0, 1000],
+      latency: [0, 5000]
     };
 
     if (data.length > 0) {

@@ -27,7 +27,6 @@ import { MetricsLineChart } from '../features/metrics/components/usage/MetricsLi
 import { TimeRangeSelector, type TimeRange } from '../features/metrics/components/usage/TimeRangeSelector';
 import { MetricToggleGroup } from '../features/metrics/components/usage/MetricToggleGroup';
 
-type TimeRange = 'hour' | 'day' | 'week' | 'month';
 type ChartType = 'line' | 'bar' | 'area' | 'pie';
 type GroupBy = 'time' | 'provider' | 'model' | 'apiKey' | 'status';
 
@@ -47,6 +46,13 @@ const METRICS: MetricConfig[] = [
 ];
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16'];
+
+// Performance metrics for the line chart
+const PERFORMANCE_METRICS = [
+  { key: 'tps', label: 'TPS', color: '#3b82f6' },
+  { key: 'ttft', label: 'TTFT', color: '#10b981' },
+  { key: 'latency', label: 'Latency', color: '#f59e0b' }
+];
 
 /**
  * Connection status indicator component
@@ -106,6 +112,12 @@ export const DetailedUsage = () => {
   const [loading, setLoading] = useState(false);
   const [aggregatedData, setAggregatedData] = useState<any[]>([]);
 
+  // Performance metrics chart state
+  const [perfTimeRange, setPerfTimeRange] = useState<TimeRange>('day');
+  const [selectedPerfMetrics, setSelectedPerfMetrics] = useState<string[]>(['tps', 'ttft', 'latency']);
+  const [perfLoading, setPerfLoading] = useState(false);
+  const [perfRecords, setPerfRecords] = useState<Partial<UsageRecord>[]>([]);
+
   // Use SSE hook for real-time data
   const {
     dashboardData,
@@ -156,21 +168,74 @@ export const DetailedUsage = () => {
     );
   };
 
-  // Fetch aggregated data from API when filters change
-  useMemo(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  const togglePerfMetric = (metricKey: string) => {
+    setSelectedPerfMetrics(prev =>
+      prev.includes(metricKey)
+        ? prev.filter(m => m !== metricKey)
+        : [...prev, metricKey]
+    );
+  };
+
+  // Fetch performance records with roll-down logic
+  useEffect(() => {
+    const fetchPerfRecords = async () => {
+      setPerfLoading(true);
       try {
-        const response = await api.getAggregatedMetrics(timeRange, groupBy);
-        setAggregatedData(response.data || []);
+        const now = new Date();
+        const startDate = new Date(now);
+
+        // Calculate start date based on time range
+        switch (perfTimeRange) {
+          case 'hour':
+            startDate.setHours(startDate.getHours() - 1);
+            break;
+          case 'day':
+            startDate.setHours(startDate.getHours() - 24);
+            break;
+          case 'week':
+            startDate.setDate(startDate.getDate() - 7);
+            break;
+          case 'month':
+            startDate.setDate(startDate.getDate() - 30);
+            break;
+        }
+
+        const response = await api.getLogs(5000, 0, {
+          startDate: startDate.toISOString(),
+          endDate: now.toISOString()
+        });
+
+        setPerfRecords(response.data || []);
       } catch (e) {
-        console.error('Failed to fetch aggregated data', e);
+        console.error('Failed to fetch performance records', e);
       } finally {
-        setLoading(false);
+        setPerfLoading(false);
       }
     };
+
+    void fetchPerfRecords();
+  }, [perfTimeRange]);
+
+  // Fetch aggregated data from API when filters change
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const response = await api.getAggregatedMetrics(timeRange, groupBy);
+      setAggregatedData(response.data || []);
+    } catch (e) {
+      console.error('Failed to fetch aggregated data', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     void fetchData();
   }, [timeRange, groupBy]);
+
+  const refetch = () => {
+    void fetchData();
+  };
 
   const renderChart = () => {
     if (groupBy === 'time') {
@@ -506,6 +571,95 @@ export const DetailedUsage = () => {
           </div>
         </Card>
       )}
+
+      {/* Performance Metrics Chart Section */}
+      <Card className="mt-6" title="Performance Metrics">
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-6 items-start">
+            <TimeRangeSelector
+              value={perfTimeRange}
+              onChange={setPerfTimeRange}
+            />
+            <MetricToggleGroup
+              metrics={PERFORMANCE_METRICS}
+              selected={selectedPerfMetrics}
+              onToggle={togglePerfMetric}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const fetchPerfRecords = async () => {
+                  setPerfLoading(true);
+                  try {
+                    const now = new Date();
+                    const startDate = new Date(now);
+
+                    switch (perfTimeRange) {
+                      case 'hour':
+                        startDate.setHours(startDate.getHours() - 1);
+                        break;
+                      case 'day':
+                        startDate.setHours(startDate.getHours() - 24);
+                        break;
+                      case 'week':
+                        startDate.setDate(startDate.getDate() - 7);
+                        break;
+                      case 'month':
+                        startDate.setDate(startDate.getDate() - 30);
+                        break;
+                    }
+
+                    const response = await api.getLogs(5000, 0, {
+                      startDate: startDate.toISOString(),
+                      endDate: now.toISOString()
+                    });
+
+                    setPerfRecords(response.data || []);
+                  } catch (e) {
+                    console.error('Failed to fetch performance records', e);
+                  } finally {
+                    setPerfLoading(false);
+                  }
+                };
+                void fetchPerfRecords();
+              }}
+              isLoading={perfLoading}
+            >
+              <RefreshCw size={16} className="mr-1" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-bg-surface/50 rounded-lg p-4">
+          <MetricsLineChart
+            records={perfRecords}
+            timeRange={perfTimeRange}
+            selectedMetrics={selectedPerfMetrics}
+            loading={perfLoading}
+            height={350}
+          />
+        </div>
+
+        <div className="mt-4 text-xs text-text-muted">
+          <p>Roll-down aggregation: Hour (1-min buckets) | Day (1-hour buckets) | Week/Month (1-day buckets)</p>
+          <p className="mt-1">
+            <span className="inline-flex items-center gap-1 mr-4">
+              <span className="w-2 h-2 rounded-full bg-[#3b82f6]"></span>
+              TPS: Tokens per second
+            </span>
+            <span className="inline-flex items-center gap-1 mr-4">
+              <span className="w-2 h-2 rounded-full bg-[#10b981]"></span>
+              TTFT: Time to first token
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
+              Latency: Total request duration
+            </span>
+          </p>
+        </div>
+      </Card>
     </div>
   );
 };

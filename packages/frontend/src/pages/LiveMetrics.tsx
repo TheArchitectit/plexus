@@ -562,7 +562,7 @@ export const LiveMetrics = () => {
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
         <Card
           title={`Provider Pulse (${LIVE_WINDOW_MINUTES}m)`}
-          extra={<Signal size={16} className={streamConnected ? 'text-success' : 'text-warning'} />}
+          extra={<Signal size={16} className={connectionStatus === 'connected' ? 'text-success' : 'text-warning'} />}
         >
           {liveSnapshot.providers.length === 0 ? (
             <div className="py-8 text-sm text-text-secondary">No provider traffic in the selected live window.</div>

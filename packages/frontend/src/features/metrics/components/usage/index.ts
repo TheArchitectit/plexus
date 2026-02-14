@@ -12,3 +12,6 @@ export type { MetricConfig } from './MetricToggleGroup';
 
 export { UsageDataTable } from './UsageDataTable';
 export type { UsageDataRow } from './UsageDataTable';
+
+export { MetricsLineChart } from './MetricsLineChart';
+export type { MetricsLineChartDataPoint } from './MetricsLineChart';

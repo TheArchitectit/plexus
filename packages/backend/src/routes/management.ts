@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { UsageStorageService } from '../services/usage-storage';
 import { registerConfigRoutes } from './management/config';
+import { registerConfigSnapshotRoutes } from './management/config-snapshots';
 import { registerUsageRoutes } from './management/usage';
 import { registerCooldownRoutes } from './management/cooldowns';
 import { registerPerformanceRoutes } from './management/performance';
@@ -16,6 +17,7 @@ import { QuotaScheduler } from '../services/quota/quota-scheduler';
 
 export async function registerManagementRoutes(fastify: FastifyInstance, usageStorage: UsageStorageService, dispatcher: Dispatcher, quotaScheduler?: QuotaScheduler) {
     await registerConfigRoutes(fastify);
+    await registerConfigSnapshotRoutes(fastify);
     await registerUsageRoutes(fastify, usageStorage);
     await registerMetricsRoutes(fastify, usageStorage);
     await registerCooldownRoutes(fastify);
