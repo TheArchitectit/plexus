@@ -189,6 +189,37 @@ export interface ProviderPerformanceData {
   last_updated: number;
 }
 
+/**
+ * Chart data point for time-series metrics visualization
+ */
+export interface ChartDataPoint {
+  /** Label for the data point (timestamp or category name) */
+  name: string;
+  /** Number of requests */
+  requests: number;
+  /** Total token count */
+  tokens: number;
+  /** Total cost in currency units */
+  cost: number;
+  /** Average duration in milliseconds */
+  duration: number;
+  /** Average time to first token in milliseconds */
+  ttft: number;
+  /** Optional color fill for pie/bar charts */
+  fill?: string;
+  /** Average tokens per second (TPS) - calculated from tokens/duration */
+  avgTps?: number;
+  /** Average time to first token (TTFT) - same as ttft, explicit naming */
+  avgTtft?: number;
+  /** Average latency (duration) - same as duration, explicit naming */
+  avgLatency?: number;
+}
+
+/**
+ * Metric key type for selecting which metrics to display in charts
+ */
+export type MetricKey = 'requests' | 'tokens' | 'cost' | 'duration' | 'ttft' | 'tps' | 'latency';
+
 export interface Provider {
   id: string;
   name: string;
@@ -2066,18 +2097,10 @@ quota_checker: provider.quotaChecker?.type
   },
 
   // New server-side aggregation endpoints
-  getChartData: async (timeRange: 'hour' | 'day' | 'week' | 'month' = 'day', metrics: string[] = ['requests', 'tokens', 'cost']): Promise<{
+  getChartData: async (timeRange: 'hour' | 'day' | 'week' | 'month' = 'day', metrics: MetricKey[] = ['requests', 'tokens', 'cost']): Promise<{
       timeRange: string;
       granularity: 'minute' | 'hour' | 'day';
-      data: Array<{
-          name: string;
-          requests: number;
-          tokens: number;
-          cost: number;
-          duration: number;
-          ttft: number;
-          fill?: string;
-      }>;
+      data: ChartDataPoint[];
       total: number;
       generatedAt: string;
   }> => {
@@ -2102,15 +2125,7 @@ quota_checker: provider.quotaChecker?.type
   getAggregatedMetrics: async (groupBy: 'time' | 'provider' | 'model' | 'apiKey' | 'status' = 'provider', timeRange: 'hour' | 'day' | 'week' | 'month' = 'day'): Promise<{
       groupBy: string;
       timeRange: string;
-      data: Array<{
-          name: string;
-          requests: number;
-          tokens: number;
-          cost: number;
-          duration: number;
-          ttft: number;
-          fill?: string;
-      }>;
+      data: ChartDataPoint[];
       total: number;
       generatedAt: string;
   }> => {

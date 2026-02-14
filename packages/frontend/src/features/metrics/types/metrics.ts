@@ -25,6 +25,8 @@ export type {
   ProviderPerformanceData,
   Cooldown,
   UsageRecord,
+  ChartDataPoint,
+  MetricKey,
 } from '../../../lib/api';
 
 /**
@@ -296,11 +298,6 @@ export interface AggregatedDataPoint {
   /** Average latency (duration) in ms for this aggregation */
   avgLatency?: number;
 }
-
-/**
- * Metric key type for selecting which metrics to display
- */
-export type MetricKey = 'requests' | 'tokens' | 'cost' | 'duration' | 'ttft' | 'tps' | 'latency';
 
 /**
  * Hook return type for time ago updates

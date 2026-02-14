@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { useMetricsStream } from '../features/metrics/hooks/useMetricsStream';
-import { api } from '../lib/api';
+import { api, type UsageRecord } from '../lib/api';
 import { formatCost, formatMs, formatNumber, formatTokens, formatTimeAgo } from '../lib/format';
 import { Activity, BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, TrendingUp, Clock, DollarSign, Database, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import {
@@ -23,6 +23,9 @@ import {
   Area,
   AreaChart
 } from 'recharts';
+import { MetricsLineChart } from '../features/metrics/components/usage/MetricsLineChart';
+import { TimeRangeSelector, type TimeRange } from '../features/metrics/components/usage/TimeRangeSelector';
+import { MetricToggleGroup } from '../features/metrics/components/usage/MetricToggleGroup';
 
 type TimeRange = 'hour' | 'day' | 'week' | 'month';
 type ChartType = 'line' | 'bar' | 'area' | 'pie';
