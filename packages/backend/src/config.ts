@@ -7,16 +7,6 @@ import { QuotaScheduler } from './services/quota/quota-scheduler';
 
 // --- Zod Schemas ---
 
-const DEFAULT_RETRYABLE_STATUS_CODES = Array.from({ length: 500 }, (_, index) => index + 100).filter(
-  (code) => !(code >= 200 && code <= 299) && code !== 400 && code !== 422
-);
-
-const FailoverPolicySchema = z.object({
-  enabled: z.boolean().default(true),
-  retryableStatusCodes: z.array(z.number().int().min(100).max(599)).default(DEFAULT_RETRYABLE_STATUS_CODES),
-  retryableErrors: z.array(z.string().min(1)).default(['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND']),
-});
-
 const PricingRangeSchema = z.object({
   // This strategy is used to define a range of pricing for a model
   // There can be multiple ranges defined for different usage levels
@@ -93,16 +83,6 @@ const MoonshotQuotaCheckerOptionsSchema = z.object({
   endpoint: z.string().url().optional(),
 });
 
-const MiniMaxQuotaCheckerOptionsSchema = z.object({
-  groupid: z.string().trim().min(1, 'MiniMax groupid is required'),
-  hertzSession: z.string().trim().min(1, 'MiniMax HERTZ-SESSION cookie value is required'),
-});
-
-const OpenRouterQuotaCheckerOptionsSchema = z.object({
-  apiKey: z.string().min(1, "OpenRouter management key is required"),
-  endpoint: z.string().url().optional(),
-});
-
 const ProviderQuotaCheckerSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('naga'),
@@ -138,20 +118,6 @@ const ProviderQuotaCheckerSchema = z.discriminatedUnion('type', [
     intervalMinutes: z.number().min(1).default(30),
     id: z.string().trim().min(1).optional(),
     options: MoonshotQuotaCheckerOptionsSchema.optional().default({}),
-  }),
-  z.object({
-    type: z.literal('minimax'),
-    enabled: z.boolean().default(true),
-    intervalMinutes: z.number().min(1).default(30),
-    id: z.string().trim().min(1).optional(),
-    options: MiniMaxQuotaCheckerOptionsSchema,
-  }),
-  z.object({
-    type: z.literal('openrouter'),
-    enabled: z.boolean().default(true),
-    intervalMinutes: z.number().min(1).default(30),
-    id: z.string().trim().min(1).optional(),
-    options: OpenRouterQuotaCheckerOptionsSchema,
   }),
 ]);
 
@@ -223,14 +189,11 @@ const RawPlexusConfigSchema = z.object({
   models: z.record(z.string(), ModelConfigSchema),
   keys: z.record(z.string(), KeyConfigSchema),
   adminKey: z.string(),
-  failover: FailoverPolicySchema.optional(),
   performanceExplorationRate: z.number().min(0).max(1).default(0.05).optional(),
   latencyExplorationRate: z.number().min(0).max(1).default(0.05).optional(),
 }).passthrough();
 
-export type FailoverPolicy = z.infer<typeof FailoverPolicySchema>;
 export type PlexusConfig = z.infer<typeof RawPlexusConfigSchema> & {
-  failover: FailoverPolicy;
   quotas: QuotaConfig[];
 };
 export type DatabaseConfig = {
@@ -354,7 +317,6 @@ export function validateConfig(yamlContent: string): PlexusConfig {
 function hydrateConfig(config: z.infer<typeof RawPlexusConfigSchema>): PlexusConfig {
   return {
     ...config,
-    failover: FailoverPolicySchema.parse(config.failover ?? {}),
     quotas: buildProviderQuotaConfigs(config),
   };
 }

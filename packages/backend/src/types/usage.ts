@@ -6,13 +6,9 @@ export interface UsageRecord {
     attribution: string | null;
     incomingApiType: string;
     provider: string | null;
-    attemptCount: number;
     incomingModelAlias: string | null;
     canonicalModelName: string | null;
     selectedModelName: string | null;
-    finalAttemptProvider: string | null;
-    finalAttemptModel: string | null;
-    allAttemptedProviders: string | null;
     outgoingApiType: string | null;
     tokensInput: number | null;
     tokensOutput: number | null;

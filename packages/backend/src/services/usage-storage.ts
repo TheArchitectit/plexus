@@ -274,13 +274,9 @@ export class UsageStorageService extends EventEmitter {
                     attribution: schema.requestUsage.attribution,
                     incomingApiType: schema.requestUsage.incomingApiType,
                     provider: schema.requestUsage.provider,
-                    attemptCount: schema.requestUsage.attemptCount,
                     incomingModelAlias: schema.requestUsage.incomingModelAlias,
                     canonicalModelName: schema.requestUsage.canonicalModelName,
                     selectedModelName: schema.requestUsage.selectedModelName,
-                    finalAttemptProvider: schema.requestUsage.finalAttemptProvider,
-                    finalAttemptModel: schema.requestUsage.finalAttemptModel,
-                    allAttemptedProviders: schema.requestUsage.allAttemptedProviders,
                     outgoingApiType: schema.requestUsage.outgoingApiType,
                     tokensInput: schema.requestUsage.tokensInput,
                     tokensOutput: schema.requestUsage.tokensOutput,
@@ -322,13 +318,9 @@ export class UsageStorageService extends EventEmitter {
                 attribution: row.attribution,
                 incomingApiType: row.incomingApiType ?? '',
                 provider: row.provider,
-                attemptCount: row.attemptCount ?? 1,
                 incomingModelAlias: row.incomingModelAlias,
                 canonicalModelName: row.canonicalModelName,
                 selectedModelName: row.selectedModelName,
-                finalAttemptProvider: row.finalAttemptProvider,
-                finalAttemptModel: row.finalAttemptModel,
-                allAttemptedProviders: row.allAttemptedProviders,
                 outgoingApiType: row.outgoingApiType,
                 tokensInput: row.tokensInput,
                 tokensOutput: row.tokensOutput,
@@ -427,14 +419,13 @@ export class UsageStorageService extends EventEmitter {
         timeToFirstTokenMs: number | null,
         outputTokens: number | null,
         durationMs: number,
-        requestId: string,
-        success: boolean = true
+        requestId: string
     ) {
         try {
             const retentionLimit = this.getPerformanceRetentionLimit();
 
             let tokensPerSec: number | null = null;
-            if (success && outputTokens && durationMs > 0) {
+            if (outputTokens && durationMs > 0) {
                 const streamingTimeMs = timeToFirstTokenMs ? durationMs - timeToFirstTokenMs : durationMs;
                 tokensPerSec = streamingTimeMs > 0 ? (outputTokens / streamingTimeMs) * 1000 : null;
             }
@@ -444,12 +435,10 @@ export class UsageStorageService extends EventEmitter {
                 model,
                 canonicalModelName,
                 requestId,
-                timeToFirstTokenMs: success ? timeToFirstTokenMs : null,
-                totalTokens: success ? outputTokens : null,
-                durationMs: success ? durationMs : null,
+                timeToFirstTokenMs,
+                totalTokens: outputTokens,
+                durationMs,
                 tokensPerSec,
-                successCount: success ? 1 : 0,
-                failureCount: success ? 0 : 1,
                 createdAt: Date.now()
             });
 
@@ -478,88 +467,67 @@ export class UsageStorageService extends EventEmitter {
         }
     }
 
-    async recordFailedAttempt(
-        provider: string,
-        model: string,
-        canonicalModelName: string | null,
-        requestId: string
-    ) {
-        await this.updatePerformanceMetrics(
-            provider,
-            model,
-            canonicalModelName,
-            null,
-            null,
-            0,
-            requestId,
-            false
-        );
-    }
-
-    async recordSuccessfulAttempt(
-        provider: string,
-        model: string,
-        canonicalModelName: string | null,
-        requestId: string
-    ) {
-        await this.updatePerformanceMetrics(
-            provider,
-            model,
-            canonicalModelName,
-            null,
-            null,
-            0,
-            requestId,
-            true
-        );
-    }
-
     async getProviderPerformance(provider?: string, model?: string): Promise<any[]> {
         this.ensureDb();
 
         try {
             const conditions = [];
-
+            
             if (provider) {
                 conditions.push(eq(this.schema.providerPerformance.provider, provider));
             }
             if (model) {
-                conditions.push(sql`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.requestUsage.canonicalModelName}, ${this.schema.providerPerformance.model}) = ${model}`);
+                conditions.push(sql`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model}) = ${model}`);
             }
 
             const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-            const perfRows = await this.db!
-                .select({
-                    provider: this.schema.providerPerformance.provider,
-                    model: sql<string>`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.requestUsage.canonicalModelName}, ${this.schema.providerPerformance.model})`,
-                    targetModel: this.schema.providerPerformance.model,
-                    avgTtftMs: sql<number>`AVG(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                    minTtftMs: sql<number>`MIN(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                    maxTtftMs: sql<number>`MAX(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                    avgTokensPerSec: sql<number>`AVG(${this.schema.providerPerformance.tokensPerSec})`,
-                    minTokensPerSec: sql<number>`MIN(${this.schema.providerPerformance.tokensPerSec})`,
-                    maxTokensPerSec: sql<number>`MAX(${this.schema.providerPerformance.tokensPerSec})`,
-                    sampleCount: sql<number>`COUNT(*)`,
-                    successCount: sql<number>`SUM(${this.schema.providerPerformance.successCount})`,
-                    failureCount: sql<number>`SUM(${this.schema.providerPerformance.failureCount})`,
-                    lastUpdated: sql<number>`MAX(${this.schema.providerPerformance.createdAt})`
-                })
-                .from(this.schema.providerPerformance)
-                .leftJoin(
-                    this.schema.requestUsage,
-                    eq(this.schema.providerPerformance.requestId, this.schema.requestUsage.requestId)
-                )
-                .where(whereClause)
-                .groupBy(
-                    this.schema.providerPerformance.provider,
-                    this.schema.providerPerformance.model,
-                    this.schema.providerPerformance.canonicalModelName,
-                    this.schema.requestUsage.canonicalModelName
-                )
-                .orderBy(desc(sql`AVG(${this.schema.providerPerformance.tokensPerSec})`));
+            const results = whereClause
+                ? await this.db!
+                    .select({
+                        provider: this.schema.providerPerformance.provider,
+                        model: sql<string>`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model})`,
+                        targetModel: this.schema.providerPerformance.model,
+                        avgTtftMs: sql<number>`AVG(${this.schema.providerPerformance.timeToFirstTokenMs})`,
+                        minTtftMs: sql<number>`MIN(${this.schema.providerPerformance.timeToFirstTokenMs})`,
+                        maxTtftMs: sql<number>`MAX(${this.schema.providerPerformance.timeToFirstTokenMs})`,
+                        avgTokensPerSec: sql<number>`AVG(${this.schema.providerPerformance.tokensPerSec})`,
+                        minTokensPerSec: sql<number>`MIN(${this.schema.providerPerformance.tokensPerSec})`,
+                        maxTokensPerSec: sql<number>`MAX(${this.schema.providerPerformance.tokensPerSec})`,
+                        sampleCount: sql<number>`COUNT(*)`,
+                        lastUpdated: sql<number>`MAX(${this.schema.providerPerformance.createdAt})`
+                    })
+                    .from(this.schema.providerPerformance)
+                    .where(whereClause)
+                    .groupBy(
+                        this.schema.providerPerformance.provider,
+                        this.schema.providerPerformance.model,
+                        this.schema.providerPerformance.canonicalModelName
+                    )
+                    .orderBy(desc(sql`AVG(${this.schema.providerPerformance.tokensPerSec})`))
+                : await this.db!
+                    .select({
+                        provider: this.schema.providerPerformance.provider,
+                        model: sql<string>`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model})`,
+                        targetModel: this.schema.providerPerformance.model,
+                        avgTtftMs: sql<number>`AVG(${this.schema.providerPerformance.timeToFirstTokenMs})`,
+                        minTtftMs: sql<number>`MIN(${this.schema.providerPerformance.timeToFirstTokenMs})`,
+                        maxTtftMs: sql<number>`MAX(${this.schema.providerPerformance.timeToFirstTokenMs})`,
+                        avgTokensPerSec: sql<number>`AVG(${this.schema.providerPerformance.tokensPerSec})`,
+                        minTokensPerSec: sql<number>`MIN(${this.schema.providerPerformance.tokensPerSec})`,
+                        maxTokensPerSec: sql<number>`MAX(${this.schema.providerPerformance.tokensPerSec})`,
+                        sampleCount: sql<number>`COUNT(*)`,
+                        lastUpdated: sql<number>`MAX(${this.schema.providerPerformance.createdAt})`
+                    })
+                    .from(this.schema.providerPerformance)
+                    .groupBy(
+                        this.schema.providerPerformance.provider,
+                        this.schema.providerPerformance.model,
+                        this.schema.providerPerformance.canonicalModelName
+                    )
+                    .orderBy(desc(sql`AVG(${this.schema.providerPerformance.tokensPerSec})`));
 
-            const mappedRows = perfRows.map(row => ({
+            return results.map(row => ({
                 provider: row.provider,
                 model: row.model,
                 target_model: row.targetModel,
@@ -568,50 +536,10 @@ export class UsageStorageService extends EventEmitter {
                 max_ttft_ms: row.maxTtftMs ?? 0,
                 avg_tokens_per_sec: row.avgTokensPerSec ?? 0,
                 min_tokens_per_sec: row.minTokensPerSec ?? 0,
-                    max_tokens_per_sec: row.maxTokensPerSec ?? 0,
-                    sample_count: row.sampleCount ?? 0,
-                    success_count: row.successCount ?? 0,
-                    failure_count: row.failureCount ?? 0,
-                    last_updated: row.lastUpdated ?? 0
-                }));
-
-            // When filtering by canonical model, include providers seen in request usage
-            // even if no provider_performance row exists yet for that provider/model.
-            if (model) {
-                const usageConditions = [eq(this.schema.requestUsage.canonicalModelName, model)];
-                if (provider) {
-                    usageConditions.push(eq(this.schema.requestUsage.provider, provider));
-                }
-
-                const usageProviders = await this.db!
-                    .select({ provider: this.schema.requestUsage.provider })
-                    .from(this.schema.requestUsage)
-                    .where(and(...usageConditions))
-                    .groupBy(this.schema.requestUsage.provider);
-
-                const existingProviders = new Set(mappedRows.map((row) => row.provider));
-                for (const usageProvider of usageProviders) {
-                    if (!existingProviders.has(usageProvider.provider)) {
-                        mappedRows.push({
-                            provider: usageProvider.provider,
-                            model,
-                            target_model: model,
-                            avg_ttft_ms: 0,
-                            min_ttft_ms: 0,
-                            max_ttft_ms: 0,
-                            avg_tokens_per_sec: 0,
-                            min_tokens_per_sec: 0,
-                            max_tokens_per_sec: 0,
-                            sample_count: 0,
-                            success_count: 0,
-                            failure_count: 0,
-                            last_updated: 0
-                        });
-                    }
-                }
-            }
-
-            return mappedRows;
+                max_tokens_per_sec: row.maxTokensPerSec ?? 0,
+                sample_count: row.sampleCount ?? 0,
+                last_updated: row.lastUpdated ?? 0
+            }));
         } catch (error) {
             logger.error('Failed to get provider performance', { provider, model, error });
             return [];

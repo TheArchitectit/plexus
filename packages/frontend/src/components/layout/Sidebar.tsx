@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Activity, Gauge, Settings, Server, Box, FileText, Database, LogOut, AlertTriangle, Key, PanelLeftClose, PanelLeftOpen, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Activity, Gauge, Settings, Server, Box, FileText, Database, LogOut, AlertTriangle, Key, PanelLeftClose, PanelLeftOpen, ChevronRight, Zap, BarChart3 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { api } from '../../lib/api';
 import { toBoolean, toIsoString } from '../../lib/normalize';
@@ -17,8 +17,6 @@ import {
   NanoGPTQuotaDisplay,
   ZAIQuotaDisplay,
   MoonshotQuotaDisplay,
-  MiniMaxQuotaDisplay,
-  OpenRouterQuotaDisplay,
 } from '../quota';
 import type { QuotaCheckerInfo, QuotaCheckResult } from '../../types/quota';
 import logo from '../../assets/plexus_logo_transparent.png';
@@ -263,6 +261,9 @@ export const Sidebar: React.FC = () => {
             {(mainExpanded || isCollapsed) && (
               <>
                 <NavItem to="/" icon={LayoutDashboard} label="Dashboard" isCollapsed={isCollapsed} />
+                <NavItem to="/metrics" icon={Gauge} label="Metrics" isCollapsed={isCollapsed} />
+                <NavItem to="/live-metrics" icon={Zap} label="Live Metrics" isCollapsed={isCollapsed} />
+                <NavItem to="/detailed-usage" icon={BarChart3} label="Detailed Usage" isCollapsed={isCollapsed} />
                 <NavItem to="/usage" icon={Activity} label="Usage" isCollapsed={isCollapsed} />
                 <NavItem to="/performance" icon={Gauge} label="Performance" isCollapsed={isCollapsed} />
                 <NavItem to="/logs" icon={FileText} label="Logs" isCollapsed={isCollapsed} />
@@ -299,10 +300,6 @@ export const Sidebar: React.FC = () => {
                 ) : (
                   <div className="space-y-1">
                     {quotas.map((quota) => {
-                      const checkerType = (quota.checkerType || '').toLowerCase();
-                      const checkerId = quota.checkerId.toLowerCase();
-                      const checkerIdentifier = checkerType || checkerId;
-
                       const result = getQuotaResult(quota.checkerId) ?? {
                         provider: 'unknown',
                         checkerId: quota.checkerId,
@@ -315,7 +312,7 @@ export const Sidebar: React.FC = () => {
                       };
                       
                       // Use Synthetic display for synthetic checkers
-                      if (checkerIdentifier.includes('synthetic')) {
+                      if (quota.checkerId.includes('synthetic')) {
                         return (
                           <SyntheticQuotaDisplay
                             key={quota.checkerId}
@@ -326,7 +323,7 @@ export const Sidebar: React.FC = () => {
                       }
                       
                       // Use Claude Code display for claude checkers
-                      if (checkerIdentifier.includes('claude')) {
+                      if (quota.checkerId.includes('claude')) {
                         return (
                           <ClaudeCodeQuotaDisplay
                             key={quota.checkerId}
@@ -337,7 +334,7 @@ export const Sidebar: React.FC = () => {
                       }
 
                       // Use Naga display for naga checkers
-                      if (checkerIdentifier.includes('naga')) {
+                      if (quota.checkerId.includes('naga')) {
                         return (
                           <NagaQuotaDisplay
                             key={quota.checkerId}
@@ -348,7 +345,7 @@ export const Sidebar: React.FC = () => {
                       }
 
                       // Use NanoGPT display for nanogpt checkers
-                      if (checkerIdentifier.includes('nanogpt')) {
+                      if (quota.checkerId.includes('nanogpt')) {
                         return (
                           <NanoGPTQuotaDisplay
                             key={quota.checkerId}
@@ -359,7 +356,7 @@ export const Sidebar: React.FC = () => {
                       }
 
                       // Use OpenAI Codex display for codex checkers
-                      if (checkerIdentifier.includes('openai-codex') || checkerIdentifier.includes('codex')) {
+                      if (quota.checkerId.includes('openai-codex') || quota.checkerId.includes('codex')) {
                         return (
                           <OpenAICodexQuotaDisplay
                             key={quota.checkerId}
@@ -370,7 +367,7 @@ export const Sidebar: React.FC = () => {
                       }
 
                       // Use ZAI display for zai checkers
-                      if (checkerIdentifier.includes('zai')) {
+                      if (quota.checkerId.includes('zai')) {
                         return (
                           <ZAIQuotaDisplay
                             key={quota.checkerId}
@@ -381,7 +378,7 @@ export const Sidebar: React.FC = () => {
                       }
 
                       // Use Moonshot display for moonshot checkers
-                      if (checkerIdentifier.includes('moonshot')) {
+                      if (quota.checkerId.includes('moonshot')) {
                         return (
                           <MoonshotQuotaDisplay
                             key={quota.checkerId}
@@ -391,30 +388,8 @@ export const Sidebar: React.FC = () => {
                         );
                       }
 
-                      // Use MiniMax display for minimax checkers
-                      if (checkerIdentifier.includes('minimax')) {
-                        return (
-                          <MiniMaxQuotaDisplay
-                            key={quota.checkerId}
-                            result={result}
-                            isCollapsed={isCollapsed}
-                          />
-                        );
-                      }
-
-                      // Use OpenRouter display for openrouter checkers
-                      if (checkerIdentifier.includes('openrouter')) {
-                        return (
-                          <OpenRouterQuotaDisplay
-                            key={quota.checkerId}
-                            result={result}
-                            isCollapsed={isCollapsed}
-                          />
-                        );
-                      }
-
                       // Fallback: show checker ID for unknown types
-                      console.warn(`Unknown quota checker type: ${quota.checkerType || quota.checkerId}`);
+                      console.warn(`Unknown quota checker type: ${quota.checkerId}`);
                       return null;
                     })}
                   </div>

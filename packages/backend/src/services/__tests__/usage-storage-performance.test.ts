@@ -12,13 +12,9 @@ const createUsageRecord = (requestId: string, provider: string, incomingModelAli
   attribution: null,
   incomingApiType: 'chat',
   provider,
-  attemptCount: 1,
   incomingModelAlias,
   canonicalModelName,
   selectedModelName,
-  finalAttemptProvider: provider,
-  finalAttemptModel: selectedModelName,
-  allAttemptedProviders: JSON.stringify([`${provider}/${selectedModelName}`]),
   outgoingApiType: 'chat',
   tokensInput: 100,
   tokensOutput: 100,
@@ -79,12 +75,12 @@ describe('UsageStorageService performance metrics', () => {
   it('returns grouped aggregates for provider/model and supports filters', async () => {
     const storage = new UsageStorageService();
 
-    await storage.updatePerformanceMetrics('provider-a', 'model-x', null, 100, 100, 1000, 'a-1'); // ~111.11 tps (streaming time = 900ms)
-    await storage.updatePerformanceMetrics('provider-a', 'model-x', null, 140, 200, 1000, 'a-2'); // ~232.56 tps (streaming time = 860ms)
-    await storage.updatePerformanceMetrics('provider-a', 'model-x', null, 120, 300, 1500, 'a-3'); // ~217.39 tps (streaming time = 1380ms)
+    await storage.updatePerformanceMetrics('provider-a', 'model-x', null, 100, 100, 1000, 'a-1'); // 100 tps
+    await storage.updatePerformanceMetrics('provider-a', 'model-x', null, 140, 200, 1000, 'a-2'); // 200 tps
+    await storage.updatePerformanceMetrics('provider-a', 'model-x', null, 120, 300, 1500, 'a-3'); // 200 tps
 
-    await storage.updatePerformanceMetrics('provider-b', 'model-x', null, 80, 50, 1000, 'b-1'); // ~54.35 tps (streaming time = 920ms)
-    await storage.updatePerformanceMetrics('provider-b', 'model-x', null, 90, 100, 1000, 'b-2'); // ~109.89 tps (streaming time = 910ms)
+    await storage.updatePerformanceMetrics('provider-b', 'model-x', null, 80, 50, 1000, 'b-1'); // 50 tps
+    await storage.updatePerformanceMetrics('provider-b', 'model-x', null, 90, 100, 1000, 'b-2'); // 100 tps
 
     const allForModel = await storage.getProviderPerformance(undefined, 'model-x');
     expect(allForModel.length).toBe(2);
@@ -96,8 +92,8 @@ describe('UsageStorageService performance metrics', () => {
     expect(rowB?.sample_count).toBe(2);
     expect(rowA?.avg_ttft_ms).toBeCloseTo(120, 5);
     expect(rowB?.avg_ttft_ms).toBeCloseTo(85, 5);
-    expect(rowA?.avg_tokens_per_sec).toBeCloseTo(187.0202, 3);
-    expect(rowB?.avg_tokens_per_sec).toBeCloseTo(82.1189, 3);
+    expect(rowA?.avg_tokens_per_sec).toBeCloseTo(166.6667, 3);
+    expect(rowB?.avg_tokens_per_sec).toBeCloseTo(75, 5);
 
     const filtered = await storage.getProviderPerformance('provider-a', 'model-x');
     expect(filtered.length).toBe(1);
@@ -205,32 +201,5 @@ describe('UsageStorageService performance metrics', () => {
       .all('provider-c', 'model-3') as Array<{ provider: string; model: string; count: number }>;
 
     expect(rows[0]?.count).toBe(5);
-  });
-
-  it('tracks success_count and failure_count for provider/model aggregates', async () => {
-    const storage = new UsageStorageService();
-
-    await storage.updatePerformanceMetrics('provider-d', 'model-4', null, 100, 100, 1000, 'd-success-1');
-    await storage.updatePerformanceMetrics('provider-d', 'model-4', null, 120, 110, 1000, 'd-success-2');
-    await storage.updatePerformanceMetrics('provider-d', 'model-4', null, null, null, 0, 'd-failure-1', false);
-
-    const rows = await storage.getProviderPerformance('provider-d', 'model-4');
-    expect(rows.length).toBe(1);
-    expect(rows[0]?.success_count).toBe(2);
-    expect(rows[0]?.failure_count).toBe(1);
-    expect(rows[0]?.sample_count).toBe(3);
-  });
-
-  it('records failover-style failed and successful attempts via dedicated helpers', async () => {
-    const storage = new UsageStorageService();
-
-    await storage.recordFailedAttempt('provider-e', 'model-5', null, 'e-failure-1');
-    await storage.recordSuccessfulAttempt('provider-e', 'model-5', null, 'e-success-1');
-
-    const rows = await storage.getProviderPerformance('provider-e', 'model-5');
-    expect(rows.length).toBe(1);
-    expect(rows[0]?.success_count).toBe(1);
-    expect(rows[0]?.failure_count).toBe(1);
-    expect(rows[0]?.sample_count).toBe(2);
   });
 });

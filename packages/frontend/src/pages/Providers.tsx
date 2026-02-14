@@ -14,8 +14,6 @@ import { SyntheticQuotaConfig } from '../components/quota/SyntheticQuotaConfig';
 import { NanoGPTQuotaConfig } from '../components/quota/NanoGPTQuotaConfig';
 import { ZAIQuotaConfig } from '../components/quota/ZAIQuotaConfig';
 import { MoonshotQuotaConfig } from '../components/quota/MoonshotQuotaConfig';
-import { MiniMaxQuotaConfig } from '../components/quota/MiniMaxQuotaConfig';
-import { OpenRouterQuotaConfig } from '../components/quota/OpenRouterQuotaConfig';
 
 const KNOWN_APIS = ['chat', 'messages', 'gemini', 'embeddings', 'transcriptions', 'speech', 'images', 'responses'];
 
@@ -27,7 +25,7 @@ const OAUTH_PROVIDERS = [
   { value: 'openai-codex', label: 'ChatGPT Plus/Pro (Codex Subscription)' }
 ];
 
-const QUOTA_CHECKER_TYPES = ['synthetic', 'naga', 'nanogpt', 'openai-codex', 'claude-code', 'zai', 'moonshot', 'minimax', 'openrouter'] as const;
+const QUOTA_CHECKER_TYPES = ['synthetic', 'naga', 'nanogpt', 'openai-codex', 'claude-code', 'zai', 'moonshot'] as const;
 const VALID_QUOTA_CHECKER_TYPES = new Set<string>(QUOTA_CHECKER_TYPES);
 
 const getForcedOAuthQuotaCheckerType = (oauthProvider?: string): string | null => {
@@ -120,39 +118,6 @@ interface FetchedModel {
   };
 }
 
-interface ModelIdInputProps {
-  modelId: string;
-  onCommit: (oldId: string, newId: string) => void;
-}
-
-const ModelIdInput = ({ modelId, onCommit }: ModelIdInputProps) => {
-  const [draftId, setDraftId] = useState(modelId);
-
-  useEffect(() => {
-    setDraftId(modelId);
-  }, [modelId]);
-
-  const commit = () => {
-    if (!draftId || draftId === modelId) return;
-    onCommit(modelId, draftId);
-  };
-
-  return (
-    <Input
-      label="Model ID"
-      value={draftId}
-      onChange={(e) => setDraftId(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          commit();
-          (e.target as HTMLInputElement).blur();
-        }
-      }}
-    />
-  );
-};
-
 const OAUTH_PROVIDER_MODELS: Record<string, FetchedModel[]> = {
   anthropic: [
     { id: 'claude-3-5-haiku-20241022', name: 'Claude Haiku 3.5' },
@@ -183,8 +148,7 @@ const OAUTH_PROVIDER_MODELS: Record<string, FetchedModel[]> = {
     { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini' },
     { id: 'gpt-5.2', name: 'GPT-5.2' },
     { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
-    { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
-    { id: 'gpt-5.3-codex-spark', name: 'GPT-5.3 Codex Spark' }
+    { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' }
   ],
   'github-copilot': [
     { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5' },
@@ -266,15 +230,6 @@ export const Providers = () => {
     if (quotaType === 'naga') {
       if (!options.apiKey || !(options.apiKey as string).trim()) {
         return 'Provisioning API Key is required for Naga quota checker';
-      }
-    }
-
-    if (quotaType === 'minimax') {
-      if (!options.groupid || !(options.groupid as string).trim()) {
-        return 'Group ID is required for MiniMax quota checker';
-      }
-      if (!options.hertzSession || !(options.hertzSession as string).trim()) {
-        return 'HERTZ-SESSION cookie value is required for MiniMax quota checker';
       }
     }
     
@@ -663,9 +618,7 @@ export const Providers = () => {
     delete updated[oldType];
 
     const normalizedType = newType.trim();
-    if (normalizedType) {
-      // Keep unfinished entries (empty URL) visible while editing.
-      // Types are still inferred only from non-empty URLs via inferProviderTypes().
+    if (normalizedType && url.trim()) {
       updated[normalizedType] = url;
     }
 
@@ -1382,8 +1335,7 @@ export const Providers = () => {
                                       quotaChecker: {
                                         type: quotaType,
                                         enabled: true,
-                                        intervalMinutes: Math.max(1, editingProvider.quotaChecker?.intervalMinutes || 30),
-                                        options: editingProvider.quotaChecker?.options
+                                        intervalMinutes: Math.max(1, editingProvider.quotaChecker?.intervalMinutes || 30)
                                       }
                                     });
                                   }}
@@ -1502,36 +1454,6 @@ export const Providers = () => {
                               </div>
                             )}
 
-                            {selectedQuotaCheckerType && selectedQuotaCheckerType === 'minimax' && (
-                              <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
-                                <MiniMaxQuotaConfig
-                                  options={editingProvider.quotaChecker?.options || {}}
-                                  onChange={(options) => setEditingProvider({
-                                    ...editingProvider,
-                                    quotaChecker: {
-                                      ...editingProvider.quotaChecker,
-                                      options
-                                    } as Provider['quotaChecker']
-                                  })}
-                                />
-                              </div>
-                            )}
-
-                            {selectedQuotaCheckerType && selectedQuotaCheckerType === 'openrouter' && (
-                              <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
-                                <OpenRouterQuotaConfig
-                                  options={editingProvider.quotaChecker?.options || {}}
-                                  onChange={(options) => setEditingProvider({
-                                    ...editingProvider,
-                                    quotaChecker: {
-                                      ...editingProvider.quotaChecker,
-                                      options
-                                    } as Provider['quotaChecker']
-                                  })}
-                                />
-                              </div>
-                            )}
-
                             {quotaValidationError && (
                               <div className="mt-2 text-xs text-danger bg-danger/10 border border-danger/20 rounded px-3 py-2">
                                 {quotaValidationError}
@@ -1592,9 +1514,10 @@ export const Providers = () => {
                                       </div>
                                       {openModelIdx === mId && (
                                           <div style={{padding: '8px', borderTop: '1px solid var(--color-border-glass)', display: 'flex', flexDirection: 'column', gap: '6px'}}>
-                                              <ModelIdInput
-                                                modelId={mId}
-                                                onCommit={updateModelId}
+                                              <Input
+                                                label="Model ID"
+                                                value={mId}
+                                                onChange={(e) => updateModelId(mId, e.target.value)}
                                               />
 
                                               <div className="grid gap-4 grid-cols-3">
