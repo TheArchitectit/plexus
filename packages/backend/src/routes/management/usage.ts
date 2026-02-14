@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { encode } from 'eventsource-encoder';
-import { and, gte, lte, sql } from 'drizzle-orm';
+import { and, gte, lte, sql, count, sum, avg } from 'drizzle-orm';
 import { getCurrentDialect, getSchema } from '../../db/client';
 import { UsageStorageService } from '../../services/usage-storage';
 
@@ -146,10 +146,10 @@ export async function registerUsageRoutes(fastify: FastifyInstance, usageStorage
             const seriesRows = await db
                 .select({
                     bucketStartMs,
-                    requests: sql<number>`COUNT(*)`,
-                    inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
-                    outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
-                    cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`
+                    requests: count(),
+                    inputTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensInput)}, 0)`,
+                    outputTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensOutput)}, 0)`,
+                    cachedTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensCached)}, 0)`
                 })
                 .from(schema.requestUsage)
                 .where(and(
@@ -161,10 +161,10 @@ export async function registerUsageRoutes(fastify: FastifyInstance, usageStorage
 
             const statsRows = await db
                 .select({
-                    requests: sql<number>`COUNT(*)`,
-                    inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
-                    outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
-                    avgDurationMs: sql<number>`COALESCE(AVG(${schema.requestUsage.durationMs}), 0)`
+                    requests: count(),
+                    inputTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensInput)}, 0)`,
+                    outputTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensOutput)}, 0)`,
+                    avgDurationMs: sql<number>`COALESCE(${avg(schema.requestUsage.durationMs)}, 0)`
                 })
                 .from(schema.requestUsage)
                 .where(and(
@@ -174,12 +174,12 @@ export async function registerUsageRoutes(fastify: FastifyInstance, usageStorage
 
             const todayRows = await db
                 .select({
-                    requests: sql<number>`COUNT(*)`,
-                    inputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensInput}), 0)`,
-                    outputTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensOutput}), 0)`,
-                    reasoningTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensReasoning}), 0)`,
-                    cachedTokens: sql<number>`COALESCE(SUM(${schema.requestUsage.tokensCached}), 0)`,
-                    totalCost: sql<number>`COALESCE(SUM(${schema.requestUsage.costTotal}), 0)`
+                    requests: count(),
+                    inputTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensInput)}, 0)`,
+                    outputTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensOutput)}, 0)`,
+                    reasoningTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensReasoning)}, 0)`,
+                    cachedTokens: sql<number>`COALESCE(${sum(schema.requestUsage.tokensCached)}, 0)`,
+                    totalCost: sql<number>`COALESCE(${sum(schema.requestUsage.costTotal)}, 0)`
                 })
                 .from(schema.requestUsage)
                 .where(and(

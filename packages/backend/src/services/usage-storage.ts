@@ -3,7 +3,7 @@ import { UsageRecord } from '../types/usage';
 import { getDatabase, getSchema } from '../db/client';
 import { NewRequestUsage } from '../db/types';
 import { EventEmitter } from 'node:events';
-import { eq, and, gte, lte, like, desc, sql, getTableName } from 'drizzle-orm';
+import { eq, and, gte, lte, like, desc, sql, getTableName, exists, count, sum, avg, min, max, notInArray } from 'drizzle-orm';
 import { DebugLogRecord } from './debug-manager';
 
 
@@ -301,8 +301,16 @@ export class UsageStorageService extends EventEmitter {
                     parallelToolCallsEnabled: schema.requestUsage.parallelToolCallsEnabled,
                     toolCallsCount: schema.requestUsage.toolCallsCount,
                     finishReason: schema.requestUsage.finishReason,
-                    hasDebug: sql<boolean>`EXISTS(SELECT 1 FROM ${schema.debugLogs} dl WHERE dl.request_id = request_usage.request_id)`,
-                    hasError: sql<boolean>`EXISTS(SELECT 1 FROM ${schema.inferenceErrors} ie WHERE ie.request_id = request_usage.request_id)`,
+                    hasDebug: exists(
+                        db.select({ _: sql`1` })
+                            .from(schema.debugLogs)
+                            .where(eq(schema.debugLogs.requestId, schema.requestUsage.requestId))
+                    ),
+                    hasError: exists(
+                        db.select({ _: sql`1` })
+                            .from(schema.inferenceErrors)
+                            .where(eq(schema.inferenceErrors.requestId, schema.requestUsage.requestId))
+                    ),
                 })
                 .from(schema.requestUsage)
                 .where(whereClause)
@@ -350,7 +358,7 @@ export class UsageStorageService extends EventEmitter {
             }));
 
             const countResults = await db
-                .select({ count: sql<number>`count(*)` })
+                .select({ count: count() })
                 .from(schema.requestUsage)
                 .where(whereClause);
 
@@ -402,7 +410,12 @@ export class UsageStorageService extends EventEmitter {
 
             await this.db!
                 .delete(this.schema.providerPerformance)
-                .where(sql`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model}) = ${model}`);
+                .where(
+                    eq(
+                        sql<string>`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model})`,
+                        model
+                    )
+                );
 
             logger.info(`Deleted performance data for model: ${model}`);
             return true;
@@ -442,24 +455,27 @@ export class UsageStorageService extends EventEmitter {
                 createdAt: Date.now()
             });
 
-            const subquery = this.ensureDb()
+            const idsToKeep = await this.ensureDb()
                 .select({ id: this.schema.providerPerformance.id })
                 .from(this.schema.providerPerformance)
                 .where(and(
-                    sql`${this.schema.providerPerformance.provider} = ${provider}`,
-                    sql`${this.schema.providerPerformance.model} = ${model}`
+                    eq(this.schema.providerPerformance.provider, provider),
+                    eq(this.schema.providerPerformance.model, model)
                 ))
                 .orderBy(desc(this.schema.providerPerformance.createdAt))
-                .limit(retentionLimit)
-                .as('sub');
+                .limit(retentionLimit);
 
-            await this.ensureDb()
-                .delete(this.schema.providerPerformance)
-                .where(and(
-                    eq(this.schema.providerPerformance.provider, provider),
-                    eq(this.schema.providerPerformance.model, model),
-                    sql`${this.schema.providerPerformance.id} NOT IN (SELECT id FROM ${subquery})`
-                ));
+            const idsToKeepArray = idsToKeep.map(row => row.id);
+
+            if (idsToKeepArray.length > 0) {
+                await this.ensureDb()
+                    .delete(this.schema.providerPerformance)
+                    .where(and(
+                        eq(this.schema.providerPerformance.provider, provider),
+                        eq(this.schema.providerPerformance.model, model),
+                        notInArray(this.schema.providerPerformance.id, idsToKeepArray)
+                    ));
+            }
 
             logger.debug(`Performance metrics updated for ${provider}:${model}`);
         } catch (error) {
@@ -477,7 +493,12 @@ export class UsageStorageService extends EventEmitter {
                 conditions.push(eq(this.schema.providerPerformance.provider, provider));
             }
             if (model) {
-                conditions.push(sql`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model}) = ${model}`);
+                conditions.push(
+                    eq(
+                        sql<string>`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model})`,
+                        model
+                    )
+                );
             }
 
             const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -488,14 +509,14 @@ export class UsageStorageService extends EventEmitter {
                         provider: this.schema.providerPerformance.provider,
                         model: sql<string>`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model})`,
                         targetModel: this.schema.providerPerformance.model,
-                        avgTtftMs: sql<number>`AVG(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                        minTtftMs: sql<number>`MIN(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                        maxTtftMs: sql<number>`MAX(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                        avgTokensPerSec: sql<number>`AVG(${this.schema.providerPerformance.tokensPerSec})`,
-                        minTokensPerSec: sql<number>`MIN(${this.schema.providerPerformance.tokensPerSec})`,
-                        maxTokensPerSec: sql<number>`MAX(${this.schema.providerPerformance.tokensPerSec})`,
-                        sampleCount: sql<number>`COUNT(*)`,
-                        lastUpdated: sql<number>`MAX(${this.schema.providerPerformance.createdAt})`
+                        avgTtftMs: avg(this.schema.providerPerformance.timeToFirstTokenMs),
+                        minTtftMs: min(this.schema.providerPerformance.timeToFirstTokenMs),
+                        maxTtftMs: max(this.schema.providerPerformance.timeToFirstTokenMs),
+                        avgTokensPerSec: avg(this.schema.providerPerformance.tokensPerSec),
+                        minTokensPerSec: min(this.schema.providerPerformance.tokensPerSec),
+                        maxTokensPerSec: max(this.schema.providerPerformance.tokensPerSec),
+                        sampleCount: count(),
+                        lastUpdated: max(this.schema.providerPerformance.createdAt)
                     })
                     .from(this.schema.providerPerformance)
                     .where(whereClause)
@@ -510,14 +531,14 @@ export class UsageStorageService extends EventEmitter {
                         provider: this.schema.providerPerformance.provider,
                         model: sql<string>`COALESCE(${this.schema.providerPerformance.canonicalModelName}, ${this.schema.providerPerformance.model})`,
                         targetModel: this.schema.providerPerformance.model,
-                        avgTtftMs: sql<number>`AVG(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                        minTtftMs: sql<number>`MIN(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                        maxTtftMs: sql<number>`MAX(${this.schema.providerPerformance.timeToFirstTokenMs})`,
-                        avgTokensPerSec: sql<number>`AVG(${this.schema.providerPerformance.tokensPerSec})`,
-                        minTokensPerSec: sql<number>`MIN(${this.schema.providerPerformance.tokensPerSec})`,
-                        maxTokensPerSec: sql<number>`MAX(${this.schema.providerPerformance.tokensPerSec})`,
-                        sampleCount: sql<number>`COUNT(*)`,
-                        lastUpdated: sql<number>`MAX(${this.schema.providerPerformance.createdAt})`
+                        avgTtftMs: avg(this.schema.providerPerformance.timeToFirstTokenMs),
+                        minTtftMs: min(this.schema.providerPerformance.timeToFirstTokenMs),
+                        maxTtftMs: max(this.schema.providerPerformance.timeToFirstTokenMs),
+                        avgTokensPerSec: avg(this.schema.providerPerformance.tokensPerSec),
+                        minTokensPerSec: min(this.schema.providerPerformance.tokensPerSec),
+                        maxTokensPerSec: max(this.schema.providerPerformance.tokensPerSec),
+                        sampleCount: count(),
+                        lastUpdated: max(this.schema.providerPerformance.createdAt)
                     })
                     .from(this.schema.providerPerformance)
                     .groupBy(
