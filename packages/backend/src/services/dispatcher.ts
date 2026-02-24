@@ -942,7 +942,13 @@ export class Dispatcher {
 
     const cooldownManager = CooldownManager.getInstance();
 
-    if (response.status >= 500 || [401, 403, 408, 429].includes(response.status)) {
+    // Trigger cooldown for server errors (5xx) and specific client errors:
+    // - 401 Unauthorized: Invalid or expired credentials
+    // - 402 Payment Required: Insufficient quota/credits
+    // - 403 Forbidden: Permission denied
+    // - 408 Request Timeout: Request took too long
+    // - 429 Too Many Requests: Rate limit exceeded
+    if (response.status >= 500 || [401, 402, 403, 408, 429].includes(response.status)) {
       let cooldownDuration: number | undefined;
 
       // For 429 errors, try to parse provider-specific cooldown duration
