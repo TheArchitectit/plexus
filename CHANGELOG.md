@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.17.1 - 2026-02-24
+
+### Live metrics dashboard with cooldown honor and frontend enhancements
+
+## v0.17.1 Release Notes
+
+### Major Features
+
+- **Live Metrics Dashboard** ([6ec04ab](https://github.com/mcowger/plexus/commit/6ec04ab)): Added new live metrics dashboard route to the frontend for real-time monitoring.
+- **Live Metrics Enhancements** ([944bff8](https://github.com/mcowger/plexus/commit/944bff8)): Comprehensive enhancements to the live metrics experience including velocity and pulse sections ([1f3d9b1](https://github.com/mcowger/plexus/commit/1f3d9b1)) and freshness controls ([ef9aa97](https://github.com/mcowger/plexus/commit/ef9aa97)).
+- **Slice Visualization** ([7c9eb79](https://github.com/mcowger/plexus/commit/7c9eb79)): Added visual representation of slices in the frontend.
+
+### Bug Fixes
+
+- **Cooldown Honor in Manager Paths** ([846624f](https://github.com/mcowger/plexus/commit/846624f), [1bea524](https://github.com/mcowger/plexus/commit/1bea524), [2118bed](https://github.com/mcowger/plexus/commit/2118bed)): Fixed an issue where `disable_cooldown` setting was not being properly honored in manager paths.
+- **LiveMetrics Content Restoration** ([02b6876](https://github.com/mcowger/plexus/commit/02b6876), [62b12aa](https://github.com/mcowger/plexus/commit/62b12aa)): Restored LiveMetrics.tsx enhancements that were lost during rebase conflict resolution.
+
+### Minor Changes
+
+- **Auto-commit on Save** ([e430113](https://github.com/mcowger/plexus/commit/e430113)): Pending headers are now automatically committed on save without requiring the + button.
+- **Code Formatting** ([e8db712](https://github.com/mcowger/plexus/commit/e8db712), [31bc45b](https://github.com/mcowger/plexus/commit/31bc45b)): Applied formatting fixes and introduced Biome formatter with initial formatting pass.
+
+---
+
+**Docker Image**: The docker image has been updated and can be found at ghcr.io/mcowger/plexus:latest
+
 ## v0.17.0 - 2026-02-22
 
 ### v0.17.0: Extended quota checker integrations and model metadata enrichment
