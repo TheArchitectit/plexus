@@ -26,6 +26,8 @@ export { WisdomGateQuotaDisplay } from './WisdomGateQuotaDisplay';
 export { WisdomGateQuotaConfig } from './WisdomGateQuotaConfig';
 export { ApertisQuotaDisplay } from './ApertisQuotaDisplay';
 export { ApertisQuotaConfig } from './ApertisQuotaConfig';
+export { PoeQuotaDisplay } from './PoeQuotaDisplay';
+export { PoeQuotaConfig } from './PoeQuotaConfig';
 export { CombinedBalancesCard } from './CombinedBalancesCard';
 export { CompactBalancesCard } from './CompactBalancesCard';
 export { CompactQuotasCard } from './CompactQuotasCard';

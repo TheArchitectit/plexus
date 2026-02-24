@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { clsx } from 'clsx';
 import { Wallet, AlertTriangle, RefreshCw } from 'lucide-react';
-import { formatCost, toTitleCase } from '../../lib/format';
+import { formatCost, formatPoints, toTitleCase } from '../../lib/format';
 import type { QuotaCheckerInfo } from '../../types/quota';
 import { Button } from '../ui/Button';
 import { BalanceHistoryModal } from './BalanceHistoryModal';
@@ -20,6 +20,7 @@ const CHECKER_DISPLAY_NAMES: Record<string, string> = {
   moonshot: 'Moonshot',
   naga: 'Naga',
   kilo: 'Kilo',
+  poe: 'POE',
   apertis: 'Apertis',
 };
 
@@ -50,6 +51,7 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
     else if (checkerType.includes('moonshot')) normalizedType = 'moonshot';
     else if (checkerType.includes('naga')) normalizedType = 'naga';
     else if (checkerType.includes('kilo')) normalizedType = 'kilo';
+    else if (checkerType.includes('poe')) normalizedType = 'poe';
     else if (checkerType.includes('apertis')) normalizedType = 'apertis';
     return CHECKER_DISPLAY_NAMES[normalizedType] || quota.checkerId;
   };
@@ -75,12 +77,19 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
     else if (checkerType.includes('moonshot')) normalizedType = 'moonshot';
     else if (checkerType.includes('naga')) normalizedType = 'naga';
     else if (checkerType.includes('kilo')) normalizedType = 'kilo';
+    else if (checkerType.includes('poe')) normalizedType = 'poe';
     else if (checkerType.includes('apertis')) normalizedType = 'apertis';
 
     const displayName = CHECKER_DISPLAY_NAMES[normalizedType] || quota.checkerId;
     const windows = result.windows || [];
     const subscriptionWindow = windows.find((w: any) => w.windowType === 'subscription');
     const balance = subscriptionWindow?.remaining;
+    const unit = subscriptionWindow?.unit;
+
+    const formatBalance = (value: number) => {
+      if (unit === 'points') return `${formatPoints(value)} pts`;
+      return formatCost(value);
+    };
 
     return (
       <div
@@ -111,7 +120,7 @@ export const CombinedBalancesCard: React.FC<CombinedBalancesCardProps> = ({
             <div className="flex items-baseline gap-2">
               <span className="text-xs text-text-secondary">Balance</span>
               <span className="text-base font-semibold text-info tabular-nums">
-                {formatCost(balance)}
+                {formatBalance(balance)}
               </span>
             </div>
           ) : (

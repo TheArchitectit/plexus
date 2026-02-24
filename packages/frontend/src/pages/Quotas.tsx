@@ -21,13 +21,14 @@ import {
   CopilotQuotaDisplay,
   WisdomGateQuotaDisplay,
   KimiCodeQuotaDisplay,
+  PoeQuotaDisplay,
   CombinedBalancesCard,
   QuotaHistoryModal,
   BalanceHistoryModal,
 } from '../components/quota';
 
 // Checker type categories
-const BALANCE_CHECKERS = ['openrouter', 'minimax', 'moonshot', 'naga', 'kilo', 'apertis'];
+const BALANCE_CHECKERS = ['openrouter', 'minimax', 'moonshot', 'naga', 'kilo', 'poe', 'apertis'];
 const RATE_LIMIT_CHECKERS = [
   'openai-codex',
   'codex',
@@ -51,6 +52,7 @@ const CHECKER_DISPLAY_NAMES: Record<string, string> = {
   moonshot: 'Moonshot',
   naga: 'Naga',
   kilo: 'Kilo',
+  poe: 'POE',
   'openai-codex': 'OpenAI Codex',
   codex: 'Codex',
   'claude-code': 'Claude Code',
@@ -187,6 +189,8 @@ export const Quotas = () => {
         baseType = 'naga';
       } else if (baseType.includes('kilo')) {
         baseType = 'kilo';
+      } else if (baseType.includes('poe')) {
+        baseType = 'poe';
       } else if (baseType.includes('zai')) {
         baseType = 'zai';
       } else if (baseType.includes('synthetic')) {
@@ -310,6 +314,10 @@ export const Quotas = () => {
 
     if (checkerIdentifier.includes('kilo')) {
       return wrapper(<KiloQuotaDisplay result={result} isCollapsed={false} />);
+    }
+
+    if (checkerIdentifier.includes('poe')) {
+      return wrapper(<PoeQuotaDisplay result={result} isCollapsed={false} />);
     }
 
     if (checkerIdentifier.includes('copilot')) {
