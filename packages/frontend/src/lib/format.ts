@@ -78,6 +78,20 @@ export function formatCost(cost: number, maxDecimals: number = 6): string {
 }
 
 /**
+ * Format large point balances with k, M, B suffixes (e.g., 4948499 -> "4.9M", 1500 -> "1k")
+ */
+export function formatPoints(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${Math.round(n / 1000)}k`;
+  if (n < 1_000_000_000) {
+    const val = (n / 1_000_000).toFixed(1).replace(/\.0$/, '');
+    return `${val}M`;
+  }
+  const val = (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '');
+  return `${val}B`;
+}
+
+/**
  * Format milliseconds to seconds with appropriate precision
  */
 export function formatMs(ms: number): string {

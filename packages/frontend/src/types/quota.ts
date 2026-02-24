@@ -9,7 +9,7 @@ export type QuotaWindowType =
   | 'monthly'
   | 'custom';
 
-export type QuotaUnit = 'dollars' | 'requests' | 'tokens' | 'percentage';
+export type QuotaUnit = 'dollars' | 'requests' | 'tokens' | 'percentage' | 'points';
 
 export type QuotaStatus = 'ok' | 'warning' | 'critical' | 'exhausted';
 

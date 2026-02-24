@@ -12,7 +12,7 @@ import { clsx } from 'clsx';
 import { X, Clock, Calendar, Wallet, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { api } from '../../lib/api';
-import { formatCost } from '../../lib/format';
+import { formatCost, formatPoints } from '../../lib/format';
 import type { QuotaCheckerInfo, QuotaSnapshot } from '../../types/quota';
 
 type TimeRange = '1h' | '3h' | '6h' | '12h' | '24h' | '1w' | '4w';
@@ -148,6 +148,16 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
     return { current, min, max, change, percentChange };
   }, [chartData]);
 
+  // Determine if this checker uses points (not dollars)
+  const isPointsUnit = useMemo(() => {
+    return history.some((s) => s.unit === 'points');
+  }, [history]);
+
+  const formatValue = (value: number) => {
+    if (isPointsUnit) return `${formatPoints(value)} pts`;
+    return formatCost(value);
+  };
+
   // Handle escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -229,7 +239,7 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
                   <Wallet size={12} />
                   <span>Current</span>
                 </div>
-                <div className="text-lg font-semibold text-info">{formatCost(stats.current)}</div>
+                <div className="text-lg font-semibold text-info">{formatValue(stats.current)}</div>
               </div>
               <div className="bg-bg-subtle rounded-lg p-3 border border-border">
                 <div className="flex items-center gap-2 text-text-secondary text-xs mb-1">
@@ -243,7 +253,7 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
                   )}
                 >
                   {stats.change < 0 ? '' : '+'}
-                  {formatCost(stats.change)}
+                  {formatValue(stats.change)}
                 </div>
               </div>
               <div className="bg-bg-subtle rounded-lg p-3 border border-border">
@@ -251,14 +261,14 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
                   <Calendar size={12} />
                   <span>High</span>
                 </div>
-                <div className="text-lg font-semibold text-text">{formatCost(stats.max)}</div>
+                <div className="text-lg font-semibold text-text">{formatValue(stats.max)}</div>
               </div>
               <div className="bg-bg-subtle rounded-lg p-3 border border-border">
                 <div className="flex items-center gap-2 text-text-secondary text-xs mb-1">
                   <Calendar size={12} />
                   <span>Low</span>
                 </div>
-                <div className="text-lg font-semibold text-text">{formatCost(stats.min)}</div>
+                <div className="text-lg font-semibold text-text">{formatValue(stats.min)}</div>
               </div>
             </div>
           )}
@@ -313,7 +323,7 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
                       tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(value: number) => formatCost(value)}
+                      tickFormatter={(value: number) => formatValue(value)}
                       domain={['auto', 'auto']}
                     />
                     <Tooltip
@@ -338,7 +348,7 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
                                 <div className="w-2 h-2 rounded-full bg-cyan-400" />
                                 <span className="text-xs text-text-secondary">Balance:</span>
                                 <span className="text-sm font-semibold text-text">
-                                  {formatCost(balance as number)}
+                                  {formatValue(balance as number)}
                                 </span>
                               </div>
                             </div>

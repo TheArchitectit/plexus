@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatCost, toTitleCase } from '../../lib/format';
+import { formatCost, formatPoints, toTitleCase } from '../../lib/format';
 import type { QuotaCheckerInfo } from '../../types/quota';
 
 interface CompactBalancesCardProps {
@@ -43,15 +43,23 @@ export const CompactBalancesCard: React.FC<CompactBalancesCardProps> = ({
         const windows = result.windows || [];
         const subscriptionWindow = windows.find((w: any) => w.windowType === 'subscription');
         const balance = subscriptionWindow?.remaining;
+        const unit = subscriptionWindow?.unit;
+
+        const formattedBalance =
+          balance !== undefined
+            ? unit === 'points'
+              ? `${formatPoints(balance)} pts`
+              : formatCost(balance)
+            : undefined;
 
         return (
           <div key={quota.checkerId} className="flex items-center justify-between min-w-0">
             <span className="text-xs text-text-secondary truncate">{displayName}:</span>
             {!result.success ? (
               <span className="text-xs text-danger flex-shrink-0 ml-2">Error</span>
-            ) : balance !== undefined ? (
+            ) : formattedBalance !== undefined ? (
               <span className="text-xs font-semibold text-text-secondary tabular-nums flex-shrink-0 ml-2">
-                {formatCost(balance)}
+                {formattedBalance}
               </span>
             ) : (
               <span className="text-xs text-text-muted flex-shrink-0">—</span>

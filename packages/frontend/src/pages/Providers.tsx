@@ -27,6 +27,7 @@ import { KiloQuotaConfig } from '../components/quota/KiloQuotaConfig';
 import { WisdomGateQuotaConfig } from '../components/quota/WisdomGateQuotaConfig';
 import { ApertisQuotaConfig } from '../components/quota/ApertisQuotaConfig';
 import { KimiCodeQuotaConfig } from '../components/quota/KimiCodeQuotaConfig';
+import { PoeQuotaConfig } from '../components/quota/PoeQuotaConfig';
 
 const KNOWN_APIS = [
   'chat',
@@ -63,6 +64,7 @@ const QUOTA_CHECKER_TYPES_FALLBACK = [
   'kilo',
   'wisdomgate',
   'apertis',
+  'poe',
   'copilot',
 ] as const;
 
@@ -1664,6 +1666,23 @@ export const Providers = () => {
               {selectedQuotaCheckerType && selectedQuotaCheckerType === 'kilo' && (
                 <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
                   <KiloQuotaConfig
+                    options={editingProvider.quotaChecker?.options || {}}
+                    onChange={(options) =>
+                      setEditingProvider({
+                        ...editingProvider,
+                        quotaChecker: {
+                          ...editingProvider.quotaChecker,
+                          options,
+                        } as Provider['quotaChecker'],
+                      })
+                    }
+                  />
+                </div>
+              )}
+
+              {selectedQuotaCheckerType && selectedQuotaCheckerType === 'poe' && (
+                <div className="mt-3 p-3 border border-border-glass rounded-md bg-bg-subtle">
+                  <PoeQuotaConfig
                     options={editingProvider.quotaChecker?.options || {}}
                     onChange={(options) =>
                       setEditingProvider({
