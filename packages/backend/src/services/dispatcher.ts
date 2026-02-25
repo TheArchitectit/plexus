@@ -185,6 +185,8 @@ export class Dispatcher {
 
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -211,6 +213,8 @@ export class Dispatcher {
 
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying stream before first byte after ${route.provider}/${route.model} failure: ${error.message}`
               );
@@ -963,14 +967,18 @@ export class Dispatcher {
       QUOTA_ERROR_PATTERNS.some((p) => errorText.toLowerCase().includes(p.toLowerCase()));
 
     if (isQuota400) {
-      logger.warn(`Detected quota/balance error in 400 response from ${route.provider}/${route.model}`);
+      logger.warn(
+        `Detected quota/balance error in 400 response from ${route.provider}/${route.model}`
+      );
     }
 
     // Trigger cooldown for all provider errors except:
     // - 413 (payload too large) and 422 (unprocessable entity): caller errors, not provider failures
     // - 400 without a quota pattern: likely a request validation error, not a provider failure
     const isCallerError =
-      response.status === 413 || response.status === 422 || (response.status === 400 && !isQuota400);
+      response.status === 413 ||
+      response.status === 422 ||
+      (response.status === 400 && !isQuota400);
 
     if (!isCallerError) {
       let cooldownDuration: number | undefined;
@@ -1223,6 +1231,8 @@ export class Dispatcher {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying embeddings after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1385,6 +1395,8 @@ export class Dispatcher {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying transcription after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1546,6 +1558,8 @@ export class Dispatcher {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying speech after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1571,6 +1585,8 @@ export class Dispatcher {
 
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying speech stream before first byte after ${route.provider}/${route.model} failure: ${error.message}`
               );
@@ -1733,6 +1749,8 @@ export class Dispatcher {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying image generation after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
@@ -1884,6 +1902,8 @@ export class Dispatcher {
             lastError = e;
             if (canRetry) {
               await this.recordAttemptMetric(route, request.requestId, false);
+              // Always mark as failed when retrying — provider couldn't serve this request
+              CooldownManager.getInstance().markProviderFailure(route.provider, route.model);
               logger.warn(
                 `Failover: retrying image edit after HTTP ${response.status} from ${route.provider}/${route.model}`
               );
