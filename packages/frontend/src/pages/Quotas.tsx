@@ -23,6 +23,7 @@ import {
   KimiCodeQuotaDisplay,
   PoeQuotaDisplay,
   GeminiCliQuotaDisplay,
+  AntigravityQuotaDisplay,
   CombinedBalancesCard,
   QuotaHistoryModal,
   BalanceHistoryModal,
@@ -45,6 +46,7 @@ const RATE_LIMIT_CHECKERS = [
   'minimax-coding',
   'gemini-cli',
   'gemini',
+  'antigravity',
 ];
 
 // Checker display names
@@ -68,6 +70,7 @@ const CHECKER_DISPLAY_NAMES: Record<string, string> = {
   copilot: 'GitHub Copilot',
   wisdomgate: 'Wisdom Gate',
   'gemini-cli': 'Gemini CLI',
+  antigravity: 'Antigravity',
 };
 
 export const Quotas = () => {
@@ -125,12 +128,16 @@ export const Quotas = () => {
       };
     }
 
-    // Get unique window types (in case of duplicates, take the most recent)
+    // Get unique windows (in case of duplicates, take the most recent)
+    // Key on windowType+description to support checkers with multiple windows of the same type
     const windowsByType = new Map<string, (typeof quota.latest)[0]>();
     for (const snapshot of quota.latest) {
-      const existing = windowsByType.get(snapshot.windowType);
+      const key = snapshot.description
+        ? `${snapshot.windowType}:${snapshot.description}`
+        : snapshot.windowType;
+      const existing = windowsByType.get(key);
       if (!existing || snapshot.checkedAt > existing.checkedAt) {
-        windowsByType.set(snapshot.windowType, snapshot);
+        windowsByType.set(key, snapshot);
       }
     }
 
@@ -207,6 +214,8 @@ export const Quotas = () => {
         baseType = 'wisdomgate';
       } else if (baseType.includes('gemini-cli') || baseType.includes('gemini')) {
         baseType = 'gemini-cli';
+      } else if (baseType.includes('antigravity')) {
+        baseType = 'antigravity';
       }
 
       if (!groups[baseType]) {
@@ -340,6 +349,10 @@ export const Quotas = () => {
 
     if (checkerIdentifier.includes('gemini-cli') || checkerIdentifier.includes('gemini')) {
       return wrapper(<GeminiCliQuotaDisplay result={result} isCollapsed={false} />);
+    }
+
+    if (checkerIdentifier.includes('antigravity')) {
+      return wrapper(<AntigravityQuotaDisplay result={result} isCollapsed={false} />);
     }
 
     // Fallback: generic display
