@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.18.8 - 2026-03-07
+
+### Configurable Live Window Period with Performance Optimizations
+
+## New Features
+
+- **Configurable Live Window Period**: Implemented support for configurable live window periods, including performance optimizations ([68ab9de](https://github.com/mcowger/plexus/commit/68ab9de)). Added configuration UI integration to the LiveTab and Dashboard components ([50994cf](https://github.com/mcowger/plexus/commit/50994cf)).
+
+The Docker image has been updated and can be found at `ghcr.io/mcowger/plexus:latest`.
+
 ## v0.18.7 - 2026-03-07
 
 ### Cache Write Cost Tracking and Configuration UI Enhancements
