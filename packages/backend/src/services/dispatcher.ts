@@ -1024,51 +1024,32 @@ export class Dispatcher {
   ): Promise<
     { ok: true; stream: ReadableStream<any> } | { ok: false; error: Error; streamStarted: boolean }
   > {
+    // Wait for the first event with no timeout. The pi-ai SDK retries HTTP 429s
+    // internally with exponential backoff (1 s, 2 s, 4 s …), so a quota-exhausted
+    // account can take up to ~9 s before it closes the stream with zero events.
+    // Using a short timeout caused the probe to declare "ok" too early, passing
+    // an empty stream to the client with no chance for the dispatcher to retry
+    // a different account/provider.  Waiting for the first real event means:
+    //   - Empty stream (quota exhausted) → first.done === true → ok: false → dispatcher retries
+    //   - Error event → ok: false → dispatcher retries
+    //   - Real event → replay it and stream the rest → ok: true
     const reader = stream.getReader();
 
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeoutPromise = new Promise<{ timeout: true }>((resolve) => {
-      timeoutId = setTimeout(() => resolve({ timeout: true }), 100);
-    });
-
     try {
-      const readResult = await Promise.race([reader.read(), timeoutPromise]);
+      const first = await reader.read();
 
-      if ((readResult as any).timeout) {
-        const passthrough = new ReadableStream<any>({
-          async pull(controller) {
-            try {
-              const next = await reader.read();
-              if (next.done) {
-                controller.close();
-              } else {
-                controller.enqueue(next.value);
-              }
-            } catch (error) {
-              controller.error(error);
-            }
-          },
-          cancel(reason) {
-            return reader.cancel(reason);
-          },
-        });
-
-        return { ok: true, stream: passthrough };
-      }
-
-      const first = readResult as ReadableStreamReadResult<any>;
       if (first.done) {
+        // Stream closed without emitting any events — quota exhausted.
+        reader.releaseLock();
         return {
-          ok: true,
-          stream: new ReadableStream<any>({
-            start(controller) {
-              controller.close();
-            },
-          }),
+          ok: false,
+          error: new Error('OAuth provider returned empty stream (quota exhausted)'),
+          streamStarted: false,
         };
       }
 
       if (first.value?.type === 'error' || first.value?.reason === 'error') {
+        reader.releaseLock();
         return {
           ok: false,
           error: this.buildOAuthStreamEventError(first.value),
@@ -1076,6 +1057,8 @@ export class Dispatcher {
         };
       }
 
+      // First real event received — replay it then stream the rest.
+      // The replay stream takes ownership of the reader; do NOT releaseLock here.
       const replay = new ReadableStream<any>({
         start(controller) {
           controller.enqueue(first.value);
@@ -1099,13 +1082,14 @@ export class Dispatcher {
 
       return { ok: true, stream: replay };
     } catch (error: any) {
+      try {
+        reader.releaseLock();
+      } catch {}
       return {
         ok: false,
         error: error instanceof Error ? error : new Error(String(error)),
         streamStarted: false,
       };
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
     }
   }
 
@@ -1150,6 +1134,115 @@ export class Dispatcher {
       async cancel(reason) {
         closed = true;
         await iterator.return?.(reason);
+      },
+    });
+  }
+
+  /**
+   * Wraps an OAuth pi-ai ReadableStream with a transparent monitor that detects
+   * error events and triggers a provider cooldown asynchronously.
+   *
+   * This is needed because pi-ai retries HTTP 429s internally with exponential
+   * backoff (delays of 1 s, 2 s, 4 s …), so the final error event may arrive
+   * many seconds after the 100 ms probe timeout has already declared the stream
+   * healthy.  Without this wrapper the cooldown is never triggered and the
+   * exhausted provider keeps receiving traffic.
+   */
+  private monitorOAuthStreamForErrors(
+    stream: ReadableStream<any>,
+    route: RouteResult
+  ): ReadableStream<any> {
+    const dispatcher = this;
+    let readerRef: ReadableStreamDefaultReader<any> | null = null;
+
+    return new ReadableStream<any>({
+      async start(controller) {
+        readerRef = stream.getReader();
+        let eventsEmitted = 0;
+
+        try {
+          while (true) {
+            const { value, done } = await readerRef.read();
+            if (done) {
+              // If the stream closed without emitting any events, the upstream
+              // provider silently exhausted quota (pi-ai retries 429s internally
+              // with exponential backoff and then just closes the stream — no
+              // error event is emitted).  Treat this as a provider failure so
+              // that a cooldown is triggered and the account is not hammered.
+              if (eventsEmitted === 0) {
+                logger.warn(
+                  `OAuth: Stream closed with 0 events for ${route.provider}/${route.model} — ` +
+                    `treating as quota exhaustion and triggering cooldown`
+                );
+
+                const syntheticError = new Error(
+                  'OAuth provider returned empty stream (quota exhausted)'
+                ) as Error & {
+                  piAiResponse?: unknown;
+                };
+                syntheticError.piAiResponse = {
+                  stopReason: 'error',
+                  errorMessage: 'quota exhausted',
+                };
+
+                const wrappedError = dispatcher.wrapOAuthError(
+                  syntheticError,
+                  route,
+                  'oauth'
+                ) as any;
+
+                dispatcher.markOAuthProviderFailure(route, wrappedError).catch((e) => {
+                  logger.error('OAuth: Failed to mark provider failure from empty stream', e);
+                });
+              }
+
+              controller.close();
+              break;
+            }
+
+            // Detect pi-ai error events and trigger cooldown asynchronously.
+            // The event shape is: { type: "error", reason: "error"|"aborted", error: AssistantMessage }
+            if (value?.type === 'error') {
+              const errorMessage =
+                value?.error?.errorMessage ||
+                value?.errorMessage ||
+                value?.error?.message ||
+                value?.message ||
+                'OAuth provider error';
+
+              logger.warn(
+                `OAuth: Stream error event detected for ${route.provider}/${route.model}: ${errorMessage}`
+              );
+
+              // Build a synthetic error so wrapOAuthError can determine if this
+              // is a quota exhaustion, compute cooldown duration, etc.
+              const syntheticError = new Error(errorMessage) as Error & {
+                piAiResponse?: unknown;
+              };
+              syntheticError.piAiResponse = value;
+
+              const wrappedError = dispatcher.wrapOAuthError(syntheticError, route, 'oauth') as any;
+
+              // Trigger cooldown without awaiting so the stream is not blocked.
+              dispatcher.markOAuthProviderFailure(route, wrappedError).catch((e) => {
+                logger.error('OAuth: Failed to mark provider failure from stream error', e);
+              });
+            }
+
+            eventsEmitted++;
+            controller.enqueue(value);
+          }
+        } catch (error) {
+          controller.error(error);
+        } finally {
+          readerRef.releaseLock();
+          readerRef = null;
+        }
+      },
+      cancel(reason) {
+        if (readerRef) {
+          readerRef.cancel(reason).catch(() => {});
+        }
       },
     });
   }
@@ -1211,11 +1304,19 @@ export class Dispatcher {
         }
 
         logger.debug('OAuth: Normalized stream result', this.describeStreamResult(result));
+
+        // Wrap the probed stream with an error monitor so that quota/error events
+        // arriving AFTER the 100ms probe timeout still trigger a cooldown.  This
+        // is necessary because pi-ai retries HTTP 429s with exponential backoff
+        // (1 s, 2 s, 4 s) before emitting the final error event, which takes far
+        // longer than the probe's 100 ms window.
+        const monitoredStream = this.monitorOAuthStreamForErrors(streamProbe.stream, route);
+
         const streamResponse: UnifiedChatResponse = {
           id: 'stream-' + Date.now(),
           model: request.model,
           content: null,
-          stream: streamProbe.stream,
+          stream: monitoredStream,
           bypassTransformation: false,
         };
 
