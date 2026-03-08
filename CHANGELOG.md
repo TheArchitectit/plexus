@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.18.9 - 2026-03-08
+
+### Custom Date Range Filtering and Build Path Configuration
+
+## New Features
+
+- **Custom Date Range Selection**: Implemented custom date range filtering capabilities in the UsageTab component and associated UI elements, allowing users to analyze usage data across specific time periods ([af226da](https://github.com/mcowger/plexus/commit/af226da)).
+
+## Infrastructure & Build Configuration
+
+- **Public Path Configuration**: Added `publicPath` configuration to the build process, enabling deployment flexibility for various hosting environments and CDN configurations ([9034c38](https://github.com/mcowger/plexus/commit/9034c38)).
+
+---
+
+The Docker image for this release has been updated and is available at `ghcr.io/mcowger/plexus:latest`.
+
 ## v0.18.8 - 2026-03-07
 
 ### Configurable Live Window Period with Performance Optimizations
