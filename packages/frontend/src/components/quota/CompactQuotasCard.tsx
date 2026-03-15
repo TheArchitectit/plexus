@@ -154,7 +154,7 @@ const getTrackedWindowsForChecker = (category: string, windows: any[]): string[]
     case 'zai':
       return ['five_hour', 'monthly'].filter((t) => availableTypes.has(t));
     case 'nanogpt':
-      return ['daily', 'monthly'].filter((t) => availableTypes.has(t));
+      return ['weekly', 'monthly'].filter((t) => availableTypes.has(t));
     case 'naga':
       return Array.from(availableTypes)
         .filter((t) => t !== 'subscription')
