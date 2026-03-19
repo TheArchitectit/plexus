@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.19.4 - 2026-03-19
+
+### Provider Quota Tracking and novita.ai Integration
+
+## New Features
+
+- **Provider Quota Column**: Added a quota column to the provider list view, enabling users to see quota information at a glance ([d28eb27](https://github.com/mcowger/plexus/commit/d28eb27))
+- **novita.ai Quota Checker**: Implemented quota checking support for novita.ai provider, allowing monitoring of quota usage ([2f136ae](https://github.com/mcowger/plexus/commit/2f136ae))
+
+---
+
+The Docker image has been updated and can be found at `ghcr.io/mcowger/plexus:latest`
+
 ## v0.19.3 - 2026-03-19
 
 ### Path parameter encoding fixes for provider and model alias endpoints
