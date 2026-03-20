@@ -7,6 +7,38 @@ import { QUOTA_ERROR_PATTERNS } from '../../utils/constants';
 import { Router } from '../router';
 import { TransformerFactory } from '../transformer-factory';
 
+mock.module('@mariozechner/pi-ai', () => ({
+  getModels: (provider: string) => {
+    if (provider === 'unknown-provider') {
+      return [];
+    }
+    return [
+      { id: 'claude-opus-4', name: 'Claude Opus 4', contextWindow: 200000, provider: 'anthropic' },
+      {
+        id: 'claude-sonnet-4',
+        name: 'Claude Sonnet 4',
+        contextWindow: 200000,
+        provider: 'anthropic',
+      },
+      { id: 'gpt-5.4', name: 'GPT-5.4', contextWindow: 128000, provider: 'openai-codex' },
+    ];
+  },
+  getModel: (provider: string, modelId: string) => ({
+    id: modelId,
+    name: modelId,
+    contextWindow: 200000,
+    provider,
+  }),
+  complete: async () => ({
+    content: [{ type: 'text', text: 'ok' }],
+    stopReason: 'stop',
+    usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0 },
+    provider: 'anthropic',
+    model: 'claude-test',
+  }),
+  stream: async () => ({ ok: true }),
+}));
+
 const fetchMock: any = mock(async (): Promise<any> => {
   throw new Error('fetch mock not configured for test');
 });
