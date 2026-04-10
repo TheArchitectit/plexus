@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { registerSpy } from '../../../test/test-utils';
 import { PassThrough } from 'stream';
 import { UsageInspector } from '../inspectors/usage-logging';
 import { DebugManager } from '../debug-manager';
@@ -47,7 +48,7 @@ describe('UsageInspector Metadata Robustness', () => {
     dm.addReconstructedRawResponse(requestId, snapshot);
 
     let capturedRecord: UsageRecord | null = null;
-    spyOn(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
+    registerSpy(mockStorage, 'saveRequest').mockImplementation(async (record: UsageRecord) => {
       capturedRecord = record;
       return Promise.resolve();
     });
@@ -141,7 +142,7 @@ describe('UsageInspector Metadata Robustness', () => {
     dm.addReconstructedRawResponse(requestId, snapshot);
 
     let capturedRecord: any = null;
-    spyOn(mockStorage, 'saveRequest').mockImplementation(async (record: any) => {
+    registerSpy(mockStorage, 'saveRequest').mockImplementation(async (record: any) => {
       capturedRecord = record;
       return Promise.resolve();
     });

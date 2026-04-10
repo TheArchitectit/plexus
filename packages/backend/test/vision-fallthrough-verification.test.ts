@@ -1,4 +1,5 @@
-import { expect, test, describe, spyOn, afterEach } from 'bun:test';
+import { expect, test, describe, afterEach } from 'bun:test';
+import { registerSpy } from './test-utils';
 import { VisionDescriptorService } from '../src/services/vision-descriptor-service';
 import { UnifiedMessage, UnifiedChatRequest, TextContent } from '../src/types/unified';
 
@@ -52,7 +53,7 @@ describe('VisionDescriptorService Detailed Verification', () => {
     };
 
     // Mock describeImage to avoid Dispatcher dependency in this unit test
-    spyOn(VisionDescriptorService as any, 'describeImage').mockResolvedValue(
+    registerSpy(VisionDescriptorService as any, 'describeImage').mockResolvedValue(
       'This is a description of an image.'
     );
 

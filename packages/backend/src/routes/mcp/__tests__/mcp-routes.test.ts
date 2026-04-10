@@ -1,4 +1,5 @@
-import { describe, expect, test, mock, beforeAll, spyOn } from 'bun:test';
+import { describe, expect, test, mock, beforeAll } from 'bun:test';
+import { registerSpy } from '../../../../test/test-utils';
 import Fastify, { FastifyInstance } from 'fastify';
 import { setConfigForTesting } from '../../../config';
 import { registerMcpRoutes } from '../index';
@@ -27,7 +28,7 @@ describe('MCP Routes', () => {
     }));
 
     // Spy on the module and replace the function
-    spyOn(mcpProxyService, 'proxyMcpRequest').mockImplementation(mockProxyMcpRequest);
+    registerSpy(mcpProxyService, 'proxyMcpRequest').mockImplementation(mockProxyMcpRequest);
 
     // Set config with keys and MCP servers
     setConfigForTesting({

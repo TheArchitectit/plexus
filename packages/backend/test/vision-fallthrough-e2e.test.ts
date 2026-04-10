@@ -1,4 +1,5 @@
-import { expect, test, describe, beforeEach, afterEach, spyOn, mock } from 'bun:test';
+import { expect, test, describe, beforeEach, afterEach, mock } from 'bun:test';
+import { registerSpy } from './test-utils';
 import { Dispatcher } from '../src/services/dispatcher';
 import { VisionDescriptorService } from '../src/services/vision-descriptor-service';
 import { Router } from '../src/services/router';
@@ -45,7 +46,7 @@ describe('Vision Fallthrough E2E', () => {
     configModule.setConfigForTesting(mockConfig as any);
 
     // 2. Mock VisionDescriptorService.process to return a modified request
-    const processSpy = spyOn(VisionDescriptorService, 'process').mockImplementation(async (req) => {
+    const processSpy = registerSpy(VisionDescriptorService, 'process').mockImplementation(async (req) => {
       return {
         ...req,
         messages: [
@@ -55,7 +56,7 @@ describe('Vision Fallthrough E2E', () => {
     });
 
     // 3. Mock Router.resolveCandidates to return a valid candidate with the modelConfig
-    spyOn(Router, 'resolveCandidates').mockResolvedValue([
+    registerSpy(Router, 'resolveCandidates').mockResolvedValue([
       {
         provider: 'test-provider',
         model: 'text-model',
@@ -68,13 +69,13 @@ describe('Vision Fallthrough E2E', () => {
 
     // 4. Mock Dispatcher internal methods to prevent actual network calls
     const dispatcher = new Dispatcher();
-    spyOn(dispatcher as any, 'selectTargetApiType').mockReturnValue({
+    registerSpy(dispatcher as any, 'selectTargetApiType').mockReturnValue({
       targetApiType: 'chat',
       selectionReason: 'test',
     });
 
     // Mock the actual execution to return success
-    spyOn(dispatcher as any, 'executeProviderRequest').mockImplementation(async () => {
+    registerSpy(dispatcher as any, 'executeProviderRequest').mockImplementation(async () => {
       return {
         ok: true,
         json: async () => ({ choices: [{ message: { content: 'I see the description.' } }] }),

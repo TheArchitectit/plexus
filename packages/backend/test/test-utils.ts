@@ -1,3 +1,4 @@
+// biome-ignore lint/style/noRestrictedImports: internal implementation of registerSpy
 import { spyOn, afterEach, type SpyInstance, type MockInstance } from 'bun:test';
 
 /**
@@ -93,4 +94,4 @@ export function createTrackedMock<T extends (...args: any[]) => any>(
 }
 
 // Re-export common test utilities for convenience
-export { describe, test, expect, beforeEach, afterEach, spyOn, mock } from 'bun:test';
+export { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';

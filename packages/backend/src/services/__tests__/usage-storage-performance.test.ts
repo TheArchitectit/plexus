@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { registerSpy } from '../../../test/test-utils';
 import { UsageStorageService } from '../usage-storage';
 import { closeDatabase, getDatabase, getSchema, initializeDatabase } from '../../db/client';
 import { runMigrations } from '../../db/migrate';
@@ -364,12 +365,12 @@ describe('UsageStorageService performance metrics', () => {
     const storage = new UsageStorageService();
     const calls: string[] = [];
 
-    spyOn(storage, 'emitStarted').mockImplementation(async () => {
+    registerSpy(storage, 'emitStarted').mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 40));
       calls.push('started');
     });
 
-    spyOn(storage, 'emitUpdated').mockImplementation(async () => {
+    registerSpy(storage, 'emitUpdated').mockImplementation(async () => {
       calls.push('updated');
     });
 

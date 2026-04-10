@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, spyOn, mock } from 'bun:test';
+import { describe, expect, test, beforeEach, mock } from 'bun:test';
 import { Dispatcher } from '../dispatcher';
 import { setConfigForTesting } from '../../config';
 import { UnifiedChatRequest } from '../../types/unified';

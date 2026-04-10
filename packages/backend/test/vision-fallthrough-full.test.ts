@@ -1,4 +1,5 @@
-import { expect, test, describe, spyOn, afterEach } from 'bun:test';
+import { expect, test, describe, afterEach } from 'bun:test';
+import { registerSpy } from './test-utils';
 import { Dispatcher } from '../src/services/dispatcher';
 import { VisionDescriptorService } from '../src/services/vision-descriptor-service';
 import * as configModule from '../src/config';
@@ -33,10 +34,10 @@ describe('Vision Fallthrough Full Logic', () => {
       cooldown: { initialMinutes: 1, maxMinutes: 5 },
     };
 
-    spyOn(configModule, 'getConfig').mockReturnValue(mockConfig as any);
+    registerSpy(configModule, 'getConfig').mockReturnValue(mockConfig as any);
 
     // Track if process was called
-    spyOn(VisionDescriptorService, 'process').mockImplementation(async (req) => {
+    registerSpy(VisionDescriptorService, 'process').mockImplementation(async (req) => {
       return {
         ...req,
         messages: [{ role: 'user', content: 'Description' }],
@@ -44,11 +45,11 @@ describe('Vision Fallthrough Full Logic', () => {
     });
 
     const dispatcher = new Dispatcher();
-    spyOn(dispatcher as any, 'selectTargetApiType').mockReturnValue({
+    registerSpy(dispatcher as any, 'selectTargetApiType').mockReturnValue({
       targetApiType: 'chat',
       selectionReason: 'test',
     });
-    spyOn(dispatcher as any, 'executeProviderRequest').mockImplementation(async () => ({
+    registerSpy(dispatcher as any, 'executeProviderRequest').mockImplementation(async () => ({
       ok: true,
       json: async () => ({}),
       text: async () => '{}',

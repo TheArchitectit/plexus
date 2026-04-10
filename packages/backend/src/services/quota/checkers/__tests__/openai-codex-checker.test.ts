@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { registerSpy } from '../../../../../test/test-utils';
 import type { QuotaCheckerConfig } from '../../../../types/quota';
 import { OpenAICodexQuotaChecker } from '../openai-codex-checker';
 import { QuotaCheckerFactory } from '../../quota-checker-factory';
@@ -234,7 +235,7 @@ describe('OpenAICodexQuotaChecker', () => {
     });
 
     const authManager = OAuthAuthManager.getInstance();
-    spyOn(authManager, 'getApiKey').mockResolvedValue(token);
+    registerSpy(authManager, 'getApiKey').mockResolvedValue(token);
 
     setFetchMock(
       async () =>

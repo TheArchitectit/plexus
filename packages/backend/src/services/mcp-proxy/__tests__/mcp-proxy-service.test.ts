@@ -1,4 +1,4 @@
-import { describe, expect, test, mock, beforeEach, spyOn } from 'bun:test';
+import { describe, expect, test, mock, beforeEach } from 'bun:test';
 import {
   getMcpServerConfig,
   validateServerName,

@@ -1,4 +1,5 @@
-import { describe, expect, test, beforeEach, spyOn, mock } from 'bun:test';
+import { describe, expect, test, beforeEach, mock } from 'bun:test';
+import { registerSpy } from '../../../test/test-utils';
 import { Dispatcher } from '../dispatcher';
 import { DebugManager } from '../debug-manager';
 import { setConfigForTesting } from '../../config';
@@ -15,7 +16,7 @@ describe('Dispatcher Error Logging', () => {
     debugManager.pendingLogs.clear();
 
     // Spy on DebugManager.addRawResponse
-    addRawResponseSpy = spyOn(debugManager, 'addRawResponse');
+    addRawResponseSpy = registerSpy(debugManager, 'addRawResponse');
   });
 
   test('Captures error response in debug log when upstream fails', async () => {

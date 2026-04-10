@@ -1,4 +1,5 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from 'bun:test';
+import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
+import { registerSpy } from '../../../test/test-utils';
 import { Router } from '../router';
 import { setConfigForTesting } from '../../config';
 import { CooldownManager } from '../cooldown-manager';
@@ -156,7 +157,7 @@ describe('Router.resolveCandidates', () => {
   const cooldownManager = CooldownManager.getInstance();
 
   afterEach(() => {
-    spyOn(cooldownManager, 'filterHealthyTargets').mockRestore();
+    registerSpy(cooldownManager, 'filterHealthyTargets').mockRestore();
   });
 
   test('returns empty array when model alias does not exist', async () => {
@@ -254,7 +255,7 @@ describe('Router.resolveCandidates', () => {
       keys: {},
     } as any);
 
-    spyOn(cooldownManager, 'filterHealthyTargets').mockResolvedValue([]);
+    registerSpy(cooldownManager, 'filterHealthyTargets').mockResolvedValue([]);
 
     const result = await Router.resolveCandidates('cooldown-model');
     expect(result).toEqual([]);
@@ -297,7 +298,7 @@ describe('Router.resolveCandidates', () => {
     } as any);
 
     // Simulate p1 being unhealthy after disabled filtering
-    spyOn(cooldownManager, 'filterHealthyTargets').mockResolvedValue([
+    registerSpy(cooldownManager, 'filterHealthyTargets').mockResolvedValue([
       { provider: 'p3', model: 'm3' },
     ] as any);
 

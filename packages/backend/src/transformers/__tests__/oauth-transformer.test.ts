@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { registerSpy } from '../../../test/test-utils';
 import * as actualPiAi from '@mariozechner/pi-ai';
 import { OAuthAuthManager } from '../../services/oauth-auth-manager';
 
@@ -23,7 +24,7 @@ describe('OAuthTransformer', () => {
 
   test('skips proxy renaming for claude code agent headers', async () => {
     const authManager = OAuthAuthManager.getInstance();
-    spyOn(authManager, 'getApiKey').mockResolvedValue('sk-ant-oat-test');
+    registerSpy(authManager, 'getApiKey').mockResolvedValue('sk-ant-oat-test');
 
     const transformer = new OAuthTransformer();
     const context = {
@@ -47,7 +48,7 @@ describe('OAuthTransformer', () => {
 
   test('proxies tool names for non-claude code agents', async () => {
     const authManager = OAuthAuthManager.getInstance();
-    spyOn(authManager, 'getApiKey').mockResolvedValue('sk-ant-oat-test');
+    registerSpy(authManager, 'getApiKey').mockResolvedValue('sk-ant-oat-test');
 
     const transformer = new OAuthTransformer();
     const context = {
@@ -69,7 +70,7 @@ describe('OAuthTransformer', () => {
 
   test('uses direct API key for claude masking without OAuth auth manager', async () => {
     const authManager = OAuthAuthManager.getInstance();
-    const getApiKeySpy = spyOn(authManager, 'getApiKey');
+    const getApiKeySpy = registerSpy(authManager, 'getApiKey');
 
     const transformer = new OAuthTransformer();
     const context = {

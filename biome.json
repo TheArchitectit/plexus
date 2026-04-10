@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
   "files": {
     "includes": [
       "**",
@@ -35,7 +35,23 @@
     }
   },
   "linter": {
-    "enabled": false
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "bun:test": {
+                "importNames": ["spyOn"],
+                "message": "Use registerSpy instead of spyOn"
+              }
+            }
+          }
+        }
+      }
+    }
   },
   "assist": {
     "enabled": false
