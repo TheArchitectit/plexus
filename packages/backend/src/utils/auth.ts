@@ -2,6 +2,38 @@ import { FastifyRequest } from 'fastify';
 import { getConfig } from '../config';
 import { logger } from './logger';
 
+export function attachKeyAccessPolicy<T extends { metadata?: Record<string, any> }>(
+  request: FastifyRequest,
+  unifiedRequest: T
+): T {
+  const keyConfig = (request as any).keyConfig as
+    | {
+        allowedModels?: string[];
+        allowedProviders?: string[];
+      }
+    | undefined;
+
+  const allowedModels = keyConfig?.allowedModels?.map((entry) => entry.trim()).filter(Boolean);
+  const allowedProviders = keyConfig?.allowedProviders
+    ?.map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if ((!allowedModels || allowedModels.length === 0) && (!allowedProviders || allowedProviders.length === 0)) {
+    return unifiedRequest;
+  }
+
+  return {
+    ...unifiedRequest,
+    metadata: {
+      ...(unifiedRequest.metadata || {}),
+      plexus_key_policy: {
+        ...(allowedModels && allowedModels.length > 0 ? { allowedModels } : {}),
+        ...(allowedProviders && allowedProviders.length > 0 ? { allowedProviders } : {}),
+      },
+    },
+  };
+}
+
 export function createAuthHook() {
   return {
     onRequest: async (request: FastifyRequest) => {
@@ -69,6 +101,7 @@ export function createAuthHook() {
           logger.silly(`[AUTH] Auth SUCCESS for key: ${entry[0]}`);
           req.keyName = entry[0];
           req.attribution = attributionPart;
+          req.keyConfig = entry[1];
           return true;
         }
 
