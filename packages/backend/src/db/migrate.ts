@@ -236,17 +236,21 @@ export async function runMigrations() {
     logger.info(`Running ${dialect} migrations...`);
 
     if (dialect === 'sqlite') {
-      const migrations = await buildMigrations(sqliteJournal as Journal, DEV_MIGRATIONS_DIR.sqlite);
+      // In dev/source mode, re-read the journal from disk so that migrations
+      // generated at runtime (e.g. by drizzle-kit generate in test setup) are
+      // included. In compiled binaries, the static import is authoritative.
+      const journal =
+        embedded.size > 0
+          ? (sqliteJournal as Journal)
+          : (JSON.parse(
+              await Bun.file(path.join(DEV_MIGRATIONS_DIR.sqlite, 'meta', '_journal.json')).text()
+            ) as Journal);
+      const migrations = await buildMigrations(journal, DEV_MIGRATIONS_DIR.sqlite);
       try {
         (db as any).dialect.migrate(migrations, (db as any).session, { migrationsFolder: '' });
       } catch (error: any) {
         if (isSQLiteAlreadyExistsError(error)) {
-          const repaired = attemptSQLiteAlreadyExistsRepair(
-            db,
-            migrations,
-            sqliteJournal as Journal,
-            error
-          );
+          const repaired = attemptSQLiteAlreadyExistsRepair(db, migrations, journal, error);
           if (repaired) {
             logger.warn('Retrying SQLite migrations after already-exists repair');
             (db as any).dialect.migrate(migrations, (db as any).session, { migrationsFolder: '' });
@@ -258,7 +262,13 @@ export async function runMigrations() {
         }
       }
     } else {
-      const migrations = await buildMigrations(pgJournal as Journal, DEV_MIGRATIONS_DIR.postgres);
+      const journal =
+        embedded.size > 0
+          ? (pgJournal as Journal)
+          : (JSON.parse(
+              await Bun.file(path.join(DEV_MIGRATIONS_DIR.postgres, 'meta', '_journal.json')).text()
+            ) as Journal);
+      const migrations = await buildMigrations(journal, DEV_MIGRATIONS_DIR.postgres);
       try {
         await (db as any).dialect.migrate(migrations, (db as any).session, {
           migrationsFolder: '',
@@ -270,7 +280,7 @@ export async function runMigrations() {
           const repaired = await attemptPostgresDuplicateColumnRepair(
             db,
             migrations,
-            pgJournal as Journal,
+            journal,
             error
           );
           if (repaired) {
