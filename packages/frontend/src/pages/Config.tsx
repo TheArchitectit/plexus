@@ -11,10 +11,7 @@ import {
   Archive,
   Shield,
   Save,
-  Timer,
-  Compass,
   Radar,
-  Activity,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { formatMinutesToMinSec } from '@plexus/shared';
@@ -174,7 +171,7 @@ export const Config = () => {
   const [timeoutDefaultInput, setTimeoutDefaultInput] = useState('');
 
   // Stall detection settings state
-  const [stallConfig, setStallConfig] = useState<StallConfig>(DEFAULT_STALL_CONFIG);
+  const [_stallConfig, setStallConfig] = useState<StallConfig>(DEFAULT_STALL_CONFIG);
   const [stallLoaded, setStallLoaded] = useState(false);
   const [stallSaving, setStallSaving] = useState(false);
   const [stallTtfbInput, setStallTtfbInput] = useState('');
@@ -782,794 +779,707 @@ export const Config = () => {
   };
 
   return (
-    <PageContainer>
+    <div className="flex flex-col min-h-full">
       <PageHeader
         title="Configuration"
         subtitle="View current system configuration (read-only). Use the Providers, Models, and Keys pages to make changes."
       />
 
-      <div className="flex flex-col gap-6">
-        <Card
-          title="Configuration Export"
-          flush
-          extra={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={loadConfig}
-                leftIcon={<RotateCcw size={14} />}
-              >
-                Refresh
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleRestart}
-                isLoading={isRestarting}
-                leftIcon={<RefreshCw size={14} />}
-              >
-                Restart
-              </Button>
+      <PageContainer>
+        <div className="flex flex-col gap-6">
+          {/* ─── Failover Settings ──────────────────────────────────── */}
+          <Disclosure
+            title="Failover Settings"
+            defaultOpen={false}
+            extra={
               <Button
                 variant="primary"
                 size="sm"
-                onClick={handleExportConfig}
-                disabled={!isConfigLoaded}
-                leftIcon={<Download size={14} />}
+                onClick={handleSaveFailover}
+                isLoading={failoverSaving}
+                disabled={!failoverLoaded}
+                leftIcon={<Save size={14} />}
               >
-                Export JSON
+                Save
               </Button>
-            </div>
-          }
-        >
-          <div className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-sm overflow-hidden">
-            <EditorErrorBoundary>
-              <Editor
-                height="100%"
-                defaultLanguage="json"
-                value={config}
-                theme="vs-dark"
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  fontSize: 13,
-                  fontFamily: '"Fira Code", "Fira Mono", monospace',
-                }}
-              />
-            </EditorErrorBoundary>
-          </div>
-        </Card>
-
-        {/* ─── Failover Settings ──────────────────────────────────── */}
-        <Disclosure
-          title="Failover Settings"
-          defaultOpen={false}
-          extra={
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSaveFailover}
-              isLoading={failoverSaving}
-              disabled={!failoverLoaded}
-              leftIcon={<Save size={14} />}
-            >
-              Save
-            </Button>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            {/* Enabled toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Shield size={16} className="text-primary" />
-                <div>
-                  <p className="font-body text-[12px] font-medium text-text">Enable Failover</p>
-                  <p className="font-body text-[11px] text-text-muted">
-                    When enabled, failed requests are automatically retried on the next available
-                    provider.
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={failoverPolicy.enabled}
-                onChange={(checked) => setFailoverPolicy((prev) => ({ ...prev, enabled: checked }))}
-                aria-label="Toggle failover on/off"
-              />
-            </div>
-
-            {/* Retryable Status Codes */}
-            <div>
-              <label
-                htmlFor="retryableStatusCodes"
-                className="font-body text-[12px] font-medium text-text"
-              >
-                Retryable Status Codes
-              </label>
-              <p className="text-xs text-text-muted mb-2">
-                HTTP status codes that trigger a retry on the next provider. Enter comma-separated
-                values (100–599). Defaults to all non-2xx codes except 413 and 422 when empty.
-              </p>
-              <textarea
-                id="retryableStatusCodes"
-                value={statusCodesText}
-                onChange={(e) => setStatusCodesText(e.target.value)}
-                placeholder="e.g. 429, 500, 502, 503"
-                rows={3}
-                className="w-full py-1 px-2 font-mono text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted resize-y"
-              />
-            </div>
-
-            {/* Retryable Errors */}
-            <div>
-              <label
-                htmlFor="retryableErrors"
-                className="font-body text-[12px] font-medium text-text"
-              >
-                Retryable Network Errors
-              </label>
-              <p className="text-xs text-text-muted mb-2">
-                Network error codes that trigger a retry on the next provider. Enter comma-separated
-                values. Defaults to ECONNREFUSED, ETIMEDOUT, ENOTFOUND when empty.
-              </p>
-              <textarea
-                id="retryableErrors"
-                value={errorsText}
-                onChange={(e) => setErrorsText(e.target.value)}
-                placeholder="e.g. ECONNREFUSED, ETIMEDOUT, ENOTFOUND"
-                rows={2}
-                className="w-full py-1 px-2 font-mono text-[12px] text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted resize-y"
-              />
-            </div>
-          </div>
-        </Disclosure>
-
-        {/* ─── Cooldown Settings ──────────────────────────────────── */}
-        <Disclosure
-          title="Cooldown Settings"
-          defaultOpen={false}
-          extra={
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSaveCooldown}
-              isLoading={cooldownSaving}
-              disabled={!isCooldownValid}
-              leftIcon={<Save size={14} />}
-            >
-              Save
-            </Button>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            {/* Exponential Backoff description */}
-            <div className="flex items-center gap-2">
-              <Timer size={16} className="text-primary" />
-              <div>
-                <p className="font-body text-[12px] font-medium text-text">Exponential Backoff</p>
-                <p className="font-body text-[11px] text-text-muted">
-                  When a provider fails, it is placed on cooldown using exponential backoff:{' '}
-                  <code className="text-text-secondary">C(n) = min(C_max, C₀ × 2ⁿ)</code> where n is
-                  the consecutive failure count.
-                </p>
-              </div>
-            </div>
-
-            {/* Initial + Max in 2-col grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="cooldownInitialMinutes"
-                  className="font-body text-[12px] font-medium text-text"
-                >
-                  Initial Cooldown (min){' '}
-                  <span className="text-text-muted font-normal">— C₀, first failure</span>
-                </label>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {/* Enabled toggle */}
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <input
-                    id="cooldownInitialMinutes"
-                    type="number"
-                    min={0.1}
-                    step={0.1}
-                    value={cooldownInitialInput}
-                    onChange={(e) => setCooldownInitialInput(e.target.value)}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                  />
-                  <span className="text-[11px] text-text-muted tabular-nums whitespace-nowrap">
-                    {initialValidation.valid && initialValidation.value !== undefined
-                      ? formatMinutesToMinSec(initialValidation.value)
-                      : cooldownLoaded
-                        ? formatMinutesToMinSec(cooldownPolicy.initialMinutes)
-                        : '—'}
-                  </span>
+                  <Shield size={16} className="text-primary" />
+                  <div>
+                    <p className="font-body text-[12px] font-medium text-text">Enable Failover</p>
+                    <p className="font-body text-[11px] text-text-muted">
+                      When enabled, failed requests are automatically retried on the next available
+                      provider.
+                    </p>
+                  </div>
                 </div>
-                {!initialValidation.valid && cooldownInitialInput !== '' && (
-                  <span className="text-[11px] text-warning">{initialValidation.error}</span>
-                )}
+                <Switch
+                  checked={failoverPolicy.enabled}
+                  onChange={(checked) =>
+                    setFailoverPolicy((prev) => ({ ...prev, enabled: checked }))
+                  }
+                  aria-label="Toggle failover on/off"
+                />
               </div>
-              <div className="flex flex-col gap-1">
+
+              {/* Retryable Status Codes */}
+              <div>
                 <label
-                  htmlFor="cooldownMaxMinutes"
+                  htmlFor="retryableStatusCodes"
                   className="font-body text-[12px] font-medium text-text"
                 >
-                  Maximum Cooldown (min){' '}
-                  <span className="text-text-muted font-normal">— C_max, upper limit</span>
+                  Retryable Status Codes
                 </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="cooldownMaxMinutes"
-                    type="number"
-                    min={0.1}
-                    step={0.1}
-                    value={cooldownMaxInput}
-                    onChange={(e) => setCooldownMaxInput(e.target.value)}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                  />
-                  <span className="text-[11px] text-text-muted tabular-nums whitespace-nowrap">
-                    {maxValidation.valid && maxValidation.value !== undefined
-                      ? formatMinutesToMinSec(maxValidation.value)
-                      : cooldownLoaded
-                        ? formatMinutesToMinSec(cooldownPolicy.maxMinutes)
-                        : '—'}
-                  </span>
-                </div>
-                {!maxValidation.valid && cooldownMaxInput !== '' && (
-                  <span className="text-[11px] text-warning">{maxValidation.error}</span>
-                )}
+                <p className="text-xs text-text-muted mb-2">
+                  HTTP status codes that trigger a retry on the next provider. Enter comma-separated
+                  values (100–599). Defaults to all non-2xx codes except 413 and 422 when empty.
+                </p>
+                <textarea
+                  id="retryableStatusCodes"
+                  value={statusCodesText}
+                  onChange={(e) => setStatusCodesText(e.target.value)}
+                  placeholder="e.g. 429, 500, 502, 503"
+                  rows={3}
+                  className="w-full py-1 px-2 font-mono text-[12px] text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted resize-y"
+                />
               </div>
-            </div>
-          </div>
-        </Disclosure>
 
-        {/* ─── Timeout Settings ───────────────────────────────────── */}
-        <Disclosure
-          title="Timeout Settings"
-          defaultOpen={false}
-          extra={
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSaveTimeout}
-              isLoading={timeoutSaving}
-              disabled={!isTimeoutValid}
-              leftIcon={<Save size={14} />}
-            >
-              Save
-            </Button>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            {/* Description */}
-            <div className="flex items-start gap-2">
-              <Timer size={16} className="text-primary mt-0.5" />
+              {/* Retryable Errors */}
               <div>
-                <p className="font-body text-[12px] font-medium text-text">
-                  Upstream Request Timeout
+                <label
+                  htmlFor="retryableErrors"
+                  className="font-body text-[12px] font-medium text-text"
+                >
+                  Retryable Network Errors
+                </label>
+                <p className="text-xs text-text-muted mb-2">
+                  Network error codes that trigger a retry on the next provider. Enter
+                  comma-separated values. Defaults to ECONNREFUSED, ETIMEDOUT, ENOTFOUND when empty.
                 </p>
-                <p className="font-body text-[11px] text-text-muted">
-                  The maximum time Plexus waits for an upstream provider to respond before aborting
-                  the request. Can be overridden per-provider in the provider's advanced settings.
-                </p>
+                <textarea
+                  id="retryableErrors"
+                  value={errorsText}
+                  onChange={(e) => setErrorsText(e.target.value)}
+                  placeholder="e.g. ECONNREFUSED, ETIMEDOUT, ENOTFOUND"
+                  rows={2}
+                  className="w-full py-1 px-2 font-mono text-[12px] text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted resize-y"
+                />
               </div>
             </div>
+          </Disclosure>
 
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="timeoutDefaultSeconds"
-                className="font-body text-[12px] font-medium text-text"
+          {/* ─── Cooldown Settings ──────────────────────────────────── */}
+          <Disclosure
+            title="Cooldown Settings"
+            defaultOpen={false}
+            extra={
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveCooldown}
+                isLoading={cooldownSaving}
+                disabled={!isCooldownValid}
+                leftIcon={<Save size={14} />}
               >
-                Default Timeout (seconds){' '}
-                <span className="text-text-muted font-normal">— global default, 1–3600s</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="timeoutDefaultSeconds"
-                  type="number"
-                  min={1}
-                  max={3600}
-                  step={1}
-                  value={timeoutDefaultInput}
-                  onChange={(e) => setTimeoutDefaultInput(e.target.value)}
-                  className="w-48 h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                />
-                <span className="text-[11px] text-text-muted tabular-nums">
-                  {timeoutDefaultValidation.valid && timeoutDefaultValidation.value !== undefined
-                    ? timeoutDefaultValidation.value >= 60
-                      ? `${Math.floor(timeoutDefaultValidation.value / 60)}m ${timeoutDefaultValidation.value % 60}s`
-                      : `${timeoutDefaultValidation.value}s`
-                    : timeoutLoaded
-                      ? timeoutConfig.defaultSeconds >= 60
-                        ? `${Math.floor(timeoutConfig.defaultSeconds / 60)}m ${timeoutConfig.defaultSeconds % 60}s`
-                        : `${timeoutConfig.defaultSeconds}s`
-                      : '—'}
-                </span>
-              </div>
-              {!timeoutDefaultValidation.valid && timeoutDefaultInput !== '' && (
-                <span className="text-[11px] text-warning">{timeoutDefaultValidation.error}</span>
-              )}
-            </div>
-          </div>
-        </Disclosure>
-
-        {/* ─── Stall Detection Settings ────────────────────────────── */}
-        <Disclosure
-          title="Stall Detection"
-          defaultOpen={false}
-          extra={
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSaveStall}
-              isLoading={stallSaving}
-              disabled={!isStallValid}
-              leftIcon={<Save size={14} />}
-            >
-              Save
-            </Button>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            {/* Description */}
-            <div className="flex items-start gap-2">
-              <Activity size={16} className="text-primary mt-0.5" />
-              <div>
-                <p className="font-body text-[12px] font-medium text-text">
-                  Stream Stall Detection
-                </p>
-                <p className="font-body text-[11px] text-text-muted">
-                  Detect when an upstream provider is taking too long to start responding (TTFB
-                  stall) or is producing data too slowly (throughput stall). When a stall is
-                  detected, the request is aborted so the client can retry with a different
-                  provider. Leave TTFB seconds and min bytes/sec empty to disable each dimension
-                  independently.
-                </p>
-                {stallLoaded && (
-                  <p className="text-xs text-text-muted mt-1">
-                    Status:{' '}
-                    {stallConfig.ttfbSeconds != null || stallConfig.minBytesPerSecond != null
-                      ? 'Enabled'
-                      : 'Disabled (no thresholds set)'}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="stallTtfbSeconds"
-                  className="font-body text-[12px] font-medium text-text"
-                >
-                  TTFB Timeout (s){' '}
-                  <span className="text-text-muted font-normal">— 5–120, empty = off</span>
-                </label>
-                <input
-                  id="stallTtfbSeconds"
-                  type="number"
-                  min={5}
-                  max={120}
-                  step={1}
-                  placeholder="Disabled"
-                  value={stallTtfbInput}
-                  onChange={(e) => setStallTtfbInput(e.target.value)}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                />
-                {!stallTtfbValidation.valid && stallTtfbInput !== '' && (
-                  <span className="text-[11px] text-warning">{stallTtfbValidation.error}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="stallTtfbBytes"
-                  className="font-body text-[12px] font-medium text-text"
-                >
-                  TTFB Byte Threshold{' '}
-                  <span className="text-text-muted font-normal">— 50–10,000</span>
-                </label>
-                <input
-                  id="stallTtfbBytes"
-                  type="number"
-                  min={50}
-                  max={10000}
-                  step={1}
-                  value={stallTtfbBytesInput}
-                  onChange={(e) => setStallTtfbBytesInput(e.target.value)}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                />
-                {!stallTtfbBytesValidation.valid && stallTtfbBytesInput !== '' && (
-                  <span className="text-[11px] text-warning">{stallTtfbBytesValidation.error}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="stallMinBps"
-                  className="font-body text-[12px] font-medium text-text"
-                >
-                  Min Bytes/sec{' '}
-                  <span className="text-text-muted font-normal">— 50–5,000, empty = off</span>
-                </label>
-                <input
-                  id="stallMinBps"
-                  type="number"
-                  min={50}
-                  max={5000}
-                  step={1}
-                  placeholder="Disabled"
-                  value={stallMinBpsInput}
-                  onChange={(e) => setStallMinBpsInput(e.target.value)}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                />
-                {!stallMinBpsValidation.valid && stallMinBpsInput !== '' && (
-                  <span className="text-[11px] text-warning">{stallMinBpsValidation.error}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="stallWindowSeconds"
-                  className="font-body text-[12px] font-medium text-text"
-                >
-                  Sliding Window (s) <span className="text-text-muted font-normal">— 3–30</span>
-                </label>
-                <input
-                  id="stallWindowSeconds"
-                  type="number"
-                  min={3}
-                  max={30}
-                  step={1}
-                  value={stallWindowInput}
-                  onChange={(e) => setStallWindowInput(e.target.value)}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                />
-                {!stallWindowValidation.valid && stallWindowInput !== '' && (
-                  <span className="text-[11px] text-warning">{stallWindowValidation.error}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="stallGraceSeconds"
-                  className="font-body text-[12px] font-medium text-text"
-                >
-                  Grace Period (s){' '}
-                  <span className="text-text-muted font-normal">— 0–120, post-TTFB pause</span>
-                </label>
-                <input
-                  id="stallGraceSeconds"
-                  type="number"
-                  min={0}
-                  max={120}
-                  step={1}
-                  value={stallGraceInput}
-                  onChange={(e) => setStallGraceInput(e.target.value)}
-                  className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                />
-                {!stallGraceValidation.valid && stallGraceInput !== '' && (
-                  <span className="text-[11px] text-warning">{stallGraceValidation.error}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </Disclosure>
-
-        {/* ─── Exploration Settings (inline rates + background mode) ───── */}
-        <Disclosure
-          title="Exploration Settings"
-          defaultOpen={false}
-          extra={
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSaveExploration}
-              isLoading={explorationSaving || bgExplorationSaving}
-              disabled={!isExplorationValid}
-              leftIcon={<Save size={14} />}
-            >
-              Save
-            </Button>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            {/* Description */}
-            <div className="flex items-start gap-2">
-              <Compass size={16} className="text-primary mt-0.5" />
-              <div>
-                <p className="font-body text-[12px] font-medium text-text">Provider Exploration</p>
-                <p className="font-body text-[11px] text-text-muted">
-                  Exploration keeps performance, latency, and end-to-end TPS data fresh across
-                  targets. By default, inline exploration occasionally diverts a small fraction of
-                  live requests to non-optimal providers. Enable background exploration to suppress
-                  inline exploration and instead fire representative probe requests in the
-                  background — live traffic is never redirected. Both modes apply to the
-                  performance, latency, and e2e_performance selectors.
-                </p>
-              </div>
-            </div>
-
-            {/* Background exploration: master toggle */}
-            <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-bg-glass/40 p-3">
-              <div className="flex items-start gap-2">
-                <Radar size={16} className="text-primary mt-0.5" />
-                <div>
-                  <p className="font-body text-[12px] font-medium text-text">
-                    Background Exploration
-                  </p>
-                  <p className="font-body text-[11px] text-text-muted">
-                    When enabled, inline exploration is suppressed and Plexus fires small
-                    representative probe requests in the background. Probes appear in usage records
-                    with apiKey="probe" and attribution="background".
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={bgExploration.enabled}
-                onChange={(checked) => setBgExploration((prev) => ({ ...prev, enabled: checked }))}
-                aria-label="Toggle background exploration on/off"
-              />
-            </div>
-
-            {/* Background tunables — only rendered when background mode is on */}
-            {bgExploration.enabled && (
+                Save
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {/* Initial + Max in 2-col grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <label
-                    htmlFor="bgExplorationStaleness"
+                    htmlFor="cooldownInitialMinutes"
                     className="font-body text-[12px] font-medium text-text"
                   >
-                    Staleness Threshold (s){' '}
-                    <span className="text-text-muted font-normal">— min 1, default 600</span>
+                    Initial Cooldown (min){' '}
+                    <span className="text-text-muted font-normal">— C₀, first failure</span>
                   </label>
-                  <input
-                    id="bgExplorationStaleness"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={bgStalenessInput}
-                    onChange={(e) => setBgStalenessInput(e.target.value)}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                  />
-                  {!stalenessValidation.valid && bgStalenessInput !== '' && (
-                    <span className="text-[11px] text-warning">{stalenessValidation.error}</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="cooldownInitialMinutes"
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={cooldownInitialInput}
+                      onChange={(e) => setCooldownInitialInput(e.target.value)}
+                      className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                    />
+                    <span className="text-[11px] text-text-muted tabular-nums whitespace-nowrap">
+                      {initialValidation.valid && initialValidation.value !== undefined
+                        ? formatMinutesToMinSec(initialValidation.value)
+                        : cooldownLoaded
+                          ? formatMinutesToMinSec(cooldownPolicy.initialMinutes)
+                          : '—'}
+                    </span>
+                  </div>
+                  {!initialValidation.valid && cooldownInitialInput !== '' && (
+                    <span className="text-[11px] text-warning">{initialValidation.error}</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <label
-                    htmlFor="bgExplorationConcurrency"
+                    htmlFor="cooldownMaxMinutes"
                     className="font-body text-[12px] font-medium text-text"
                   >
-                    Worker Concurrency{' '}
-                    <span className="text-text-muted font-normal">— 1–16, default 2</span>
+                    Maximum Cooldown (min){' '}
+                    <span className="text-text-muted font-normal">— C_max, upper limit</span>
                   </label>
-                  <input
-                    id="bgExplorationConcurrency"
-                    type="number"
-                    min={1}
-                    max={16}
-                    step={1}
-                    value={bgConcurrencyInput}
-                    onChange={(e) => setBgConcurrencyInput(e.target.value)}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                  />
-                  {!concurrencyValidation.valid && bgConcurrencyInput !== '' && (
-                    <span className="text-[11px] text-warning">{concurrencyValidation.error}</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="cooldownMaxMinutes"
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={cooldownMaxInput}
+                      onChange={(e) => setCooldownMaxInput(e.target.value)}
+                      className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                    />
+                    <span className="text-[11px] text-text-muted tabular-nums whitespace-nowrap">
+                      {maxValidation.valid && maxValidation.value !== undefined
+                        ? formatMinutesToMinSec(maxValidation.value)
+                        : cooldownLoaded
+                          ? formatMinutesToMinSec(cooldownPolicy.maxMinutes)
+                          : '—'}
+                    </span>
+                  </div>
+                  {!maxValidation.valid && cooldownMaxInput !== '' && (
+                    <span className="text-[11px] text-warning">{maxValidation.error}</span>
                   )}
                 </div>
               </div>
-            )}
+            </div>
+          </Disclosure>
 
-            {/* Inline rate tunables — only rendered when background mode is off */}
-            {!bgExploration.enabled && (
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor="performanceExplorationRate"
-                    className="font-body text-[12px] font-medium text-text"
-                  >
-                    Performance Rate{' '}
-                    <span className="text-text-muted font-normal">— 0–1, default 0.05</span>
-                  </label>
-                  <input
-                    id="performanceExplorationRate"
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={explorationPerformanceInput}
-                    onChange={(e) => setExplorationPerformanceInput(e.target.value)}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                  />
-                  {!perfValidation.valid && explorationPerformanceInput !== '' && (
-                    <span className="text-[11px] text-warning">{perfValidation.error}</span>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor="latencyExplorationRate"
-                    className="font-body text-[12px] font-medium text-text"
-                  >
-                    Latency Rate{' '}
-                    <span className="text-text-muted font-normal">— 0–1, default 0.05</span>
-                  </label>
-                  <input
-                    id="latencyExplorationRate"
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={explorationLatencyInput}
-                    onChange={(e) => setExplorationLatencyInput(e.target.value)}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                  />
-                  {!latValidation.valid && explorationLatencyInput !== '' && (
-                    <span className="text-[11px] text-warning">{latValidation.error}</span>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor="e2ePerformanceExplorationRate"
-                    className="font-body text-[12px] font-medium text-text"
-                  >
-                    E2E Rate{' '}
-                    <span className="text-text-muted font-normal">— 0–1, default 0.05</span>
-                  </label>
-                  <input
-                    id="e2ePerformanceExplorationRate"
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={explorationE2EInput}
-                    onChange={(e) => setExplorationE2EInput(e.target.value)}
-                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-glass border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
-                  />
-                  {!e2eValidation.valid && explorationE2EInput !== '' && (
-                    <span className="text-[11px] text-warning">{e2eValidation.error}</span>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </Disclosure>
-
-        <Card
-          title="Backup & Restore"
-          extra={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleFullBackupDownload}
-                isLoading={isFullBackupLoading}
-                leftIcon={<Archive size={14} />}
-              >
-                Full Backup
-              </Button>
+          {/* ─── Timeout Settings ───────────────────────────────────── */}
+          <Disclosure
+            title="Timeout Settings"
+            defaultOpen={false}
+            extra={
               <Button
                 variant="primary"
                 size="sm"
-                onClick={handleBackupDownload}
-                isLoading={isBackupLoading}
-                leftIcon={<HardDrive size={14} />}
+                onClick={handleSaveTimeout}
+                isLoading={timeoutSaving}
+                disabled={!isTimeoutValid}
+                leftIcon={<Save size={14} />}
               >
-                Config Backup
+                Save
               </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="timeoutDefaultSeconds"
+                  className="font-body text-[12px] font-medium text-text"
+                >
+                  Default Timeout (seconds){' '}
+                  <span className="text-text-muted font-normal">— global default, 1–3600s</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="timeoutDefaultSeconds"
+                    type="number"
+                    min={1}
+                    max={3600}
+                    step={1}
+                    value={timeoutDefaultInput}
+                    onChange={(e) => setTimeoutDefaultInput(e.target.value)}
+                    className="w-48 h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                  />
+                  <span className="text-[11px] text-text-muted tabular-nums">
+                    {timeoutDefaultValidation.valid && timeoutDefaultValidation.value !== undefined
+                      ? timeoutDefaultValidation.value >= 60
+                        ? `${Math.floor(timeoutDefaultValidation.value / 60)}m ${timeoutDefaultValidation.value % 60}s`
+                        : `${timeoutDefaultValidation.value}s`
+                      : timeoutLoaded
+                        ? timeoutConfig.defaultSeconds >= 60
+                          ? `${Math.floor(timeoutConfig.defaultSeconds / 60)}m ${timeoutConfig.defaultSeconds % 60}s`
+                          : `${timeoutConfig.defaultSeconds}s`
+                        : '—'}
+                  </span>
+                </div>
+                {!timeoutDefaultValidation.valid && timeoutDefaultInput !== '' && (
+                  <span className="text-[11px] text-warning">{timeoutDefaultValidation.error}</span>
+                )}
+              </div>
             </div>
-          }
-        >
-          <p className="font-body text-[12px] text-text-secondary mb-2">
-            Back up your database or restore from a previously exported backup file.
-          </p>
+          </Disclosure>
 
-          <div className="p-3 bg-warning/10 border border-warning/30 rounded-md mb-4">
-            <div className="flex items-start gap-2">
-              <AlertTriangle size={16} className="text-warning mt-0.5 shrink-0" />
-              <div className="text-sm text-text-secondary">
-                <p className="font-medium text-text">Backup files contain sensitive data</p>
-                <p className="mt-0.5 text-xs text-text-muted">
-                  This includes API keys and OAuth tokens in plaintext. Store backup files securely.
+          {/* ─── Stall Detection Settings ────────────────────────────── */}
+          <Disclosure
+            title="Stall Detection"
+            defaultOpen={false}
+            extra={
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveStall}
+                isLoading={stallSaving}
+                disabled={!isStallValid}
+                leftIcon={<Save size={14} />}
+              >
+                Save
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="stallTtfbSeconds"
+                    className="font-body text-[12px] font-medium text-text"
+                  >
+                    TTFB Timeout (s){' '}
+                    <span className="text-text-muted font-normal">— 5–120, empty = off</span>
+                  </label>
+                  <input
+                    id="stallTtfbSeconds"
+                    type="number"
+                    min={5}
+                    max={120}
+                    step={1}
+                    placeholder="Disabled"
+                    value={stallTtfbInput}
+                    onChange={(e) => setStallTtfbInput(e.target.value)}
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                  />
+                  {!stallTtfbValidation.valid && stallTtfbInput !== '' && (
+                    <span className="text-[11px] text-warning">{stallTtfbValidation.error}</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="stallTtfbBytes"
+                    className="font-body text-[12px] font-medium text-text"
+                  >
+                    TTFB Byte Threshold{' '}
+                    <span className="text-text-muted font-normal">— 50–10,000</span>
+                  </label>
+                  <input
+                    id="stallTtfbBytes"
+                    type="number"
+                    min={50}
+                    max={10000}
+                    step={1}
+                    value={stallTtfbBytesInput}
+                    onChange={(e) => setStallTtfbBytesInput(e.target.value)}
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                  />
+                  {!stallTtfbBytesValidation.valid && stallTtfbBytesInput !== '' && (
+                    <span className="text-[11px] text-warning">
+                      {stallTtfbBytesValidation.error}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="stallMinBps"
+                    className="font-body text-[12px] font-medium text-text"
+                  >
+                    Min Bytes/sec{' '}
+                    <span className="text-text-muted font-normal">— 50–5,000, empty = off</span>
+                  </label>
+                  <input
+                    id="stallMinBps"
+                    type="number"
+                    min={50}
+                    max={5000}
+                    step={1}
+                    placeholder="Disabled"
+                    value={stallMinBpsInput}
+                    onChange={(e) => setStallMinBpsInput(e.target.value)}
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                  />
+                  {!stallMinBpsValidation.valid && stallMinBpsInput !== '' && (
+                    <span className="text-[11px] text-warning">{stallMinBpsValidation.error}</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="stallWindowSeconds"
+                    className="font-body text-[12px] font-medium text-text"
+                  >
+                    Sliding Window (s) <span className="text-text-muted font-normal">— 3–30</span>
+                  </label>
+                  <input
+                    id="stallWindowSeconds"
+                    type="number"
+                    min={3}
+                    max={30}
+                    step={1}
+                    value={stallWindowInput}
+                    onChange={(e) => setStallWindowInput(e.target.value)}
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                  />
+                  {!stallWindowValidation.valid && stallWindowInput !== '' && (
+                    <span className="text-[11px] text-warning">{stallWindowValidation.error}</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="stallGraceSeconds"
+                    className="font-body text-[12px] font-medium text-text"
+                  >
+                    Grace Period (s){' '}
+                    <span className="text-text-muted font-normal">— 0–120, post-TTFB pause</span>
+                  </label>
+                  <input
+                    id="stallGraceSeconds"
+                    type="number"
+                    min={0}
+                    max={120}
+                    step={1}
+                    value={stallGraceInput}
+                    onChange={(e) => setStallGraceInput(e.target.value)}
+                    className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                  />
+                  {!stallGraceValidation.valid && stallGraceInput !== '' && (
+                    <span className="text-[11px] text-warning">{stallGraceValidation.error}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Disclosure>
+
+          {/* ─── Exploration Settings (inline rates + background mode) ───── */}
+          <Disclosure
+            title="Exploration Settings"
+            defaultOpen={false}
+            extra={
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveExploration}
+                isLoading={explorationSaving || bgExplorationSaving}
+                disabled={!isExplorationValid}
+                leftIcon={<Save size={14} />}
+              >
+                Save
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {/* Background exploration: master toggle */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Radar size={16} className="text-primary" />
+                  <div>
+                    <p className="font-body text-[12px] font-medium text-text">
+                      Background Exploration
+                    </p>
+                    <p className="font-body text-[11px] text-text-muted">
+                      Fire background probe requests instead of diverting live traffic. Probes use
+                      apiKey="probe".
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={bgExploration.enabled}
+                  onChange={(checked) =>
+                    setBgExploration((prev) => ({ ...prev, enabled: checked }))
+                  }
+                  aria-label="Toggle background exploration on/off"
+                />
+              </div>
+
+              {/* Background tunables — only rendered when background mode is on */}
+              {bgExploration.enabled && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="bgExplorationStaleness"
+                      className="font-body text-[12px] font-medium text-text"
+                    >
+                      Staleness Threshold (s){' '}
+                      <span className="text-text-muted font-normal">— min 1, default 600</span>
+                    </label>
+                    <input
+                      id="bgExplorationStaleness"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={bgStalenessInput}
+                      onChange={(e) => setBgStalenessInput(e.target.value)}
+                      className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                    />
+                    {!stalenessValidation.valid && bgStalenessInput !== '' && (
+                      <span className="text-[11px] text-warning">{stalenessValidation.error}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="bgExplorationConcurrency"
+                      className="font-body text-[12px] font-medium text-text"
+                    >
+                      Worker Concurrency{' '}
+                      <span className="text-text-muted font-normal">— 1–16, default 2</span>
+                    </label>
+                    <input
+                      id="bgExplorationConcurrency"
+                      type="number"
+                      min={1}
+                      max={16}
+                      step={1}
+                      value={bgConcurrencyInput}
+                      onChange={(e) => setBgConcurrencyInput(e.target.value)}
+                      className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                    />
+                    {!concurrencyValidation.valid && bgConcurrencyInput !== '' && (
+                      <span className="text-[11px] text-warning">
+                        {concurrencyValidation.error}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Inline rate tunables — only rendered when background mode is off */}
+              {!bgExploration.enabled && (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="performanceExplorationRate"
+                      className="font-body text-[12px] font-medium text-text"
+                    >
+                      Performance Rate{' '}
+                      <span className="text-text-muted font-normal">— 0–1, default 0.05</span>
+                    </label>
+                    <input
+                      id="performanceExplorationRate"
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={explorationPerformanceInput}
+                      onChange={(e) => setExplorationPerformanceInput(e.target.value)}
+                      className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                    />
+                    {!perfValidation.valid && explorationPerformanceInput !== '' && (
+                      <span className="text-[11px] text-warning">{perfValidation.error}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="latencyExplorationRate"
+                      className="font-body text-[12px] font-medium text-text"
+                    >
+                      Latency Rate{' '}
+                      <span className="text-text-muted font-normal">— 0–1, default 0.05</span>
+                    </label>
+                    <input
+                      id="latencyExplorationRate"
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={explorationLatencyInput}
+                      onChange={(e) => setExplorationLatencyInput(e.target.value)}
+                      className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                    />
+                    {!latValidation.valid && explorationLatencyInput !== '' && (
+                      <span className="text-[11px] text-warning">{latValidation.error}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="e2ePerformanceExplorationRate"
+                      className="font-body text-[12px] font-medium text-text"
+                    >
+                      E2E Rate{' '}
+                      <span className="text-text-muted font-normal">— 0–1, default 0.05</span>
+                    </label>
+                    <input
+                      id="e2ePerformanceExplorationRate"
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={explorationE2EInput}
+                      onChange={(e) => setExplorationE2EInput(e.target.value)}
+                      className="w-full h-[27px] py-0 px-2 font-mono text-[12px] leading-none text-text bg-bg-subtle border border-border-glass rounded-sm outline-none focus:border-primary placeholder:text-text-muted"
+                    />
+                    {!e2eValidation.valid && explorationE2EInput !== '' && (
+                      <span className="text-[11px] text-warning">{e2eValidation.error}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Disclosure>
+
+          <Card
+            title="Backup & Restore"
+            extra={
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleFullBackupDownload}
+                  isLoading={isFullBackupLoading}
+                  leftIcon={<Archive size={14} />}
+                >
+                  Full Backup
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleBackupDownload}
+                  isLoading={isBackupLoading}
+                  leftIcon={<HardDrive size={14} />}
+                >
+                  Config Backup
+                </Button>
+              </div>
+            }
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
+                <AlertTriangle size={14} className="text-warning shrink-0" />
+                <p className="font-body text-[12px] text-text-muted">
+                  <span className="font-medium text-text">Contains sensitive data</span> — API keys
+                  and OAuth tokens in plaintext. Store securely.
                 </p>
               </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 mb-3">
-            <div className="flex-1">
-              <h4 className="font-heading text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-                Config Backup
-              </h4>
-              <p className="text-xs text-text-muted mb-2">
-                Providers, models, keys, quotas, and settings only. Fast and small.
-              </p>
-            </div>
-            <div className="flex-1">
-              <h4 className="font-heading text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-                Full Backup
-              </h4>
-              <p className="text-xs text-text-muted mb-2">
-                Config plus all usage logs, debug data, and errors. May take a moment for large
-                databases.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleRestoreClick}
-              isLoading={isRestoreLoading}
-              leftIcon={<Upload size={14} />}
-            >
-              Restore from File…
-            </Button>
-          </div>
-
-          <input
-            ref={restoreInputRef}
-            type="file"
-            accept=".json,.tar.gz,.tgz,application/gzip,application/x-gzip,application/octet-stream"
-            className="hidden"
-            onChange={handleRestoreFileSelect}
-          />
-        </Card>
-
-        <Card
-          title="Card Layout"
-          extra={
-            <div className="flex items-center gap-2">
               <Button
-                variant="secondary"
+                variant="danger"
                 size="sm"
-                onClick={handleExportLayout}
-                leftIcon={<Download size={14} />}
-              >
-                Export
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleImportLayout}
+                onClick={handleRestoreClick}
+                isLoading={isRestoreLoading}
                 leftIcon={<Upload size={14} />}
               >
-                Import
+                Restore from File…
               </Button>
             </div>
-          }
-        >
-          <p className="text-sm text-text-secondary mb-4">
-            Import or export your Live Metrics card layout configuration.
-          </p>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept=".json,.tar.gz,.tgz,application/gzip,application/x-gzip,application/octet-stream"
+              className="hidden"
+              onChange={handleRestoreFileSelect}
+            />
+          </Card>
 
-          <div>
-            <h4 className="font-heading text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-              Current Card Order
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {cardLayout.length === 0 && (
-                <p className="text-xs text-text-muted italic">
-                  Default layout — no customizations saved.
-                </p>
-              )}
-              {cardLayout.map((card, index) => (
-                <div
-                  key={card.id}
-                  className="px-3 py-1.5 bg-bg-glass rounded-md border border-border-glass text-xs text-text"
+          <Card
+            title="Card Layout"
+            extra={
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleExportLayout}
+                  leftIcon={<Download size={14} />}
                 >
-                  <span className="text-text-muted mr-2">{index + 1}.</span>
-                  {card.id}
-                </div>
-              ))}
+                  Export
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleImportLayout}
+                  leftIcon={<Upload size={14} />}
+                >
+                  Import
+                </Button>
+              </div>
+            }
+          >
+            <p className="text-sm text-text-secondary mb-4">
+              Import or export your Live Metrics card layout configuration.
+            </p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+
+            <div>
+              <h4 className="font-heading text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
+                Current Card Order
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {cardLayout.length === 0 && (
+                  <p className="text-xs text-text-muted italic">
+                    Default layout — no customizations saved.
+                  </p>
+                )}
+                {cardLayout.map((card, index) => (
+                  <div
+                    key={card.id}
+                    className="px-3 py-1.5 bg-bg-glass rounded-md border border-border-glass text-xs text-text"
+                  >
+                    <span className="text-text-muted mr-2">{index + 1}.</span>
+                    {card.id}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </Card>
-      </div>
-    </PageContainer>
+          </Card>
+
+          {/* ─── Configuration Snapshot ─────────────────────────────── */}
+          <Disclosure
+            title="Configuration Snapshot"
+            defaultOpen={false}
+            extra={
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={loadConfig}
+                  leftIcon={<RotateCcw size={14} />}
+                >
+                  Refresh
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRestart}
+                  isLoading={isRestarting}
+                  leftIcon={<RefreshCw size={14} />}
+                >
+                  Restart
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleExportConfig}
+                  disabled={!isConfigLoaded}
+                  leftIcon={<Download size={14} />}
+                >
+                  Export JSON
+                </Button>
+              </div>
+            }
+          >
+            <div className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-sm overflow-hidden">
+              <EditorErrorBoundary>
+                <Editor
+                  height="100%"
+                  defaultLanguage="json"
+                  value={config}
+                  theme="vs-dark"
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontSize: 13,
+                    fontFamily: '"Fira Code", "Fira Mono", monospace',
+                  }}
+                />
+              </EditorErrorBoundary>
+            </div>
+          </Disclosure>
+        </div>
+      </PageContainer>
+    </div>
   );
 };
