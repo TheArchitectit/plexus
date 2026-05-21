@@ -27,6 +27,7 @@ import { resolveAdapters } from './adapter-resolver';
 import type { ResolvedAdapter } from '../types/provider-adapter';
 import { getModels } from '@earendil-works/pi-ai';
 import type { StallConfig } from './inspectors/stall-inspector';
+import { getGlobalStallConfig, resolveStallConfig } from '../utils/stall';
 import { VisionDescriptorService } from './vision-descriptor-service';
 import { ModelMetadataManager } from './model-metadata-manager';
 import { enforceContextLimit } from './enforce-limits';
@@ -433,6 +434,54 @@ export class Dispatcher {
           );
         }
 
+        // Wire per-provider timeout override if set. This fires sooner than the
+        // global timeout and aborts the upstream fetch + the route's AbortController
+        // (via addTimeoutSource) so response-handler.ts stream monitoring detects it.
+        if (route.config.timeoutMs && addTimeoutSource) {
+          addTimeoutSource(route.config.timeoutMs);
+        }
+
+        // Wire per-provider stall detection overrides. Always call addStallConfig
+        // so the StallInspector is reset on each failover iteration — even when
+        // the current provider has no overrides, this clears a previous provider's
+        // overrides from the inspector.
+        if (addStallConfig) {
+          const providerStallOverrides: Parameters<typeof addStallConfig>[0] = {};
+          if (route.config.stallTtfbMs !== undefined)
+            providerStallOverrides.stallTtfbMs = route.config.stallTtfbMs;
+          if (route.config.stallTtfbBytes !== undefined)
+            providerStallOverrides.stallTtfbBytes = route.config.stallTtfbBytes;
+          if (route.config.stallMinBps !== undefined)
+            providerStallOverrides.stallMinBps = route.config.stallMinBps;
+          if (route.config.stallWindowMs !== undefined)
+            providerStallOverrides.stallWindowMs = route.config.stallWindowMs;
+          if (route.config.stallGracePeriodMs !== undefined)
+            providerStallOverrides.stallGracePeriodMs = route.config.stallGracePeriodMs;
+          logger.debug(
+            `Dispatcher: provider stall overrides for ${route.provider}: ${JSON.stringify(providerStallOverrides)}, ` +
+              `route.config stall fields: stallTtfbMs=${route.config.stallTtfbMs}, stallMinBps=${route.config.stallMinBps}`
+          );
+          addStallConfig(providerStallOverrides);
+        }
+
+        // Resolve stall config BEFORE the dispatch so we can wrap fetch+probe
+        // in a TTFB timeout. This is critical because fetch() itself may block
+        // for a long time waiting for HTTP response headers — the TTFB timeout
+        // must cover this "headers phase" too, not just the body reading.
+        // This applies to BOTH OAuth and non-OAuth routes.
+        let effectiveStallConfig = resolveStallConfig(getGlobalStallConfig(), {
+          stallTtfbMs: route.config.stallTtfbMs,
+          stallTtfbBytes: route.config.stallTtfbBytes,
+          stallMinBps: route.config.stallMinBps,
+          stallWindowMs: route.config.stallWindowMs,
+          stallGracePeriodMs: route.config.stallGracePeriodMs,
+        });
+
+        logger.debug(
+          `Dispatcher: effectiveStallConfig for ${route.provider}: ${JSON.stringify(effectiveStallConfig)}, ` +
+            `route.config.stallTtfbMs=${route.config.stallTtfbMs}, route.config.stallMinBps=${route.config.stallMinBps}`
+        );
+
         if (this.isPiAiRoute(route, targetApiType)) {
           try {
             const oauthResponse = await this.dispatchOAuthRequest(
@@ -441,7 +490,8 @@ export class Dispatcher {
               route,
               targetApiType,
               transformer,
-              signal
+              signal,
+              effectiveStallConfig
             );
             await this.recordAttemptMetric(route, currentRequest.requestId, true, {
               isVisionFallthrough: (currentRequest as any)._hasVisionFallthrough,
@@ -491,69 +541,10 @@ export class Dispatcher {
           }
         }
 
-        // 4. Execute Request
+        // 4. Execute Request (non-OAuth)
+        const incomingApi = currentRequest.incomingApiType || 'unknown';
         const url = this.buildRequestUrl(route, transformer, requestWithTargetModel, targetApiType);
         const headers = this.setupHeaders(route, targetApiType, requestWithTargetModel);
-
-        // Wire per-provider timeout override if set. This fires sooner than the
-        // global timeout and aborts the upstream fetch + the route's AbortController
-        // (via addTimeoutSource) so response-handler.ts stream monitoring detects it.
-        if (route.config.timeoutMs && addTimeoutSource) {
-          addTimeoutSource(route.config.timeoutMs);
-        }
-
-        // Wire per-provider stall detection overrides. Always call addStallConfig
-        // so the StallInspector is reset on each failover iteration — even when
-        // the current provider has no overrides, this clears a previous provider's
-        // overrides from the inspector.
-        if (addStallConfig) {
-          const providerStallOverrides: Parameters<typeof addStallConfig>[0] = {};
-          if (route.config.stallTtfbMs !== undefined)
-            providerStallOverrides.stallTtfbMs = route.config.stallTtfbMs;
-          if (route.config.stallTtfbBytes !== undefined)
-            providerStallOverrides.stallTtfbBytes = route.config.stallTtfbBytes;
-          if (route.config.stallMinBps !== undefined)
-            providerStallOverrides.stallMinBps = route.config.stallMinBps;
-          if (route.config.stallWindowMs !== undefined)
-            providerStallOverrides.stallWindowMs = route.config.stallWindowMs;
-          if (route.config.stallGracePeriodMs !== undefined)
-            providerStallOverrides.stallGracePeriodMs = route.config.stallGracePeriodMs;
-          logger.debug(
-            `Dispatcher: provider stall overrides for ${route.provider}: ${JSON.stringify(providerStallOverrides)}, ` +
-              `route.config stall fields: stallTtfbMs=${route.config.stallTtfbMs}, stallMinBps=${route.config.stallMinBps}`
-          );
-          addStallConfig(providerStallOverrides);
-        }
-
-        const incomingApi = currentRequest.incomingApiType || 'unknown';
-
-        // Resolve stall config BEFORE the fetch so we can wrap fetch+probe
-        // in a TTFB timeout. This is critical because fetch() itself may block
-        // for a long time waiting for HTTP response headers — the TTFB timeout
-        // must cover this "headers phase" too, not just the body reading.
-        const globalStall = (getConfig() as any).stall;
-        const stallTtfbMs =
-          route.config.stallTtfbMs ??
-          (globalStall?.ttfbSeconds != null ? globalStall.ttfbSeconds * 1000 : null);
-        let effectiveStallConfig: StallConfig | null =
-          stallTtfbMs != null ||
-          route.config.stallMinBps != null ||
-          globalStall?.minBytesPerSecond != null
-            ? {
-                ttfbMs: stallTtfbMs,
-                ttfbBytes: route.config.stallTtfbBytes ?? globalStall?.ttfbBytes ?? 100,
-                minBytesPerSecond:
-                  route.config.stallMinBps ?? globalStall?.minBytesPerSecond ?? null,
-                windowMs: route.config.stallWindowMs ?? (globalStall?.windowSeconds ?? 10) * 1000,
-                gracePeriodMs:
-                  route.config.stallGracePeriodMs ?? (globalStall?.gracePeriodSeconds ?? 30) * 1000,
-              }
-            : null;
-
-        logger.debug(
-          `Dispatcher: effectiveStallConfig for ${route.provider}: ${JSON.stringify(effectiveStallConfig)}, ` +
-            `route.config.stallTtfbMs=${route.config.stallTtfbMs}, route.config.stallMinBps=${route.config.stallMinBps}`
-        );
 
         logger.info(
           `Dispatching ${currentRequest.model} to ${route.provider}:${route.model} ${incomingApi} <-> ${transformer.name}`
@@ -2012,7 +2003,8 @@ export class Dispatcher {
     route: RouteResult,
     targetApiType: string,
     transformer: any,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    effectiveStallConfig?: StallConfig | null
   ): Promise<UnifiedChatResponse> {
     if (!transformer.executeRequest) {
       throw new Error('OAuth transformer missing executeRequest()');
@@ -2062,6 +2054,13 @@ export class Dispatcher {
         targetApiType,
         streaming: !!request.stream,
         hasOptions: !!oauthOptions,
+      });
+
+      logger.debug('OAuth: Stall detection config', {
+        ttfbMs: effectiveStallConfig?.ttfbMs,
+        ttfbBytes: effectiveStallConfig?.ttfbBytes,
+        minBytesPerSecond: effectiveStallConfig?.minBytesPerSecond,
+        provider: route.provider,
       });
 
       if (!oauthContext.systemPrompt) {
